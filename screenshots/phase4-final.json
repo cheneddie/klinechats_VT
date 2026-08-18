@@ -1,0 +1,22 @@
+{
+  "phase": "phase4-final",
+  "title": "Fabio 二元決策 Replay 訓練器",
+  "engine": "KLineChart V10",
+  "chartCanvasCount": 10,
+  "question": "現在是否已到第一個合法 LVN Pullback？",
+  "session": "2026-08-11 · 1秒 Replay",
+  "decisionCount": "5",
+  "strategy": "EXECUTE LONG",
+  "extreme": "44797 @ 09:19:55",
+  "lvn": "44884",
+  "entry": "44883 @ 09:20:33",
+  "mode": "練習",
+  "statTotal": "5",
+  "statAccuracy": "100%",
+  "statSpeed": "0.5s",
+  "feedback": "✓ 判斷正確：符合 Entry 條件，可以進入 Execution。",
+  "integrityStatus": "VERIFIED",
+  "qaRows": "2,115,188",
+  "exportButtonCount": 1,
+  "errors": []
+}
