@@ -4,13 +4,13 @@
 
 > 核心不是猜下一根 K 棒，而是訓練：市場出去試價後，到底是 **被拒絕（Mean Reversion／回家）**、**被接受（Breakout Retest／搬家）**，還是資訊不足應該 **WAIT**。
 
-## Screenshot
+## Final screenshots
 
-### Phase 3 — Training system
+![Phase 4 Final](screenshots/phase4-final.png)
 
-![Phase 3](screenshots/phase3-final.png)
+![Phase 4 Data QA](screenshots/phase4-final-data.png)
 
-前面的階段截圖也保留於 `screenshots/`，所有驗收圖都由 GitHub Actions + Playwright 實際啟動頁面後產生。
+Phase 1～3 的階段驗收圖也完整保留於 `screenshots/`。所有驗收圖均由 GitHub Actions + Playwright 實際啟動頁面後產生，而不是 mock screenshot。
 
 ## 已完成功能
 
@@ -41,19 +41,25 @@
 - YES / NO keyboard shortcuts
 - 信心分數 1–5
 - LocalStorage 長期紀錄
-- 累積判斷
-- 正確率
-- 平均反應時間
-- 最弱決策節點
-- 最近錯題
+- 訓練紀錄 JSON 匯出
+- 累積判斷 / 正確率 / 平均反應時間 / 最弱決策節點 / 最近錯題
+
+### Production QA
+- in-app DATA INTEGRITY VERIFIED panel
+- uploaded Parquet QA report
+- source-order invariant tests
+- trainer-core unit tests
+- deterministic static production build
+- Playwright runtime screenshot QA
+- KLineChart 10.0.2 pin/vendor verification
 
 ## Uploaded MTX data used for testing
 
 開發階段實際讀取使用者提供的 `MTX_2027.parquet`。
 
-注意：**檔名雖然寫 2027，實際資料日期是 2026。**
+**檔名雖然寫 2027，實際資料日期是 2026。**
 
-QA 結果：
+QA：
 - 2,115,188 Tick rows
 - 2026-07-31 15:00:00 → 2026-08-14 13:44:59
 - product = MTX
@@ -74,13 +80,14 @@ npm install
 npm run dev
 ```
 
-Production build：
+Test / build：
 
 ```bash
 npm test
 npm run build
-npm run preview
 ```
+
+Production `dist/` 採 deterministic static build，與 Playwright 實際驗收的 classic-script 執行模型一致。
 
 ## Generate replay data from Parquet
 
@@ -92,12 +99,12 @@ python tools/build_replay_data.py /path/to/MTX.parquet -o public/data/mtx_replay
 預設：
 - product = MTX
 - outright expiry regex = `^\d{6}$`
-- `/` spread expiries 排除
+- `/` spread expiries排除
 - 日盤 08:45–13:45
 - Previous Value = 80%
 - **不重新排序任何 Tick row**
 
-`tools/build_replay_data.py` 是 Replay/訓練案例 extractor，不是研究最佳化引擎。它不應拿來重新宣稱策略績效。
+`tools/build_replay_data.py` 是 Replay/訓練案例 extractor，不是研究最佳化引擎；它不應被拿來重新宣稱策略績效。
 
 ## Keyboard
 
@@ -114,7 +121,7 @@ python tools/build_replay_data.py /path/to/MTX.parquet -o public/data/mtx_replay
 
 ```text
 MTX Parquet
-   ↓  (physical order preserved)
+   ↓  physical order preserved
 tools/build_replay_data.py
    ↓
 Replay fixture
@@ -136,62 +143,38 @@ TrainerCore / LocalStorage analytics
 - `src/overlays.js` — KLineChart Fabio overlays
 - `src/trainer-core.js` — persistent analytics
 - `src/phase3.js` — practice / exam / review enhancement
+- `src/phase4.js` — production QA / export / accessibility hooks
 - `tools/build_replay_data.py` — Parquet → Replay fixtures
 - `tests/` — decision/data invariants
 
 ## Decision system
-
 完整 Mermaid tree 與規則：[`docs/DECISION_ENGINE.md`](docs/DECISION_ENGINE.md)
 
-核心：
-
 ```text
-New price rejected
-→ Failed Auction
-→ Reclaim Leg
-→ Leg LVN
-→ First Pullback
-→ Mean Reversion
-
-New price accepted
-→ Displacement
-→ Impulse Leg
-→ Leg LVN
-→ Pullback + Response
-→ Breakout Retest
-
-Unclear
-→ WAIT
+New price rejected → Failed Auction → Reclaim Leg → Leg LVN → First Pullback → Mean Reversion
+New price accepted → Displacement → Impulse Leg → Leg LVN → Pullback + Response → Breakout Retest
+Unclear → WAIT
 ```
 
 ## Research / evidence boundary
-
-本 Trainer 的結構來自本專案之前完成的 Fabio V3/V4 研究經驗。研究中最穩定的 Mean Reversion 版本曾通過 Discovery/Holdout、交易成本、參數平台、cluster bootstrap 與 LVN placebo 等測試。
-
-但是：
-1. 本 repo 內附的 2026 短期 fixture 主要是拿來驗證與訓練 UI，**不是新的完整 OOS 績效證明**。
-2. `side` 不是 Bid/Ask aggressor，所以真正 Fabio Footprint / CVD / aggression layer 仍然無法由這份資料驗證。
+本 Trainer 的結構來自先前完成的 Fabio V3/V4 研究經驗。但：
+1. repo 內附的 2026 短期 fixture 主要用來驗證與訓練 UI，**不是新的完整 OOS 績效證明**。
+2. `side` 不是 Bid/Ask aggressor，因此真正 Fabio Footprint / CVD / aggression layer 仍無法由這份資料驗證。
 3. 要研究真正 Delta/CVD，需要 Bid/Ask classified trades、TBBO 或 MBO。
 4. 這是訓練/研究工具，不是投資建議，也不是保證獲利的自動交易系統。
 
 ## Development QA
-
 每個階段都遵循：
 
 ```text
-Develop
-→ Run in browser
-→ Playwright screenshot
-→ inspect runtime errors
-→ fix
-→ accept phase
-→ next phase
+Develop → Run → Playwright screenshot → inspect → fix → accept → next phase
 ```
 
 規劃與驗收條件：[`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md)
 
-## Branch
+最終 QA：[`reports/FINAL_QA.md`](reports/FINAL_QA.md)
 
-目前完整開發版：`fabio-replay-v1`
+## Branch / PR
+完整開發版：`fabio-replay-v1`
 
-PR 會保持獨立審查，不會在未經確認的情況下自動合併到 `main`。
+PR 保持獨立審查，不會在未經確認的情況下自動合併到 `main`。
