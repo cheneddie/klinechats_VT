@@ -20,8 +20,18 @@ if(phase.startsWith('phase3')){
   await page.locator('[data-mode="exam"]').click();await page.waitForTimeout(900)
   await page.locator('#yesBtn').click();await page.waitForTimeout(500)
 }
+if(phase.startsWith('phase4')){
+  await page.locator('[data-confidence="4"]').click()
+  for(let i=0;i<5;i++){await page.locator('#yesBtn').click();await page.waitForTimeout(850)}
+  await page.waitForTimeout(1100)
+}
 
 await page.screenshot({path:`screenshots/${phase}.png`,fullPage:true})
+if(phase.startsWith('phase4')){
+  await page.locator('.coach-panel').evaluate(el=>{el.scrollTop=el.scrollHeight})
+  await page.waitForTimeout(300)
+  await page.screenshot({path:`screenshots/${phase}-data.png`,fullPage:true})
+}
 const report={
   phase,
   title:await page.title(),
@@ -33,11 +43,15 @@ const report={
   strategy:await page.locator('#strategyBadge').textContent(),
   extreme:await page.locator('#extremeText').textContent(),
   lvn:await page.locator('#lvnText').textContent(),
+  entry:await page.locator('#entryText').textContent().catch(()=>null),
   mode:await page.locator('.mode-btn.active').textContent().catch(()=>null),
   statTotal:await page.locator('#statTotal').textContent().catch(()=>null),
   statAccuracy:await page.locator('#statAccuracy').textContent().catch(()=>null),
   statSpeed:await page.locator('#statSpeed').textContent().catch(()=>null),
   feedback:await page.locator('#feedback').textContent().catch(()=>null),
+  integrityStatus:await page.locator('#integrityStatus').textContent().catch(()=>null),
+  qaRows:await page.locator('#qaRows').textContent().catch(()=>null),
+  exportButtonCount:await page.locator('#exportHistoryBtn').count(),
   errors
 }
 fs.mkdirSync('screenshots',{recursive:true})
