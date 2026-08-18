@@ -5,6 +5,14 @@ on:
     branches: [fabio-replay-v1]
     paths:
       - PHASE.txt
+  pull_request:
+    branches: [main]
+    paths:
+      - PHASE.txt
+      - src/**
+      - index.html
+      - public/data/**
+      - scripts/capture-stage.mjs
   workflow_dispatch:
 
 permissions:
@@ -33,7 +41,7 @@ jobs:
       - name: Capture screenshot and runtime QA
         run: node scripts/capture-stage.mjs
       - name: Commit screenshot
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
