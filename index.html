@@ -1,34 +1,26 @@
 <!doctype html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Fabio 二元決策 Replay 訓練器</title>
-  <link rel="stylesheet" href="./src/styles.css" />
-</head>
-<body>
-  <div id="app">
-    <header class="topbar">
-      <div class="brand"><div class="brand-mark">F</div><div><h1>Fabio 二元決策 Replay 訓練器</h1><p>MTX · Auction Market · KLineChart <strong>V10.0.2</strong></p></div></div>
-      <div class="top-actions"><span class="badge hidefuture">HIDE FUTURE · 1秒</span><span id="engineBadge" class="badge ok">KLineChart V10</span><select id="caseSelect"></select></div>
-    </header>
-    <main class="workspace">
-      <section class="chart-shell">
-        <div class="chart-toolbar"><div class="symbol-block"><b>MTX 202608</b><span id="sessionLabel">—</span></div><div class="profile-strip"><span><i class="dot vah"></i>VAH <b id="vahText">—</b></span><span><i class="dot poc"></i>POC <b id="pocText">—</b></span><span><i class="dot val"></i>VAL <b id="valText">—</b></span></div><div class="bar-stats" id="barStats">O — H — L — C —</div></div>
-        <div id="chart"></div>
-        <div class="replay-bar"><button id="backBtn" title="上一根">◀</button><button id="playBtn" class="primary" title="播放 / 暫停">▶</button><button id="stepBtn" title="下一根">▶|</button><select id="speedSelect"><option value="1000">1×</option><option value="500">2×</option><option value="250">4×</option><option value="125">8×</option></select><input id="timeline" type="range" min="10" max="100" value="35" /><span id="replayClock">—</span></div>
-      </section>
-      <aside class="coach-panel">
-        <div class="coach-head"><div><span class="eyebrow">BINARY DECISION COACH</span><h2>只回答 YES / NO</h2></div><div class="score-ring"><strong id="scoreText">0</strong><small>分</small></div></div>
-        <div class="state-route" id="stateRoute"><div class="route-node active">1 市場事件</div><div class="route-line"></div><div class="route-node">2 接受/拒絕</div><div class="route-line"></div><div class="route-node">3 Causal Leg</div><div class="route-line"></div><div class="route-node">4 LVN</div><div class="route-line"></div><div class="route-node">5 Entry</div></div>
-        <div id="decisionBranch" class="decision-branch"><span class="branch wait active">WAIT</span><span class="branch mr">MR 回家</span><span class="branch bo">BO 搬家</span></div>
-        <div class="question-card"><div class="qmeta"><span id="questionTag" class="question-tag">Q1 · AUCTION</span><span id="reactionTime" class="reaction-time">判斷計時中</span></div><h3 id="questionText">價格是否真正離開 Previous Value？</h3><p id="questionHint">不要預測方向，只判斷市場是否已經開始一次真正的 Auction Attempt。</p><div class="binary-actions"><button id="yesBtn" class="yes">YES <span>符合</span></button><button id="noBtn" class="no">NO <span>不符合</span></button></div><div id="feedback" class="feedback muted">選擇答案後才顯示解析。</div><button id="glossaryBtn" class="glossary-btn">？ 這個名詞是什麼</button><div id="glossary" class="glossary hidden"></div></div>
-        <div class="case-card"><div class="case-title"><span>目前案例</span><b id="strategyBadge">WAIT</b></div><dl><div><dt>事件時間</dt><dd id="eventTime">—</dd></div><div><dt>Extreme</dt><dd id="extremeText">—</dd></div><div><dt>LVN</dt><dd id="lvnText">—</dd></div><div><dt>Entry</dt><dd id="entryText">尚未揭曉</dd></div></dl></div>
-        <div class="decision-log"><div class="case-title"><span>決策紀錄</span><b id="decisionCount">0</b></div><div id="decisionLog">尚未作答</div></div>
-        <div class="rule-note"><b>訓練規則</b><p>看不懂就是 WAIT。答對市場狀態，比猜對下一根 K 棒重要。</p></div>
-      </aside>
-    </main>
-  </div>
-  <script src="./public/vendor/klinecharts-10.0.2.min.js"></script><script src="./public/data/demo_case.js"></script><script src="./public/data/phase2_second_bars.js"></script><script src="./src/fallback-kline.js"></script><script src="./src/overlays.js"></script><script src="./src/main.js"></script>
-</body>
-</html>
+<html lang="zh-Hant"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Fabio 二元決策 Replay 訓練器</title><link rel="stylesheet" href="./src/styles.css"/></head><body>
+<div id="app">
+<header class="topbar"><div class="brand"><div class="brand-mark">F</div><div><h1>Fabio 二元決策 Replay 訓練器</h1><p>MTX · Auction Market · KLineChart <strong>V10.0.2</strong></p></div></div><div class="top-actions"><span class="badge hidefuture">HIDE FUTURE · 1秒</span><span id="engineBadge" class="badge ok">KLineChart V10</span><select id="caseSelect"></select></div></header>
+<main class="workspace">
+<section class="chart-shell">
+<div class="chart-toolbar"><div class="symbol-block"><b>MTX 202608</b><span id="sessionLabel">—</span></div><div class="profile-strip"><span><i class="dot vah"></i>VAH <b id="vahText">—</b></span><span><i class="dot poc"></i>POC <b id="pocText">—</b></span><span><i class="dot val"></i>VAL <b id="valText">—</b></span></div><div class="bar-stats" id="barStats">O — H — L — C —</div></div>
+<div id="chart"></div>
+<div class="replay-bar"><button id="backBtn" title="上一根">◀</button><button id="playBtn" class="primary" title="播放 / 暫停">▶</button><button id="stepBtn" title="下一根">▶|</button><select id="speedSelect"><option value="1000">1×</option><option value="500">2×</option><option value="250">4×</option><option value="125">8×</option></select><input id="timeline" type="range" min="10" max="100" value="35"/><span id="replayClock">—</span></div>
+</section>
+<aside class="coach-panel">
+<div class="mode-bar"><button class="mode-btn active" data-mode="practice">練習</button><button class="mode-btn" data-mode="exam">考試</button><button class="mode-btn" data-mode="review">錯題複習</button><button id="nextCaseBtn" class="next-case">下一案例 R</button></div>
+<div class="coach-head"><div><span class="eyebrow">BINARY DECISION COACH</span><h2>只回答 YES / NO</h2></div><div class="score-ring"><strong id="scoreText">0</strong><small>分</small></div></div>
+<div class="state-route" id="stateRoute"><div class="route-node active">1 市場事件</div><div class="route-line"></div><div class="route-node">2 接受/拒絕</div><div class="route-line"></div><div class="route-node">3 Causal Leg</div><div class="route-line"></div><div class="route-node">4 LVN</div><div class="route-line"></div><div class="route-node">5 Entry</div></div>
+<div id="decisionBranch" class="decision-branch"><span class="branch wait active">WAIT</span><span class="branch mr">MR 回家</span><span class="branch bo">BO 搬家</span></div>
+<div class="question-card"><div class="qmeta"><span id="questionTag" class="question-tag">Q1 · AUCTION</span><span id="reactionTime" class="reaction-time">判斷計時中</span></div><h3 id="questionText">價格是否真正離開 Previous Value？</h3><p id="questionHint">不要預測方向，只判斷市場是否已經開始一次真正的 Auction Attempt。</p>
+<div class="confidence"><span>下單前信心</span><div id="confidenceButtons">${[1,2,3,4,5].map?'' : ''}<button data-confidence="1">1</button><button data-confidence="2">2</button><button class="active" data-confidence="3">3</button><button data-confidence="4">4</button><button data-confidence="5">5</button></div></div>
+<div class="binary-actions"><button id="yesBtn" class="yes">YES <span>符合 · Y</span></button><button id="noBtn" class="no">NO <span>不符合 · N</span></button></div><div id="feedback" class="feedback muted">選擇答案後才顯示解析。</div><button id="glossaryBtn" class="glossary-btn">？ 這個名詞是什麼</button><div id="glossary" class="glossary hidden"></div></div>
+<div class="stats-grid"><div><span>累積判斷</span><b id="statTotal">0</b></div><div><span>正確率</span><b id="statAccuracy">—</b></div><div><span>平均反應</span><b id="statSpeed">—</b></div><div><span>最弱節點</span><b id="statWeak">—</b></div></div>
+<div class="case-card"><div class="case-title"><span>目前案例</span><b id="strategyBadge">WAIT</b></div><dl><div><dt>事件時間</dt><dd id="eventTime">—</dd></div><div><dt>Extreme</dt><dd id="extremeText">—</dd></div><div><dt>LVN</dt><dd id="lvnText">—</dd></div><div><dt>Entry</dt><dd id="entryText">尚未揭曉</dd></div></dl></div>
+<div class="decision-log"><div class="case-title"><span>本案例決策</span><b id="decisionCount">0</b></div><div id="decisionLog">尚未作答</div></div>
+<div class="mistakes"><div class="case-title"><span>最近錯題</span><button id="clearHistoryBtn">清除紀錄</button></div><div id="mistakeList">目前沒有錯題</div></div>
+<div class="shortcut-note">Y / N 作答 · Space 播放 · ← → 單步 · R 下一案例</div>
+</aside></main></div>
+<script src="./public/vendor/klinecharts-10.0.2.min.js"></script><script src="./public/data/demo_case.js"></script><script src="./public/data/phase2_second_bars.js"></script><script src="./src/fallback-kline.js"></script><script src="./src/overlays.js"></script><script src="./src/trainer-core.js"></script><script src="./src/main.js"></script>
+</body></html>
