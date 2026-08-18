@@ -1,5 +1,12 @@
 const $=s=>document.querySelector(s)
 const state={data:null,case:null,bars:[],visible:35,playing:false,timer:null,q:0,score:0,answered:0,chart:null}
+
+function ensureTraditionalChineseLocale(){
+ if(typeof klinecharts?.registerLocale==='function'){
+  klinecharts.registerLocale('zh-TW',{time:'時間：',open:'開：',high:'高：',low:'低：',close:'收：',volume:'量：',change:'漲跌：',turnover:'成交額：',second:'秒',minute:'分鐘',hour:'小時',day:'天',week:'週',month:'月',year:'年'})
+ }
+}
+
 const questions={
  MR:[
   ['AUCTION','價格是否真正離開 Previous Value？','不要把 VAH/VAL 附近 1～2 點抖動當成 Auction Attempt。',true,'市場已經離開 Value，形成可追蹤的拍賣嘗試。'],
@@ -18,6 +25,7 @@ const questions={
 }
 
 async function boot(){
+ ensureTraditionalChineseLocale()
  if(window.__REPLAY_DATA__){state.data=window.__REPLAY_DATA__}else{const res=await fetch('./public/data/demo_case.json');state.data=await res.json()}
  const sel=$('#caseSelect'); const useful=state.data.cases.filter(c=>c.strategy==='MR').concat(state.data.cases.filter(c=>c.strategy==='BO').slice(0,20))
  useful.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=`${c.date} · ${c.strategy==='MR'?'均值回歸':'突破回測'} · ${c.direction==='long'?'多':'空'}`;sel.appendChild(o)})
