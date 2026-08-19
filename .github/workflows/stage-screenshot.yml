@@ -2,17 +2,14 @@ name: Stage screenshot
 
 on:
   push:
-    branches: [fabio-replay-v1]
-    paths:
-      - PHASE.txt
-  pull_request:
     branches: [main]
     paths:
       - PHASE.txt
-      - src/**
       - index.html
-      - public/data/**
+      - src/v2/**
       - scripts/capture-stage.mjs
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -24,29 +21,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: fabio-replay-v1
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - run: npm install --ignore-scripts
       - run: npm install --no-save playwright@1.57.0
       - run: npx playwright install --with-deps chromium
-      - name: Serve trainer
+      - name: Serve Decision Gym
         run: |
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/fabio-http.log 2>&1 &
-          echo $! > /tmp/fabio-http.pid
           for i in {1..30}; do curl -sf http://127.0.0.1:4173 >/dev/null && exit 0; sleep 1; done
           cat /tmp/fabio-http.log
           exit 1
-      - name: Capture screenshot and runtime QA
+      - name: Browser runtime QA and screenshots
         run: node scripts/capture-stage.mjs
-      - name: Commit screenshot
-        if: always() && github.event_name != 'pull_request'
+      - name: Commit screenshots
+        if: always() && github.event_name == 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add screenshots
           if ! git diff --cached --quiet; then
-            git commit -m "test: capture $(cat PHASE.txt) runtime screenshot"
-            git push origin HEAD:fabio-replay-v1
+            git commit -m "test: capture $(cat PHASE.txt) Decision Gym screenshots"
+            git push origin HEAD:main
           fi
