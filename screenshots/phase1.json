@@ -1,0 +1,11 @@
+{
+  "phase": "phase1",
+  "title": "Fabio 二元決策 Replay 訓練器",
+  "engine": "KLineChart V10",
+  "chartCanvasCount": 10,
+  "question": "價格是否真正離開 Previous Value？",
+  "errors": [
+    "pageerror: Cannot read properties of undefined (reading 'minute')",
+    "pageerror: Cannot read properties of undefined (reading 'minute')"
+  ]
+}
