@@ -22,7 +22,9 @@ jobs:
       - run: npm run build
       - name: Python syntax / import boundary
         run: |
-          python -m py_compile server/__init__.py server/contracts.py server/engine.py server/causal_engine.py server/scanner.py server/fabio_api.py
+          python -m py_compile server/__init__.py server/contracts.py server/engine.py server/causal_engine.py server/scanner.py server/fabio_api.py tests/test_contract_policy.py
+      - name: Causal MTX contract policy
+        run: python tests/test_contract_policy.py
       - name: Verify Decision Gym V2 files
         run: |
           test -s src/v2/registry.js
