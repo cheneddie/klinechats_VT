@@ -1,61 +1,23 @@
 import { chromium } from 'playwright'
 import fs from 'node:fs'
-
-const phase=(fs.readFileSync('PHASE.txt','utf8').trim()||'phase').replace(/[^a-zA-Z0-9_-]/g,'_')
+const phase=(fs.readFileSync('PHASE.txt','utf8').trim()||'decision-gym-v2').replace(/[^a-zA-Z0-9_-]/g,'_')
 const browser=await chromium.launch({headless:true})
 const page=await browser.newPage({viewport:{width:1600,height:1000},deviceScaleFactor:1})
 const errors=[]
 page.on('console',msg=>{if(msg.type()==='error')errors.push(`console: ${msg.text()}`)})
 page.on('pageerror',err=>errors.push(`pageerror: ${err.message}`))
-await page.goto('http://127.0.0.1:4173',{waitUntil:'networkidle'})
-await page.waitForTimeout(1400)
-
-if(phase.startsWith('phase2')){
-  for(let i=0;i<4;i++){await page.locator('#yesBtn').click();await page.waitForTimeout(850)}
-  await page.waitForTimeout(600)
-}
-if(phase.startsWith('phase3')){
-  await page.locator('[data-confidence="5"]').click()
-  await page.locator('#yesBtn').click();await page.waitForTimeout(850)
-  await page.locator('[data-mode="exam"]').click();await page.waitForTimeout(900)
-  await page.locator('#yesBtn').click();await page.waitForTimeout(500)
-}
-if(phase.startsWith('phase4')){
-  await page.locator('[data-confidence="4"]').click()
-  for(let i=0;i<5;i++){await page.locator('#yesBtn').click();await page.waitForTimeout(850)}
-  await page.waitForTimeout(1100)
-}
-
-await page.screenshot({path:`screenshots/${phase}.png`,fullPage:true})
-if(phase.startsWith('phase4')){
-  await page.locator('.coach-panel').evaluate(el=>{el.scrollTop=el.scrollHeight})
-  await page.waitForTimeout(300)
-  await page.screenshot({path:`screenshots/${phase}-data.png`,fullPage:true})
-}
-const report={
-  phase,
-  title:await page.title(),
-  engine:await page.locator('#engineBadge').textContent(),
-  chartCanvasCount:await page.locator('#chart canvas').count(),
-  question:await page.locator('#questionText').textContent(),
-  session:await page.locator('#sessionLabel').textContent(),
-  decisionCount:await page.locator('#decisionCount').textContent().catch(()=>null),
-  strategy:await page.locator('#strategyBadge').textContent(),
-  extreme:await page.locator('#extremeText').textContent(),
-  lvn:await page.locator('#lvnText').textContent(),
-  entry:await page.locator('#entryText').textContent().catch(()=>null),
-  mode:await page.locator('.mode-btn.active').textContent().catch(()=>null),
-  statTotal:await page.locator('#statTotal').textContent().catch(()=>null),
-  statAccuracy:await page.locator('#statAccuracy').textContent().catch(()=>null),
-  statSpeed:await page.locator('#statSpeed').textContent().catch(()=>null),
-  feedback:await page.locator('#feedback').textContent().catch(()=>null),
-  integrityStatus:await page.locator('#integrityStatus').textContent().catch(()=>null),
-  qaRows:await page.locator('#qaRows').textContent().catch(()=>null),
-  exportButtonCount:await page.locator('#exportHistoryBtn').count(),
-  errors
-}
+await page.goto('http://127.0.0.1:4173/#/dashboard',{waitUntil:'domcontentloaded'})
+await page.waitForSelector('.gym',{timeout:15000});await page.waitForTimeout(5600)
 fs.mkdirSync('screenshots',{recursive:true})
-fs.writeFileSync(`screenshots/${phase}.json`,JSON.stringify(report,null,2))
-console.log(JSON.stringify(report,null,2))
-await browser.close()
-if(errors.length)process.exitCode=2
+await page.screenshot({path:`screenshots/${phase}-dashboard.png`,fullPage:true})
+const dashboard={skills:await page.locator('.skill').count(),nav:await page.locator('.side nav a').count(),title:await page.locator('#pageTitle').textContent()}
+await page.goto('http://127.0.0.1:4173/#/nodes',{waitUntil:'domcontentloaded'});await page.waitForSelector('.node-card',{timeout:15000});await page.waitForTimeout(800)
+await page.screenshot({path:`screenshots/${phase}-nodes.png`,fullPage:true})
+const nodes={cards:await page.locator('.node-card').count(),title:await page.locator('#pageTitle').textContent(),hasMR:await page.getByText('Clear Reclaim',{exact:true}).count()}
+await page.goto('http://127.0.0.1:4173/#/practice/MR_CLEAR_RECLAIM',{waitUntil:'domcontentloaded'});await page.waitForTimeout(1600)
+let practice={chartCanvasCount:await page.locator('#gymChart canvas').count(),question:await page.locator('.question-panel h2').textContent().catch(()=>null),answerButtons:await page.locator('.answer-buttons button').count()}
+if(practice.answerButtons===2){await page.locator('#ansYes').click();await page.waitForTimeout(900);practice.feedback=await page.locator('#practiceFeedback').textContent()}
+await page.screenshot({path:`screenshots/${phase}-practice.png`,fullPage:true})
+const report={phase,title:await page.title(),dashboard,nodes,practice,errors}
+fs.writeFileSync(`screenshots/${phase}.json`,JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2))
+await browser.close();if(errors.length)process.exitCode=2
