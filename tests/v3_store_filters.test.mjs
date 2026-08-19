@@ -32,6 +32,6 @@ test('offline loadNodeCases preserves YES/NO filters and limit',async()=>{
   )
   const yes=await store.loadNodeCases('MR_CLEAR_RECLAIM',{answer:true,limit:1})
   const no=await store.loadNodeCases('MR_CLEAR_RECLAIM',{answer:false,limit:10})
-  assert.deepEqual(yes.map(x=>x.id),['yes-1'])
-  assert.deepEqual(no.map(x=>x.id),['no-1'])
+  assert.equal(JSON.stringify(yes.map(x=>x.id)),JSON.stringify(['yes-1']))
+  assert.equal(JSON.stringify(no.map(x=>x.id)),JSON.stringify(['no-1']))
 })
