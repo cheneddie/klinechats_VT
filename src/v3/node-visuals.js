@@ -10,10 +10,11 @@ const truth=(c,id)=>Boolean(c?.nodes?.[id]);
 function meta(c,id){return c?.nodeMeta?.[id]||c?.node_meta?.[id]||null}
 function nearest(bars,time){const t=ms(time);if(!bars?.length||t==null)return null;let lo=0,hi=bars.length-1;while(lo<hi){const m=(lo+hi)>>1;if(bars[m].timestamp<t)lo=m+1;else hi=m}const a=bars[lo],b=bars[Math.max(0,lo-1)];return !b||Math.abs(a.timestamp-t)<=Math.abs(b.timestamp-t)?a:b}
 function decision(c,bars,id,fallbackTime,fallbackPrice){const m=meta(c,id),time=m?.decision_time||m?.time||fallbackTime;const bar=nearest(bars,time);return{time:ms(time??bar?.timestamp),price:num(m?.decision_price,m?.price,fallbackPrice,bar?.close),seq:num(m?.decision_seq,m?.seq,bar?.lastSeq),priceSource:m?.price_source||((m?.decision_price!=null)?'physical_seq':'derived')}}
-function boundary(c){const p=c.priorProfile||{},f=c.features||{},side=f.auction_side;return side==='down'?num(p.val,c.val):num(p.vah,c.vah)}
+function auctionSide(c){const f=c?.features||{},raw=String(f.auction_side||'').toLowerCase();if(raw==='up'||raw==='down')return raw;const p=c?.priorProfile||{},ext=num(c?.extremePrice,c?.extreme_price);const vah=num(p.vah,c?.vah),val=num(p.val,c?.val);if(ext!=null&&vah!=null&&ext>vah)return'up';if(ext!=null&&val!=null&&ext<val)return'down';if(c?.strategy==='BO')return c?.direction==='long'?'up':c?.direction==='short'?'down':'up';return c?.direction==='long'?'down':c?.direction==='short'?'up':'up'}
+function boundary(c){const p=c.priorProfile||{},side=auctionSide(c);return side==='down'?num(p.val,c.val):num(p.vah,c.vah)}
 function base(c,id){const cfg=R().spec(id);return{nodeId:id,code:FabioV2.nodeMap?.[id]?.code||id,label:cfg.label,family:cfg.family,layer:cfg.layer,tone:cfg.tone,answer:truth(c,id),metrics:{},reason:[]}}
 function finish(v){v.style=R().style(v.nodeId,v.answer);return v}
-function resolve(c,bars,id){const v=base(c,id),p=c.priorProfile||{},f=c.features||{},first=bars?.[0]?.timestamp,last=bars?.at(-1)?.timestamp,b=boundary(c),tol=num(f.lvn_tolerance,1)??1,side=f.auction_side;
+function resolve(c,bars,id){const v=base(c,id),p=c.priorProfile||{},f=c.features||{},first=bars?.[0]?.timestamp,last=bars?.at(-1)?.timestamp,b=boundary(c),tol=num(f.lvn_tolerance,1)??1,side=auctionSide(c);
  if(id==='CTX_VALUE'){const width=num(p.width,c.value_width);v.range={startTime:first,endTime:last,low:num(p.val,c.val),high:num(p.vah,c.vah)};v.lines=[{price:num(p.vah,c.vah),label:'VAH'},{price:num(p.poc,c.poc),label:'POC'},{price:num(p.val,c.val),label:'VAL'}];v.metrics={valueWidth:width};v.reason=[`Previous Value：VAL ${fmt(v.range.low,0)} / POC ${fmt(num(p.poc,c.poc),0)} / VAH ${fmt(v.range.high,0)}`,`Value Width ${fmt(width)} pts`];return finish(v)}
  if(id==='AUC_ATTEMPT'){v.anchor=decision(c,bars,id,c.attemptStartTime||c.attempt_start_time,b);v.reference={price:b,label:side==='down'?'VAL':'VAH'};v.metrics={excursion:num(f.excursion_points),threshold:num(f.excursion_threshold),ratio:num(f.excursion_pct_value)};const delta=v.metrics.excursion!=null&&v.metrics.threshold!=null?v.metrics.excursion-v.metrics.threshold:null;v.reason=[`實際 Excursion ${fmt(v.metrics.excursion)} pts vs 門檻 ${fmt(v.metrics.threshold)} pts`,`距門檻 ${delta==null?'—':`${delta>=0?'+':''}${fmt(delta)} pts`} · ${pct(v.metrics.ratio)} Value Width`];return finish(v)}
  if(id==='AUC_EXTREME'){v.anchor=decision(c,bars,id,c.extremeTime||c.extreme_time,c.extremePrice||c.extreme_price);v.reference={price:b,label:'Value boundary'};v.metrics={extreme:v.anchor.price,excursion:num(f.excursion_points)};v.reason=[`Extreme ${fmt(v.anchor.price,0)} · ${v.anchor.priceSource==='physical_seq'?'原始 _seq 精準價':'事件價位'}`,`離 Value boundary ${fmt(v.metrics.excursion)} pts`];return finish(v)}
@@ -30,5 +31,5 @@ function resolve(c,bars,id){const v=base(c,id),p=c.priorProfile||{},f=c.features
  v.anchor=decision(c,bars,id,meta(c,id)?.decision_time||c.extremeTime||c.extreme_time,c.extremePrice||c.extreme_price);return finish(v)
 }
 function all(c,bars){return Object.keys(c?.nodes||{}).filter(id=>FabioV2.nodeMap?.[id]).map(id=>resolve(c,bars,id))}
-FabioV3.nodeVisuals={resolve,all,nearest,meta};
+FabioV3.nodeVisuals={resolve,all,nearest,meta,auctionSide};
 })();
