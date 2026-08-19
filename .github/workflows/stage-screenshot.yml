@@ -12,7 +12,9 @@ on:
       - server/**
       - tests/**
       - scripts/capture-stage.mjs
+      - scripts/capture-mastery.mjs
       - scripts/vendor-pixi.mjs
+      - .github/workflows/stage-screenshot.yml
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -44,6 +46,9 @@ jobs:
           node --check src/v3/node-visuals.js
           node --check src/v3/pixi-layer.js
           node --check src/v3/visual-ui.js
+          node --check src/v3/drill.js
+          node --check src/v3/mastery-core.js
+          node --check src/v3/mastery.js
       - name: Install scanner runtime dependencies
         run: python -m pip install -r requirements-server.txt
       - name: Python scanner tests
@@ -61,8 +66,10 @@ jobs:
           for i in {1..30}; do curl -sf http://127.0.0.1:4173 >/dev/null && exit 0; sleep 1; done
           cat /tmp/fabio-http.log
           exit 1
-      - name: Browser runtime QA and screenshots
+      - name: V3.2 browser runtime QA and screenshots
         run: node scripts/capture-stage.mjs
+      - name: V3.3 mastery browser QA and screenshots
+        run: node scripts/capture-mastery.mjs
       - name: Commit screenshots
         if: success() && github.event_name == 'push'
         run: |
