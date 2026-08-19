@@ -1,180 +1,277 @@
-# Fabio 二元決策 Replay 訓練器
+# Fabio Decision Gym V2
 
-以 **KLineChart 10.0.2** 製作的 MTX 主觀交易 Replay 訓練器，把 Fabio-style Auction Market / Volume Profile 思路拆成可以反覆練習的 YES / NO 決策。
+以 **KLineChart 10.0.2** 製作的 MTX 主觀交易刻意練習平台，把 Fabio-style Auction Market / Volume Profile 思路拆成可定位、可統計、可大量反覆練習的 YES / NO 微技能。
 
-> 核心不是猜下一根 K 棒，而是訓練：市場出去試價後，到底是 **被拒絕（Mean Reversion／回家）**、**被接受（Breakout Retest／搬家）**，還是資訊不足應該 **WAIT**。
+> 最終目標不是「看一筆完整交易」，而是可以指定 **某一個二元節點**（例如 Clear Reclaim、Causal Leg、LVN、Acceptance），立刻看到該節點有多少案例、YES/NO 各多少、精準定位到原始日期與事件，並連續練 20 / 50 / 100 題建立圖像辨識經驗。
 
-## Final screenshots
+## V2 主要頁面
 
-![Phase 4 Final](screenshots/phase4-final.png)
+1. **Dashboard** — Skill Map、弱點、待複習、今日建議
+2. **二元決策樹** — MR / BO / WAIT 可點擊決策地圖
+3. **Decision Node Library** — 每個 Node 的總數、YES/NO、已練/未練、正確率
+4. **Practice Lab** — 單一 Node 大量刻意練習
+5. **Full Replay** — 精準定位案例，Hide Future / Reveal Structure / Reveal Trade
+6. **Exam** — 不立即揭露答案的混合市場考試
+7. **Review** — 錯題、高信心錯題、Spaced Repetition
+8. **Case Browser** — 年份 / 策略 / Node / YES-NO / 方向 / 難度篩選與定位
+9. **Research** — Node Distribution、Human vs Machine、Evidence Boundary
+10. **Settings** — Training Parameters 與 Strategy Version 分離
+11. **Data / Scanner** — 多年份 MTX Parquet、Contract Engine、Event Store 掃描
 
-![Phase 4 Data QA](screenshots/phase4-final-data.png)
+## KLineChart
 
-Phase 1～3 的階段驗收圖也完整保留於 `screenshots/`。所有驗收圖均由 GitHub Actions + Playwright 實際啟動頁面後產生，而不是 mock screenshot。
+- 版本固定：**10.0.2**
+- 原始 vendor：`public/vendor/klinecharts-10.0.2.min.js`
+- KLineChart 只負責視覺化；市場結構標籤來自 Scanner / Event Store
+- 2025、2024 等本地案例若沒有內建 fixture，圖表會透過 Local API 依 Event `_seq` 定位原 Parquet，動態讀附近 Tick 並聚合 1 秒 Bars
 
-## 已完成功能
+## 本地多年資料
 
-### Replay
-- KLineChart **V10.0.2**（版本鎖定並 vendor）
-- 1 秒 Replay fixture + 1 分鐘 fallback cases
-- Play / Pause / Step / Back
-- 1× / 2× / 4× / 8×
-- timeline scrubber
-- Previous VAH / POC / VAL
-- Volume pane
+預設目錄：
 
-### Fabio Binary Decision Coach
-- Auction Attempt
-- Rejection / Acceptance
-- Causal Reclaim / Impulse Leg
-- Leg Volume Profile / LVN
-- First Valid Pullback
-- WAIT / MR 回家 / BO 搬家
-- Entry / Stop / Target overlay
-- Hide Future：每一題只顯示當時可知資料
-- Exam mode 在案例完成前不顯示結構答案
+```text
+D:\tools\traderChatV1\data\parquet\Future
+```
 
-### Training
-- 練習模式
-- 考試模式
-- 錯題複習
-- YES / NO keyboard shortcuts
-- 信心分數 1–5
-- LocalStorage 長期紀錄
-- 訓練紀錄 JSON 匯出
-- 累積判斷 / 正確率 / 平均反應時間 / 最弱決策節點 / 最近錯題
+可放：
 
-### Production QA
-- in-app DATA INTEGRITY VERIFIED panel
-- uploaded Parquet QA report
-- source-order invariant tests
-- trainer-core unit tests
-- deterministic static production build
-- Playwright runtime screenshot QA
-- KLineChart 10.0.2 pin/vendor verification
+```text
+MTX_2022.parquet
+MTX_2023.parquet
+MTX_2024.parquet
+MTX_2025.parquet
+MTX_2026.parquet
+...
+```
 
-## Uploaded MTX data used for testing
+**原始 Parquet 不需要、也不應上傳 GitHub。**
 
-開發階段實際讀取使用者提供的 `MTX_2027.parquet`。
+### 啟動 Local Data API
 
-**檔名雖然寫 2027，實際資料日期是 2026。**
+```bash
+python -m pip install -r requirements-server.txt
+python -m server.fabio_api
+```
 
-QA：
-- 2,115,188 Tick rows
-- 2026-07-31 15:00:00 → 2026-08-14 13:44:59
-- product = MTX
-- expiry = 202608
-- 此檔沒有價差 expiry
-- 原始時間只有秒級
-- 同秒交易的實體列順序必須保留
-- `side` = Tick Direction proxy，不是真正 Bid/Ask aggressor side
+API 預設：
 
-完整報告：[`reports/MTX_2027_DATA_QA.json`](reports/MTX_2027_DATA_QA.json)
+```text
+http://127.0.0.1:8765/api
+```
 
-資料規則：[`docs/DATA_INTEGRITY.md`](docs/DATA_INTEGRITY.md)
+前端會自動偵測；API Online 後由 Demo fixture 切換為本機 Event Store。
 
-## Run
+若資料不在預設路徑，可設定：
+
+```powershell
+$env:FABIO_DATA_ROOT="D:\tools\traderChatV1\data\parquet\Future"
+python -m server.fabio_api
+```
+
+## 啟動網站
 
 ```bash
 npm install
 npm run dev
 ```
 
-Test / build：
+開啟 Vite 顯示的本機網址即可。
+
+### Test / Build
 
 ```bash
 npm test
 npm run build
 ```
 
-Production `dist/` 採 deterministic static build，與 Playwright 實際驗收的 classic-script 執行模型一致。
+## Multi-year Scanner
 
-## Generate replay data from Parquet
+前端 `Data / Scanner` 頁可以送出掃描任務，也可直接呼叫 API。
 
-```bash
-python -m pip install -r requirements-data.txt
-python tools/build_replay_data.py /path/to/MTX.parquet -o public/data/mtx_replay.json
+Scanner 流程：
+
+```text
+MTX_*.parquet
+  -> Dataset Catalog / QA
+  -> daily contract volume
+  -> Contract Engine
+  -> active outright contract only
+  -> Previous Value
+  -> Auction Attempt
+  -> Rejection / Acceptance / WAIT
+  -> Reclaim Leg / Impulse Leg
+  -> Leg Volume Profile
+  -> LVN
+  -> Pullback / Response
+  -> Entry candidate
+  -> SQLite Event Store
+  -> node_instances index
 ```
 
-預設：
-- product = MTX
-- outright expiry regex = `^\d{6}$`
-- `/` spread expiries排除
-- 日盤 08:45–13:45
-- Previous Value = 80%
-- **不重新排序任何 Tick row**
+### Contract Engine
 
-`tools/build_replay_data.py` 是 Replay/訓練案例 extractor，不是研究最佳化引擎；它不應被拿來重新宣稱策略績效。
+全年 Parquet 可能同一天同時包含多個 `YYYYMM` 合約。**不同合約不能混在同一個 Profile。**
 
-## Keyboard
+支援：
 
-| Key | Action |
-|---|---|
-| `Y` | YES |
-| `N` | NO |
-| `Space` | Play / Pause |
-| `→` | Next bar |
-| `←` | Previous bar |
-| `R` | Random next case |
+- `strict` — 建議研究/訓練使用；換月後預設 1 日 blackout
+- `dominant_volume`
+- `front_month`
+
+價差 / combo 只要不是單純 `^\d{6}$` outright expiry 就不進 Contract Engine。
+
+## Data Integrity：不可破壞的規則
+
+1. 物理檔案列順序先建立 `_seq`。
+2. **Raw Tick 不重新 sort。**
+3. 同一秒內的成交順序永遠使用 Parquet 原始列順序。
+4. 篩選 product / contract / spread 只能用 mask 保留原順序。
+5. `side` 只視為 Tick Direction proxy，**不是 Bid/Ask aggressor side**。
+6. Event Store 保存 raw features + node decisions，而不是只保存最後 `YES/NO`。
+
+## Decision Node Registry
+
+所有頁面共用 `src/v2/registry.js` 的固定 Node ID，避免 Replay、Exam、Research 各自定義不同規則。
+
+### MR · 回家
+
+```text
+CTX_VALUE
+AUC_ATTEMPT
+MR_REJECTION
+MR_CLEAR_RECLAIM
+MR_RECLAIM_LEG
+MR_LVN
+MR_PULLBACK
+MR_ENTRY
+```
+
+### BO · 搬家
+
+```text
+CTX_VALUE
+AUC_ATTEMPT
+MR_REJECTION = NO
+BO_ACCEPTANCE
+BO_DISPLACEMENT
+BO_IMPULSE_LEG
+BO_LVN
+BO_PULLBACK
+BO_RESPONSE
+BO_ENTRY
+```
+
+### NO TRADE
+
+```text
+WAIT_AMBIGUOUS
+NO_TRADE
+```
+
+`WAIT` 是正式市場狀態，不是「不知道答案」。
+
+## Node Library / Case Locator
+
+SQLite `node_instances` 對 `(event_id, node_id)` 建索引，因此可以直接查：
+
+```text
+MR_CLEAR_RECLAIM
+Year = 2025
+Answer = YES
+Direction = short
+Difficulty = 3
+```
+
+再從結果點「定位」，KLineChart 直接跳到該事件。
+
+Node 數量使用 `/api/nodes/stats` 從 SQLite 全庫統計，不受前端只載入前幾千筆案例的限制。
+
+## Practice Lab
+
+每次只練一個決策問題：
+
+- YES / NO
+- 信心 1–5
+- 反應時間
+- Hide Future
+- 回答後才 Reveal Machine Structure
+- Y / N 快捷鍵
+
+錯題會進 Spaced Repetition：
+
+```text
+10分鐘 → 1天 → 3天 → 7天 → 30天
+```
+
+高信心（4–5）錯題另外分類，因為它比較像 Mental Model 錯誤，而不是單純不確定。
+
+## Strategy Versioning
+
+範例：
+
+- `config/strategies/MR_BROAD_V3.json`
+- `config/strategies/BO_RETEST_V2.json`
+
+Strategy Parameters 與 Training Parameters 分開。
+
+MR Broad V3 目前只是已凍結的研究/訓練 baseline，不代表市場永恆參數；Breakout Retest 的 OOS 證據目前比 MR 弱，因此獨立版本管理。
+
+## Local API
+
+主要 endpoints：
+
+```text
+GET  /api/health
+GET  /api/datasets
+GET  /api/nodes/stats
+GET  /api/cases
+GET  /api/cases/{event_id}
+GET  /api/replay/{event_id}
+GET  /api/research/summary
+GET  /api/scan/status
+POST /api/scan
+```
 
 ## Architecture
 
 ```text
-MTX Parquet
-   ↓  physical order preserved
-tools/build_replay_data.py
-   ↓
-Replay fixture
-   ↓
-KLineChart 10.0.2 setDataLoader
-   ↓
-Hide-Future state machine
-   ↓
-Fabio custom overlays
-   ↓
-Binary Decision Coach
-   ↓
-TrainerCore / LocalStorage analytics
+Raw MTX Tick
+      ↓
+Contract / Session Engine
+      ↓
+Market State Detector
+      ↓
+Raw Features + Event Store
+      ↓
+Decision Node Registry
+      ├── Node Library
+      ├── Practice Lab
+      ├── Case Browser
+      ├── Exam
+      ├── Research
+      └── KLineChart Replay
 ```
 
-主要檔案：
-- `index.html` — app shell
-- `src/main.js` — Replay / decision state machine
-- `src/overlays.js` — KLineChart Fabio overlays
-- `src/trainer-core.js` — persistent analytics
-- `src/phase3.js` — practice / exam / review enhancement
-- `src/phase4.js` — production QA / export / accessibility hooks
-- `tools/build_replay_data.py` — Parquet → Replay fixtures
-- `tests/` — decision/data invariants
+同一套 Detector 與 Event Store 未來也可以接 Live Monitor，避免「回測一套、Replay 一套、實盤又一套」。
 
-## Decision system
-完整 Mermaid tree 與規則：[`docs/DECISION_ENGINE.md`](docs/DECISION_ENGINE.md)
+## 主要檔案
 
 ```text
-New price rejected → Failed Auction → Reclaim Leg → Leg LVN → First Pullback → Mean Reversion
-New price accepted → Displacement → Impulse Leg → Leg LVN → Pullback + Response → Breakout Retest
-Unclear → WAIT
+src/v2/registry.js       Stable Decision Node Registry
+src/v2/store.js          Cases / telemetry / spaced repetition / API lazy loading
+src/v2/chart.js          KLineChart + Local Replay API
+src/v2/app.js            11-page Decision Gym SPA
+src/v2/lazy.js           node-specific lazy hydration
+src/v2/styles.css        UI / RWD
+server/scanner.py        multi-year Contract + Auction/Event Scanner
+server/fabio_api.py      local FastAPI / SQLite Event Store
+config/strategies/       versioned strategy parameters
 ```
 
-## Research / evidence boundary
-本 Trainer 的結構來自先前完成的 Fabio V3/V4 研究經驗。但：
-1. repo 內附的 2026 短期 fixture 主要用來驗證與訓練 UI，**不是新的完整 OOS 績效證明**。
-2. `side` 不是 Bid/Ask aggressor，因此真正 Fabio Footprint / CVD / aggression layer 仍無法由這份資料驗證。
-3. 要研究真正 Delta/CVD，需要 Bid/Ask classified trades、TBBO 或 MBO。
-4. 這是訓練/研究工具，不是投資建議，也不是保證獲利的自動交易系統。
+完整設計：[`docs/DECISION_GYM_V2.md`](docs/DECISION_GYM_V2.md)
 
-## Development QA
-每個階段都遵循：
+## Evidence boundary
 
-```text
-Develop → Run → Playwright screenshot → inspect → fix → accept → next phase
-```
+這是交易**訓練/研究平台**，不是保證獲利的自動下單系統。
 
-規劃與驗收條件：[`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md)
-
-最終 QA：[`reports/FINAL_QA.md`](reports/FINAL_QA.md)
-
-## Branch / PR
-完整開發版：`fabio-replay-v1`
-
-PR 保持獨立審查，不會在未經確認的情況下自動合併到 `main`。
+目前 MTX `side` 已知是 Tick Direction proxy，不是真正 Bid/Ask aggressor，因此真正 Fabio Footprint / Delta / CVD / Absorption / Aggression layer 仍需要 Bid/Ask classified trades、TBBO 或 MBO。
