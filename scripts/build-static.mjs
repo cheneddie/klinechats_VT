@@ -9,12 +9,17 @@ for(const name of ['index.html','README.md']){const from=path.join(root,name);if
 const required=[
   'dist/index.html',
   'dist/public/vendor/klinecharts-10.0.2.min.js',
+  'dist/public/vendor/pixi-8.19.0.min.js',
   'dist/src/v2/registry.js',
   'dist/src/v2/store.js',
   'dist/src/v2/chart.js',
   'dist/src/v2/app.js',
   'dist/src/v2/styles.css',
+  'dist/src/v3/visual-registry.js',
+  'dist/src/v3/node-visuals.js',
+  'dist/src/v3/pixi-layer.js',
+  'dist/src/v3/visual-ui.js',
   'dist/config/strategies/MR_BROAD_V3.json'
 ]
 for(const file of required)if(!fs.existsSync(path.join(root,file)))throw new Error(`missing build artifact: ${file}`)
-console.log(`Decision Gym V2 static build complete: ${dist}`)
+console.log(`Decision Gym V3 static build complete: ${dist}`)
