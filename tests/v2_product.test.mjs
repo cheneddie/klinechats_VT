@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const html=fs.readFileSync('index.html','utf8');
+const app=fs.readFileSync('src/v2/app.js','utf8');
+const scanner=fs.readFileSync('server/scanner.py','utf8');
+test('main entry loads KLineChart 10.0.2 and V2 modules',()=>{assert.match(html,/klinecharts-10\.0\.2\.min\.js/);for(const f of ['registry.js','store.js','chart.js','app.js'])assert.match(html,new RegExp(f.replace('.','\\.')))});
+test('V2 exposes required training pages',()=>{for(const p of ['dashboard','tree','nodes','practice','replay','exam','review','cases','research','settings','data'])assert.match(app,new RegExp(`['\"]${p}['\"]`))});
+test('scanner hard-codes no raw tick sorting',()=>{assert.match(scanner,/_seq/);assert.doesNotMatch(scanner,/sort_values\s*\(/);assert.match(scanner,/OUTRIGHT_RE/);assert.match(scanner,/choose_contracts/)});
+test('scanner stores node instances for fast node queries',()=>{assert.match(scanner,/CREATE TABLE IF NOT EXISTS node_instances/);assert.match(scanner,/CREATE INDEX IF NOT EXISTS ix_node/)});
