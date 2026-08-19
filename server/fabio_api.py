@@ -5,9 +5,11 @@ import os
 import threading
 import time
 import uuid
+from bisect import bisect_right
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pyarrow.parquet as pq
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -65,14 +67,10 @@ def _persist_job(job: dict, force=False):
         con.execute(
             "INSERT OR REPLACE INTO scan_runs(job_id,status,started_at,finished_at,years,config_json,events,message) VALUES(?,?,?,?,?,?,?,?)",
             (
-                job["job_id"],
-                job["status"],
-                job.get("started_at"),
-                job.get("finished_at"),
+                job["job_id"], job["status"], job.get("started_at"), job.get("finished_at"),
                 json.dumps(job.get("years"), ensure_ascii=False),
                 json.dumps({"contract_mode": job.get("contract_mode")}, ensure_ascii=False),
-                int(job.get("events") or 0),
-                json.dumps(view, ensure_ascii=False),
+                int(job.get("events") or 0), json.dumps(view, ensure_ascii=False),
             ),
         )
         con.commit()
@@ -107,14 +105,47 @@ def node_meta(con, event_id: str):
     }
 
 
+def enrich_exact_decision_prices(event: dict, meta: dict):
+    """Resolve node decision prices directly from physical Parquet row sequence.
+
+    `decision_seq` is the immutable physical source-row index assigned before any
+    filter/sort operation. This lets older Event Stores gain exact node prices
+    without rescanning all historical events or guessing from a 1-second close.
+    """
+    source = event.get("source_file")
+    path = ROOT / source if source else None
+    targets = [(node_id, int(x["decision_seq"])) for node_id, x in meta.items() if x.get("decision_seq") is not None]
+    if not path or not path.exists() or not targets:
+        return meta
+    pf = pq.ParquetFile(path)
+    starts = []
+    total = 0
+    for i in range(pf.num_row_groups):
+        starts.append(total)
+        total += int(pf.metadata.row_group(i).num_rows)
+    grouped: dict[int, list[tuple[str, int]]] = {}
+    for node_id, seq in targets:
+        if seq < 0 or seq >= total:
+            continue
+        rg = max(0, bisect_right(starts, seq) - 1)
+        grouped.setdefault(rg, []).append((node_id, seq - starts[rg]))
+    for rg, items in grouped.items():
+        table = pf.read_row_group(rg, columns=["price"])
+        prices = table.column("price")
+        for node_id, local_i in items:
+            if 0 <= local_i < len(prices):
+                value = prices[local_i].as_py()
+                if value is not None:
+                    meta[node_id]["decision_price"] = float(value)
+                    meta[node_id]["price_source"] = "physical_seq"
+    return meta
+
+
 @app.get("/api/health")
 def health():
     return {
-        "ok": True,
-        "version": "3.0.0",
-        "visual_layer": "PixiJS 8.19.0",
-        "data_root": str(ROOT),
-        "db": str(DB),
+        "ok": True, "version": "3.0.0", "visual_layer": "PixiJS 8.19.0",
+        "data_root": str(ROOT), "db": str(DB),
         "files": len(discover(ROOT)) if ROOT.exists() else 0,
     }
 
@@ -166,17 +197,13 @@ def cases(limit: int = 1000, offset: int = 0, node_id: str | None = None, answer
             where.append("n.answer=?")
             args.append(1 if answer else 0)
     if strategy:
-        where.append("e.strategy=?")
-        args.append(strategy)
+        where.append("e.strategy=?"); args.append(strategy)
     if year:
-        where.append("e.year=?")
-        args.append(year)
+        where.append("e.year=?"); args.append(year)
     if direction:
-        where.append("e.direction=?")
-        args.append(direction)
+        where.append("e.direction=?"); args.append(direction)
     if difficulty:
-        where.append("e.difficulty=?")
-        args.append(difficulty)
+        where.append("e.difficulty=?"); args.append(difficulty)
     sql = "SELECT e.* FROM events e " + join + (" WHERE " + " AND ".join(where) if where else "") + " ORDER BY e.trading_date,e.attempt_start_seq LIMIT ? OFFSET ?"
     args.extend([min(limit, 10000), offset])
     rows = [event_row(r) for r in con.execute(sql, args).fetchall()]
@@ -189,11 +216,12 @@ def case(event_id: str):
     con = connect(DB)
     r = con.execute("SELECT * FROM events WHERE event_id=?", (event_id,)).fetchone()
     if not r:
-        con.close()
-        raise HTTPException(404, "case not found")
-    meta = node_meta(con, event_id)
+        con.close(); raise HTTPException(404, "case not found")
+    event = event_row(r)
+    meta = enrich_exact_decision_prices(event, node_meta(con, event_id))
     con.close()
-    return event_row(r, meta)
+    event["nodeMeta"] = meta
+    return event
 
 
 @app.get("/api/nodes/stats")
@@ -209,13 +237,13 @@ def replay(event_id: str, margin: int = 20000):
     con = connect(DB)
     r = con.execute("SELECT * FROM events WHERE event_id=?", (event_id,)).fetchone()
     if not r:
-        con.close()
-        raise HTTPException(404, "case not found")
-    meta = node_meta(con, event_id)
+        con.close(); raise HTTPException(404, "case not found")
+    event = event_row(r)
+    meta = enrich_exact_decision_prices(event, node_meta(con, event_id))
     con.close()
-    event = event_row(r, meta)
+    event["nodeMeta"] = meta
     bars = read_replay_window(ROOT, event, margin=max(1000, min(margin, 100000)))
-    return {"case": event, "bars": bars, "period": "1s", "visual_schema": 1}
+    return {"case": event, "bars": bars, "period": "1s", "visual_schema": 1, "decision_price_source": "physical_seq"}
 
 
 @app.get("/api/research/summary")
@@ -256,31 +284,18 @@ def scan(req: ScanRequest):
         raise HTTPException(400, f"data root not found: {ROOT}")
     if req.contract_mode not in {"strict", "front_month", "dominant_volume"}:
         raise HTTPException(400, "invalid contract_mode")
-
     with _job_lock:
         active = next((x for x in jobs.values() if x.get("status") in {"queued", "running"}), None)
         if active:
             raise HTTPException(409, f"scan already running: {active['job_id']}")
         job_id = str(uuid.uuid4())[:8]
         job = {
-            "job_id": job_id,
-            "status": "queued",
-            "years": req.years,
-            "contract_mode": req.contract_mode,
-            "started_at": _utcnow(),
-            "started_monotonic": time.monotonic(),
-            "heartbeat_at": _utcnow(),
-            "phase": "queued",
-            "phase_label": "等待背景執行緒",
-            "percent": 0.0,
-            "events": 0,
-            "mr": 0,
-            "bo": 0,
-            "wait": 0,
-            "entries": 0,
-            "node_counts": {},
-            "message": "掃描任務已建立。",
-            "logs": [],
+            "job_id": job_id, "status": "queued", "years": req.years,
+            "contract_mode": req.contract_mode, "started_at": _utcnow(),
+            "started_monotonic": time.monotonic(), "heartbeat_at": _utcnow(),
+            "phase": "queued", "phase_label": "等待背景執行緒", "percent": 0.0,
+            "events": 0, "mr": 0, "bo": 0, "wait": 0, "entries": 0,
+            "node_counts": {}, "message": "掃描任務已建立。", "logs": [],
         }
         _append_log(job, job["message"], "queued")
         jobs[job_id] = job
@@ -288,40 +303,28 @@ def scan(req: ScanRequest):
 
     def run():
         with _job_lock:
-            job["status"] = "running"
-            job["phase"] = "prepare"
-            job["phase_label"] = "準備掃描"
-            job["heartbeat_at"] = _utcnow()
-            _append_log(job, "Scanner 背景執行緒已啟動。", "prepare")
-            _persist_job(job, force=True)
-
+            job["status"] = "running"; job["phase"] = "prepare"; job["phase_label"] = "準備掃描"; job["heartbeat_at"] = _utcnow()
+            _append_log(job, "Scanner 背景執行緒已啟動。", "prepare"); _persist_job(job, force=True)
         last_phase = None
-
         def progress(payload: dict):
             nonlocal last_phase
             with _job_lock:
-                phase = payload.get("phase")
-                job.update(payload)
-                job["status"] = "running"
-                job["heartbeat_at"] = _utcnow()
+                phase = payload.get("phase"); previous_percent = float(job.get("percent") or 0)
+                job.update(payload); job["percent"] = max(previous_percent, float(payload.get("percent") or 0)); job["status"] = "running"; job["heartbeat_at"] = _utcnow()
                 message = payload.get("message") or ""
                 if phase != last_phase or phase in {"scan_day", "file_done", "qa_failed"}:
-                    _append_log(job, message, phase)
-                    last_phase = phase
+                    _append_log(job, message, phase); last_phase = phase
                 _persist_job(job)
-
         try:
             cfg = ScanConfig(contract_mode=req.contract_mode)
             count = scan_files_progress(ROOT, DB, req.years, cfg, progress)
             with _job_lock:
                 job.update(status="done", phase="done", phase_label="掃描完成", percent=1.0, events=count, finished_at=_utcnow(), heartbeat_at=_utcnow())
-                _append_log(job, f"掃描完成，共 {count} events。", "done")
-                _persist_job(job, force=True)
+                _append_log(job, f"掃描完成，共 {count} events。", "done"); _persist_job(job, force=True)
         except Exception as e:
             with _job_lock:
                 job.update(status="failed", phase="failed", phase_label="掃描失敗", message=f"{type(e).__name__}: {e}", finished_at=_utcnow(), heartbeat_at=_utcnow())
-                _append_log(job, job["message"], "failed")
-                _persist_job(job, force=True)
+                _append_log(job, job["message"], "failed"); _persist_job(job, force=True)
 
     threading.Thread(target=run, daemon=True, name=f"fabio-scan-{job_id}").start()
     return _job_view(job)
@@ -329,7 +332,6 @@ def scan(req: ScanRequest):
 
 def main():
     import uvicorn
-
     uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("FABIO_API_PORT", "8765")))
 
 
