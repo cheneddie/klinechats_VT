@@ -1,0 +1,1 @@
+QA-only marker for scanner progress telemetry. Do not merge.
