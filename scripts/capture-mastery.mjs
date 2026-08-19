@@ -1,7 +1,11 @@
 import { chromium } from 'playwright'
 import fs from 'node:fs'
 
-const browser=await chromium.launch({headless:true})
+async function launchBrowser(){
+  if(process.env.CI)return chromium.launch({headless:true,channel:'chrome'})
+  try{return await chromium.launch({headless:true})}catch{return chromium.launch({headless:true,channel:'chrome'})}
+}
+const browser=await launchBrowser()
 const page=await browser.newPage({viewport:{width:1600,height:1000},deviceScaleFactor:1})
 const errors=[]
 page.on('console',msg=>{if(msg.type()==='error'&&!msg.text().includes('ERR_CONNECTION_REFUSED'))errors.push(`console: ${msg.text()}`)})
