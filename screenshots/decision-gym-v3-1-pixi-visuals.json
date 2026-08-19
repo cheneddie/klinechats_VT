@@ -1,0 +1,86 @@
+{
+  "phase": "decision-gym-v3-1-pixi-visuals",
+  "title": "Fabio Decision Gym V3",
+  "dashboard": {
+    "skills": 12,
+    "nav": 11,
+    "title": "訓練總覽",
+    "apiState": "Demo / 離線資料",
+    "pixiPill": "PixiJS 8.19.0",
+    "pixiVersion": "8.19.0"
+  },
+  "nodes": {
+    "cards": 18,
+    "title": "決策點資料庫",
+    "hasMR": 1
+  },
+  "pattern": {
+    "tiles": 1,
+    "filterButtons": 3,
+    "wallSizeButtons": 3,
+    "drillButtons": 3,
+    "countText": "1 cases · 顯示 1",
+    "compareOpen": 0
+  },
+  "practice": {
+    "chartCanvasCount": 11,
+    "pixiCanvasCount": 1,
+    "question": "Reclaim 是否夠深、夠快，而不是只碰回 Value 邊界？",
+    "answerButtons": 2,
+    "feedback": "✓ 判斷正確Machine: YES · 2.0s · 信心 3/5Failed Auction 確認。下一題 →",
+    "pixiAfterAnswer": 1
+  },
+  "replay": {
+    "pixiCanvasCount": 1,
+    "visualRows": 8,
+    "modeButtons": 3,
+    "focusedRows": 1,
+    "detail": "AUC-01Auction Attempt觸發定位時間17:19:16觸發價位45,183Excursion — pts門檻 — pts"
+  },
+  "zones": {
+    "tree": {
+      "title": "二元決策樹",
+      "buttons": 19,
+      "selects": 0,
+      "inputs": 0
+    },
+    "exam": {
+      "title": "考題區",
+      "buttons": 1,
+      "selects": 1,
+      "inputs": 0
+    },
+    "settings": {
+      "title": "參數設定",
+      "buttons": 1,
+      "selects": 1,
+      "inputs": 5
+    },
+    "data": {
+      "title": "資料 / Scanner 管理區",
+      "buttons": 2,
+      "selects": 1,
+      "inputs": 1
+    },
+    "review": {
+      "title": "錯題 / 間隔複習",
+      "buttons": 0,
+      "selects": 0,
+      "inputs": 0
+    },
+    "cases": {
+      "title": "案例瀏覽器",
+      "buttons": 2,
+      "selects": 4,
+      "inputs": 1
+    },
+    "research": {
+      "title": "研究統計",
+      "buttons": 0,
+      "selects": 0,
+      "inputs": 0
+    }
+  },
+  "expectedOfflineRequests": 1829,
+  "errors": []
+}
