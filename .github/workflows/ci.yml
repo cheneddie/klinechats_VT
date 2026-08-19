@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, fabio-replay-v1]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -14,9 +14,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: npm install --ignore-scripts
       - run: npm test
       - run: npm run build
+      - name: Python syntax / import boundary
+        run: |
+          python -m py_compile server/__init__.py server/scanner.py server/fabio_api.py
+      - name: Verify Decision Gym V2 files
+        run: |
+          test -s src/v2/registry.js
+          test -s src/v2/store.js
+          test -s src/v2/chart.js
+          test -s src/v2/app.js
+          test -s server/scanner.py
+          test -s server/fabio_api.py
+          grep -q 'Fabio Decision Gym V2' index.html
       - name: Verify vendored KLineChart V10
         run: |
           test -s public/vendor/klinecharts-10.0.2.min.js
