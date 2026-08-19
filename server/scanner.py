@@ -1,6 +1,6 @@
 """Compatibility module for the Fabio Decision Gym V2 scanner.
 
-The production implementation lives in :mod:`server.engine`.  This wrapper is
-kept so existing scripts importing ``server.scanner`` continue to work.
+The production implementation is exposed by :mod:`server.causal_engine` so
+strict/front-month scans do not use future whole-day volume to choose contracts.
 """
-from .engine import *  # noqa: F401,F403
+from .causal_engine import *  # noqa: F401,F403
