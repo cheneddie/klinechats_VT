@@ -58,12 +58,24 @@ class MemoryAccumulator:
         self.same = {k: 0 for k in self.lags}
         self.pairs = {k: 0 for k in self.lags}
 
-    def add_sequence(self, seq: np.ndarray) -> None:
+    def add_new(self, tail: np.ndarray, new: np.ndarray) -> None:
+        """Add only pairs whose current observation belongs to `new`.
+
+        `tail` holds up to max(lag) observations from the immediately preceding
+        contiguous segment of the same contract. This avoids double-counting pairs
+        that lie entirely inside a previously processed tail.
+        """
+        if len(new) == 0:
+            return
+        combined = np.concatenate([tail, new]) if len(tail) else new
+        offset = len(tail)
         for k in self.lags:
-            if len(seq) <= k:
+            current_start = max(offset, k)
+            current_end = len(combined)
+            if current_end <= current_start:
                 continue
-            x = seq[k:]
-            y = seq[:-k]
+            x = combined[current_start:current_end]
+            y = combined[current_start - k : current_end - k]
             self.moments[k].add(x, y)
             self.same[k] += int(np.sum(x == y))
             self.pairs[k] += len(x)
@@ -104,7 +116,7 @@ def run(path: Path, lags: list[int]) -> dict:
     max_lag = max(lags)
 
     # `side` is tick-rule price direction in this data, so these are price-direction
-    # diagnostics, NOT aggressor-flow diagnostics.
+    # diagnostics, NOT exchange-confirmed aggressor-flow diagnostics.
     nonzero_direction = MemoryAccumulator(lags)
     trsv = MemoryAccumulator(lags)
 
@@ -112,6 +124,10 @@ def run(path: Path, lags: list[int]) -> dict:
     trsv_tail: dict[str, np.ndarray] = {}
     n_outright = 0
     n_nonzero = 0
+
+    # Track the last contiguous outright contract. A spread record or contract switch
+    # breaks continuity; memory pairs must not bridge that boundary.
+    last_contract: str | None = None
 
     for rg in range(pf.num_row_groups):
         t = pf.read_row_group(rg, columns=["expiry", "volume", "side"])
@@ -122,32 +138,34 @@ def run(path: Path, lags: list[int]) -> dict:
         valid = np.fromiter((bool(OUTRIGHT_RE.fullmatch(x)) for x in expiry), dtype=bool, count=len(expiry))
         n_outright += int(valid.sum())
 
-        for contract, sl in split_contiguous_contracts(expiry, valid):
+        segments = split_contiguous_contracts(expiry, valid)
+        for contract, sl in segments:
+            # Only carry a tail when this segment is truly contiguous with the prior
+            # processed segment. If a spread/non-outright record or another contract
+            # intervened, reset the tail.
+            contiguous = last_contract == contract and sl.start == 0
+            d_tail = direction_tail.get(contract, np.empty(0, dtype=np.float64)) if contiguous else np.empty(0)
+            x_tail = trsv_tail.get(contract, np.empty(0, dtype=np.float64)) if contiguous else np.empty(0)
+
             s = side[sl]
             v = volume[sl]
 
-            # Non-zero price-direction event sequence.
-            d = s[s != 0].astype(np.float64)
-            n_nonzero += len(d)
-            if contract in direction_tail and len(direction_tail[contract]):
-                d = np.concatenate([direction_tail[contract], d])
-            nonzero_direction.add_sequence(d)
-            direction_tail[contract] = d[-max_lag:].copy()
+            d_new = s[s != 0].astype(np.float64)
+            n_nonzero += len(d_new)
+            nonzero_direction.add_new(d_tail, d_new)
+            d_combined = np.concatenate([d_tail, d_new]) if len(d_tail) else d_new
+            direction_tail[contract] = d_combined[-max_lag:].copy()
 
-            # Tick-rule signed volume. Zeros are retained because side=0 is a real
-            # unchanged-price transaction state in this vendor representation.
-            x = s.astype(np.float64) * v
-            if contract in trsv_tail and len(trsv_tail[contract]):
-                x = np.concatenate([trsv_tail[contract], x])
-            trsv.add_sequence(x)
-            trsv_tail[contract] = x[-max_lag:].copy()
+            x_new = s.astype(np.float64) * v
+            trsv.add_new(x_tail, x_new)
+            x_combined = np.concatenate([x_tail, x_new]) if len(x_tail) else x_new
+            trsv_tail[contract] = x_combined[-max_lag:].copy()
 
-            # Avoid counting pairs entirely inside the stored tail more than once.
-            # Reinitialize tails after accumulation by keeping only latest max_lag;
-            # on next segment the repeated-tail pairs would otherwise be duplicated.
-            # The correction is handled by subtracting tail-only contribution through
-            # processing a segment as tail+new only once; contracts normally remain
-            # contiguous around row-group boundaries.
+            last_contract = contract
+
+        # If the row group ends in a non-outright/spread record, continuity is broken.
+        if len(valid) and not valid[-1]:
+            last_contract = None
 
     return {
         "file": str(path),
