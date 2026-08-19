@@ -1,1 +1,1 @@
-decision-gym-v3-1-pixi-visuals
+decision-gym-v3-2-visual-drill
