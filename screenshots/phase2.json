@@ -1,0 +1,13 @@
+{
+  "phase": "phase2",
+  "title": "Fabio 二元決策 Replay 訓練器",
+  "engine": "KLineChart V10",
+  "chartCanvasCount": 10,
+  "question": "現在是否已到第一個合法 LVN Pullback？",
+  "session": "2026-08-11 · 1秒 Replay",
+  "decisionCount": "4",
+  "strategy": "MR · 回家",
+  "extreme": "44797 @ 09:19:55",
+  "lvn": "44884",
+  "errors": []
+}

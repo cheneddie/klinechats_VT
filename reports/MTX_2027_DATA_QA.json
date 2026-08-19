@@ -1,0 +1,21 @@
+{
+  "sourceFile": "MTX_2027.parquet",
+  "fileBytes": 8371982,
+  "rows": 2115188,
+  "datetimeStart": "2026-07-31T15:00:00",
+  "datetimeEnd": "2026-08-14T13:44:59",
+  "products": ["MTX"],
+  "expiries": ["202608"],
+  "spreadLikeExpiries": [],
+  "priceMin": 42090.0,
+  "priceMax": 46573.0,
+  "volumeMin": 2.0,
+  "volumeMax": 1136.0,
+  "sideValues": [-1, 0, 1],
+  "sideMatchesTickDirection": 1.0,
+  "physicalTimestampNondecreasing": true,
+  "timestampResolutionObserved": "1 second",
+  "sameSecondRowsPreservePhysicalOrder": true,
+  "researchRule": "Never re-sort ticks. Filter product/expiry/spreads by boolean mask while preserving physical row order.",
+  "aggressorWarning": "side is tick-direction proxy, not true Bid/Ask aggressor side."
+}

@@ -1,0 +1,18 @@
+{
+  "phase": "phase3-final",
+  "title": "Fabio 二元決策 Replay 訓練器",
+  "engine": "KLineChart V10",
+  "chartCanvasCount": 10,
+  "question": "價格是否真正離開 Previous Value？",
+  "session": "2026-08-11 · 1秒 Replay",
+  "decisionCount": "1",
+  "strategy": "WAIT",
+  "extreme": "尚未揭曉",
+  "lvn": "尚未揭曉",
+  "mode": "考試",
+  "statTotal": "2",
+  "statAccuracy": "100%",
+  "statSpeed": "1.4s",
+  "feedback": "已記錄。考試模式不立即揭曉正確答案。",
+  "errors": []
+}

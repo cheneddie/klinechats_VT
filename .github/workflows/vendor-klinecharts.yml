@@ -1,0 +1,42 @@
+name: Vendor KLineChart V10
+
+on:
+  push:
+    branches: [fabio-replay-v1]
+    paths:
+      - package.json
+      - .github/workflows/vendor-klinecharts.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fabio-replay-v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --ignore-scripts
+      - name: Copy official KLineChart 10.0.2 UMD bundles
+        run: |
+          mkdir -p public/vendor/chunks
+          cp node_modules/klinecharts/dist/umd/klinecharts.js public/vendor/klinecharts-10.0.2.js
+          cp node_modules/klinecharts/dist/umd/klinecharts.min.js public/vendor/klinecharts-10.0.2.min.js
+          cp node_modules/klinecharts/LICENSE public/vendor/KLINECHARTS_LICENSE
+          base64 -w0 public/vendor/klinecharts-10.0.2.min.js > /tmp/kline.b64
+          rm -f public/vendor/chunks/klinecharts-10.0.2.b64.part*
+          split -b 60000 -d -a 2 /tmp/kline.b64 public/vendor/chunks/klinecharts-10.0.2.b64.part
+      - name: Commit vendor bundle
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/vendor
+          if ! git diff --cached --quiet; then
+            git commit -m "build: vendor KLineChart 10.0.2 bundles"
+            git push origin HEAD:fabio-replay-v1
+          fi
