@@ -22,13 +22,14 @@ jobs:
       - run: npm run build
       - name: Python syntax / import boundary
         run: |
-          python -m py_compile server/__init__.py server/scanner.py server/fabio_api.py
+          python -m py_compile server/__init__.py server/engine.py server/scanner.py server/fabio_api.py
       - name: Verify Decision Gym V2 files
         run: |
           test -s src/v2/registry.js
           test -s src/v2/store.js
           test -s src/v2/chart.js
           test -s src/v2/app.js
+          test -s server/engine.py
           test -s server/scanner.py
           test -s server/fabio_api.py
           grep -q 'Fabio Decision Gym V2' index.html
