@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const src=fs.readFileSync('src/v2/registry.js','utf8');
+const sandbox={window:{}};vm.createContext(sandbox);vm.runInContext(src,sandbox);
+const V=sandbox.window.FabioV2;
+test('V2 registry has unique stable node ids',()=>{assert.ok(V.nodes.length>=16);assert.equal(new Set(V.nodes.map(n=>n.id)).size,V.nodes.length);for(const n of V.nodes){assert.ok(n.code&&n.question&&n.definition&&n.rule)}});
+test('MR and BO trees reference registered nodes',()=>{for(const ids of Object.values(V.tree))for(const id of ids)assert.ok(V.nodeMap[id],id)});
+test('core subjective-training nodes exist',()=>{for(const id of ['AUC_ATTEMPT','MR_REJECTION','MR_CLEAR_RECLAIM','MR_RECLAIM_LEG','MR_LVN','MR_PULLBACK','MR_ENTRY','BO_ACCEPTANCE','BO_DISPLACEMENT','BO_IMPULSE_LEG','BO_LVN','BO_PULLBACK','BO_RESPONSE','BO_ENTRY','WAIT_AMBIGUOUS'])assert.ok(V.nodeMap[id])});

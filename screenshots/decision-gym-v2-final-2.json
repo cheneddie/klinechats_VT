@@ -1,0 +1,23 @@
+{
+  "phase": "decision-gym-v2-final-2",
+  "title": "Fabio Decision Gym V2",
+  "dashboard": {
+    "skills": 12,
+    "nav": 11,
+    "title": "訓練總覽"
+  },
+  "nodes": {
+    "cards": 18,
+    "title": "決策點資料庫",
+    "hasMR": 1
+  },
+  "practice": {
+    "chartCanvasCount": 10,
+    "question": "Reclaim 是否夠深、夠快，而不是只碰回 Value 邊界？",
+    "answerButtons": 2,
+    "feedback": "✓ 判斷正確Machine: YES · 1.6s · 信心 3/5Failed Auction 確認。下一題 →"
+  },
+  "errors": [
+    "console: Failed to load resource: net::ERR_CONNECTION_REFUSED"
+  ]
+}
