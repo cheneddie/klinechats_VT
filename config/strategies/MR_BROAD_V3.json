@@ -1,0 +1,15 @@
+{
+  "name": "MR_BROAD_V3",
+  "description": "Frozen structural MR training baseline derived from prior MTX research. Do not treat as universal constants.",
+  "value_area": 0.8,
+  "session": {"start": "08:45:00", "end": "09:30:00"},
+  "auction": {"excursion_pct_value_width": 0.02, "min_points": 2},
+  "rejection": {"clear_reclaim_pct_value_width": 0.08, "max_seconds": 60},
+  "leg": {"turn_confirmation_points": 8},
+  "lvn": {"family": "valley", "depth": 0.55, "tolerance_points": 1, "location": "inside_mid"},
+  "entry": {"first_valid_pullback_only": true},
+  "stop": {"type": "lvn_buffer", "points": 6},
+  "target": {"type": "r_multiple", "r": 0.75},
+  "time_stop_seconds": 300,
+  "evidence": {"side_is_aggressor": false, "requires_true_bid_ask_for_orderflow_layer": true}
+}
