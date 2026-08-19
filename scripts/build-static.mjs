@@ -19,6 +19,9 @@ const required=[
   'dist/src/v3/node-visuals.js',
   'dist/src/v3/pixi-layer.js',
   'dist/src/v3/visual-ui.js',
+  'dist/src/v3/visual.css',
+  'dist/src/v3/drill.js',
+  'dist/src/v3/drill.css',
   'dist/config/strategies/MR_BROAD_V3.json'
 ]
 for(const file of required)if(!fs.existsSync(path.join(root,file)))throw new Error(`missing build artifact: ${file}`)
