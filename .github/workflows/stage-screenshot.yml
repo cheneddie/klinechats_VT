@@ -11,7 +11,7 @@ on:
       - src/v3/**
       - server/**
       - tests/**
-      - scripts/capture-stage.mjs
+      - scripts/qa-v32.mjs
       - scripts/capture-mastery.mjs
       - scripts/vendor-pixi.mjs
       - .github/workflows/stage-screenshot.yml
@@ -67,8 +67,8 @@ jobs:
           for i in {1..30}; do curl -sf http://127.0.0.1:4173 >/dev/null && exit 0; sleep 1; done
           cat /tmp/fabio-http.log
           exit 1
-      - name: V3.2 browser runtime QA and screenshots
-        run: node scripts/capture-stage.mjs
+      - name: V3.2 focused browser release QA
+        run: node scripts/qa-v32.mjs
       - name: V3.3 mastery browser QA and screenshots
         run: node scripts/capture-mastery.mjs
       - name: Commit screenshots
