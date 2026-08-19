@@ -22,12 +22,11 @@ import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 
+# Public scanner behavior (especially choose_contracts) comes through the causal
+# facade. Private parsing helpers are imported directly from engine because
+# Python wildcard imports intentionally omit names beginning with an underscore.
 from .causal_engine import (
-    OUTRIGHT_RE,
     ScanConfig,
-    _session_seconds,
-    _to_dt,
-    _txt,
     choose_contracts,
     connect,
     discover,
@@ -35,6 +34,7 @@ from .causal_engine import (
     scan_day,
     write_events,
 )
+from .engine import OUTRIGHT_RE, _session_seconds, _to_dt, _txt
 
 
 def _emit(progress, **payload):
@@ -193,6 +193,7 @@ def scan_files_progress(root: Path, db: Path, years=None, config=None, progress=
     total_source_rows = sum(file_rows.values())
     total_work_rows = total_source_rows * 3
     completed_work_rows = 0
+    last_work_rows = 0
     total_events = 0
     counters = {"mr": 0, "bo": 0, "wait": 0, "entries": 0}
     node_counts = {}
@@ -200,8 +201,14 @@ def scan_files_progress(root: Path, db: Path, years=None, config=None, progress=
     now = lambda: datetime.now(timezone.utc).isoformat()
 
     def report(file, file_index, phase_offset, **extra):
+        nonlocal last_work_rows
         pass_rows = int(extra.get("pass_rows_processed") or 0)
-        work_rows = min(total_work_rows, completed_work_rows + pass_rows)
+        computed = min(total_work_rows, completed_work_rows + pass_rows)
+        # Day-level messages may arrive after a raw-batch heartbeat. Never let the
+        # API progress percentage move backwards just because that message has no
+        # pass-row counter of its own.
+        work_rows = max(last_work_rows, computed)
+        last_work_rows = work_rows
         payload = {
             "file": file.name,
             "file_index": file_index,
@@ -293,6 +300,7 @@ def scan_files_progress(root: Path, db: Path, years=None, config=None, progress=
             report(file, file_index, completed_work_rows, phase="file_done", phase_label="年度檔案完成", pass_rows_processed=0, days_processed=days_processed, days_total=days_total, message=f"{file.name} 完成：累積 {total_events} events。")
 
         con.commit()
+        last_work_rows = total_work_rows
         _emit(progress, phase="done", phase_label="掃描完成", files_total=len(files), source_rows_total=total_source_rows, work_rows_processed=total_work_rows, work_rows_total=total_work_rows, percent=1.0, events=total_events, mr=counters["mr"], bo=counters["bo"], wait=counters["wait"], entries=counters["entries"], node_counts=node_counts, message=f"掃描完成：{total_events} events。")
         return total_events
     finally:
