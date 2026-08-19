@@ -47,6 +47,7 @@ jobs:
           node --check src/v3/pixi-layer.js
           node --check src/v3/visual-ui.js
           node --check src/v3/drill.js
+          node --check src/v3/pattern-actions.js
           node --check src/v3/mastery-core.js
           node --check src/v3/mastery.js
       - name: Install scanner runtime dependencies
