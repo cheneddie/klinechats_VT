@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from .scanner import ScanConfig, connect, discover, scan_files, read_replay_window, catalog_file
+from .engine import ScanConfig, connect, discover, scan_files, read_replay_window
 
 ROOT=Path(os.environ.get('FABIO_DATA_ROOT',r'D:\tools\traderChatV1\data\parquet\Future'))
 DB=Path(os.environ.get('FABIO_EVENT_DB',str(Path.home()/'.fabio-decision-gym'/'events.sqlite3')))
@@ -32,7 +32,7 @@ def datasets():
     return {'items':rows,'root':str(ROOT)}
 
 def event_row(r):
-    d=dict(r);d['nodes']=json.loads(d.pop('nodes_json') or '{}');d['features']=json.loads(d.pop('features_json') or '{}');
+    d=dict(r);d['nodes']=json.loads(d.pop('nodes_json') or '{}');d['features']=json.loads(d.pop('features_json') or '{}')
     d['id']=d['event_id'];d['date']=d['trading_date'];d['attemptStartTime']=d.get('attempt_start_time');d['extremeTime']=d.get('extreme_time');d['extremePrice']=d.get('extreme_price');d['clearReclaimTime']=d.get('clear_reclaim_time');d['clearReclaimPrice']=d.get('clear_reclaim_price');d['turnConfirmTime']=d.get('turn_confirm_time');d['entryTime']=d.get('entry_time');d['entryPrice']=d.get('entry_price');d['priorProfile']={'vah':d.get('vah'),'val':d.get('val'),'poc':d.get('poc'),'width':d.get('value_width')};return d
 
 @app.get('/api/cases')
