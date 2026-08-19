@@ -20,6 +20,8 @@ jobs:
       - run: npm install --ignore-scripts
       - run: npm test
       - run: npm run build
+      - name: Browser module syntax
+        run: node --check src/v2/scan-monitor.js
       - name: Install scanner runtime dependencies
         run: python -m pip install -r requirements-server.txt
       - name: Python syntax / import boundary
