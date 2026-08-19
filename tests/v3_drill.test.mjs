@@ -4,6 +4,7 @@ import fs from 'node:fs'
 
 const drill=fs.readFileSync('src/v3/drill.js','utf8')
 const visuals=fs.readFileSync('src/v3/node-visuals.js','utf8')
+const chart=fs.readFileSync('src/v2/chart.js','utf8')
 const index=fs.readFileSync('index.html','utf8')
 
 test('V3.2 exposes same-node next/previous/random and YES/NO filters',()=>{
@@ -22,17 +23,26 @@ test('V3.2 visual compare mounts two real KLine/Pixi panes',()=>{
   assert.match(drill,/YES vs NO/)
 })
 
-test('Practice visual contract is blind before answer and single-node after reveal',()=>{
-  assert.match(drill,/desired=answered\?'single':'blind'/)
+test('Practice visual contract is event-driven: blind before answer, focused single node after reveal',()=>{
+  assert.match(drill,/function practiceAnswered\(\)/)
+  assert.match(drill,/classList\.contains\('correct'\)/)
+  assert.match(drill,/classList\.contains\('wrong'\)/)
+  assert.match(drill,/function applyPracticeLayer\(layer\)/)
+  assert.match(drill,/layer\.setMode\('single'\)/)
+  assert.match(drill,/layer\.focus\(r\.id/)
+  assert.match(drill,/layer\.setMode\('blind'\)/)
+  assert.match(drill,/fabio:pixi-mounted/)
+  assert.match(chart,/fabio:pixi-mounted/)
   assert.match(drill,/裸圖判斷中/)
   assert.match(drill,/已揭露 Decision Visual/)
 })
 
-test('Reason layer shows actual-vs-threshold evidence',()=>{
+test('Reason layer shows actual-vs-threshold evidence and legacy auction-side inference',()=>{
   assert.match(visuals,/實際 Excursion/)
   assert.match(visuals,/深度：實際/)
   assert.match(visuals,/Value 外停留/)
   assert.match(visuals,/physical _seq/)
+  assert.match(visuals,/function auctionSide\(c\)/)
 })
 
 test('main entry loads drill CSS and JS after visual foundation',()=>{
