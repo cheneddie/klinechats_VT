@@ -70,6 +70,6 @@
       "inputs": 0
     }
   },
-  "expectedOfflineRequests": 1,
+  "expectedOfflineRequests": 4,
   "errors": []
 }

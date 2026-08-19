@@ -20,15 +20,19 @@ jobs:
       - run: npm install --ignore-scripts
       - run: npm test
       - run: npm run build
+      - name: Browser module syntax
+        run: node --check src/v2/scan-monitor.js
       - name: Install scanner runtime dependencies
         run: python -m pip install -r requirements-server.txt
       - name: Python syntax / import boundary
         run: |
-          python -m py_compile server/__init__.py server/contracts.py server/engine.py server/causal_engine.py server/scanner.py server/fabio_api.py tests/test_contract_policy.py tests/test_scanner_e2e.py
+          python -m py_compile server/__init__.py server/contracts.py server/engine.py server/causal_engine.py server/progress_scanner.py server/scanner.py server/fabio_api.py tests/test_contract_policy.py tests/test_scanner_e2e.py tests/test_scan_progress.py
       - name: Causal MTX contract policy
         run: python tests/test_contract_policy.py
       - name: Parquet Replay / Event Store e2e
         run: python tests/test_scanner_e2e.py
+      - name: Observable scanner progress e2e
+        run: python tests/test_scan_progress.py
       - name: Verify Decision Gym V2 files
         run: |
           test -s src/v2/registry.js
@@ -36,11 +40,15 @@ jobs:
           test -s src/v2/chart.js
           test -s src/v2/app.js
           test -s src/v2/pattern-lab.js
+          test -s src/v2/scan-monitor.js
+          test -s src/v2/scan-monitor.css
           test -s server/contracts.py
           test -s server/engine.py
           test -s server/causal_engine.py
+          test -s server/progress_scanner.py
           test -s server/scanner.py
           test -s server/fabio_api.py
+          grep -q 'scan-monitor.js' index.html
           grep -q 'Fabio Decision Gym V2' index.html
       - name: Verify vendored KLineChart V10
         run: |
