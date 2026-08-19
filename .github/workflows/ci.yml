@@ -27,6 +27,7 @@ jobs:
           node --check src/v3/node-visuals.js
           node --check src/v3/pixi-layer.js
           node --check src/v3/visual-ui.js
+          node --check src/v3/drill.js
       - name: Install scanner runtime dependencies
         run: python -m pip install -r requirements-server.txt
       - name: Python syntax / import boundary
@@ -54,6 +55,8 @@ jobs:
           test -s src/v3/pixi-layer.js
           test -s src/v3/visual-ui.js
           test -s src/v3/visual.css
+          test -s src/v3/drill.js
+          test -s src/v3/drill.css
           test -s public/vendor/pixi-8.19.0.min.js
           test -s server/contracts.py
           test -s server/engine.py
@@ -62,6 +65,7 @@ jobs:
           test -s server/scanner.py
           test -s server/fabio_api.py
           grep -q 'scan-monitor.js' index.html
+          grep -q 'src/v3/drill.js' index.html
           grep -q 'pixi-8.19.0.min.js' index.html
           grep -q 'Fabio Decision Gym V3' index.html
       - name: Verify pinned chart renderers
