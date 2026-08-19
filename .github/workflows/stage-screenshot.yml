@@ -59,7 +59,8 @@ jobs:
           python tests/test_scan_progress.py
           python tests/test_decision_price.py
       - run: npm install --no-save playwright@1.57.0
-      - run: npx playwright install --with-deps chromium
+      - name: Install Playwright Chromium bundle
+        run: npx playwright install chromium
       - name: Serve Decision Gym
         run: |
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/fabio-http.log 2>&1 &
