@@ -1,0 +1,14 @@
+{
+  "name": "BO_RETEST_V2",
+  "description": "Breakout Retest training baseline. OOS evidence is weaker than MR and should remain separately versioned.",
+  "value_area": 0.8,
+  "auction": {"excursion_pct_value_width": 0.02, "min_points": 2},
+  "acceptance": {"outside_ratio": 0.7, "displacement_pct_value_width": 0.2, "window_seconds": 20},
+  "leg": {"turn_confirmation_points": 8},
+  "lvn": {"family": "valley", "depth": 0.55, "tolerance_points": 1},
+  "pullback": {"first_valid_only": true, "max_seconds": 120},
+  "response": {"directional_progress_points": 2, "max_seconds": 30},
+  "stop": {"type": "lvn_buffer", "points": 8},
+  "target": {"type": "r_multiple", "r": 1.0},
+  "evidence": {"status": "training_baseline", "trend_holdout_sample": "limited", "side_is_aggressor": false}
+}
