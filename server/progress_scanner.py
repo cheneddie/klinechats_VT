@@ -189,10 +189,9 @@ def scan_files_progress(root: Path, db: Path, years=None, config=None, progress=
     if not files:
         raise FileNotFoundError(f"No MTX_*.parquet matched years={years} under {root}")
 
-    # Metadata-only sizing is fast and lets the UI show progress immediately.
     file_rows = {p.name: int(pq.ParquetFile(p).metadata.num_rows) for p in files}
     total_source_rows = sum(file_rows.values())
-    total_work_rows = total_source_rows * 3  # catalog + contract map + active scan
+    total_work_rows = total_source_rows * 3
     completed_work_rows = 0
     total_events = 0
     counters = {"mr": 0, "bo": 0, "wait": 0, "entries": 0}
@@ -224,12 +223,10 @@ def scan_files_progress(root: Path, db: Path, years=None, config=None, progress=
     try:
         _emit(progress, phase="prepare", phase_label="準備掃描", files_total=len(files), source_rows_total=total_source_rows, work_rows_total=total_work_rows, work_rows_processed=0, percent=0.0, events=0, mr=0, bo=0, wait=0, entries=0, node_counts={}, message=f"找到 {len(files)} 個檔案，共 {total_source_rows:,} source rows；預估需 3-pass 掃描。")
         for file_index, file in enumerate(files, 1):
-            common = {"file": file.name, "file_index": file_index, "files_total": len(files)}
-
             def cat_progress(p):
                 report(file, file_index, completed_work_rows, **p)
 
-            cat = _catalog_file(file, cat_progress, common)
+            cat = _catalog_file(file, cat_progress)
             completed_work_rows += file_rows[file.name]
             con.execute(
                 "INSERT OR REPLACE INTO datasets VALUES(?,?,?,?,?,?,?,?,?)",
@@ -241,7 +238,6 @@ def scan_files_progress(root: Path, db: Path, years=None, config=None, progress=
             con.commit()
             report(file, file_index, completed_work_rows, phase="catalog_done", phase_label="Catalog QA 完成", pass_rows_processed=0, pass_rows_total=file_rows[file.name], file_rows_processed=file_rows[file.name], file_rows_total=file_rows[file.name], qa=cat["qa"], message=f"{file.name} Catalog QA：{cat['qa']}")
             if cat["qa"] != "PASS":
-                # Skip the remaining two passes for a failed source file.
                 completed_work_rows += file_rows[file.name] * 2
                 report(file, file_index, completed_work_rows, phase="qa_failed", phase_label="Source-order QA 失敗", pass_rows_processed=0, file_rows_processed=file_rows[file.name], file_rows_total=file_rows[file.name], qa=cat["qa"], message=f"{file.name} QA_FAIL，已略過事件掃描。")
                 continue
@@ -249,7 +245,7 @@ def scan_files_progress(root: Path, db: Path, years=None, config=None, progress=
             def contract_progress(p):
                 report(file, file_index, completed_work_rows, **p)
 
-            volume_map = _daily_contract_volume(file, cfg, contract_progress, common)
+            volume_map = _daily_contract_volume(file, cfg, contract_progress)
             completed_work_rows += file_rows[file.name]
             active = choose_contracts(volume_map, cfg.contract_mode)
             days_total = len(active)
@@ -265,7 +261,7 @@ def scan_files_progress(root: Path, db: Path, years=None, config=None, progress=
                 p["days_total"] = days_total
                 report(file, file_index, completed_work_rows, **p)
 
-            for day, g in _iter_active_days(file, active, cfg, row_progress, common):
+            for day, g in _iter_active_days(file, active, cfg, row_progress):
                 days_processed += 1
                 contract = active[day]["contract"]
                 roll = previous_contract is not None and contract != previous_contract
@@ -279,7 +275,7 @@ def scan_files_progress(root: Path, db: Path, years=None, config=None, progress=
                     write_events(con, events, now())
                     total_events += len(events)
                     _update_counts(events, counters, node_counts)
-                    con.commit()  # make newly found cases visible while the scan is still running
+                    con.commit()
                 if blackout > 0:
                     blackout -= 1
                 previous_profile = profile
