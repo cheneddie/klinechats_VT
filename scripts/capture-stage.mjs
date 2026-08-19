@@ -14,9 +14,20 @@ page.on('console',msg=>{
 page.on('pageerror',err=>errors.push(`pageerror: ${err.message}`))
 fs.mkdirSync('screenshots',{recursive:true})
 
-await page.goto('http://127.0.0.1:4173/#/dashboard',{waitUntil:'domcontentloaded'})
-await page.waitForSelector('.gym',{timeout:15000});await page.waitForTimeout(5600)
-await page.screenshot({path:`screenshots/${phase}-dashboard.png`,fullPage:true})
+async function goto(route,suffix,wait=700){
+  await page.goto(`http://127.0.0.1:4173/#/${route}`,{waitUntil:'domcontentloaded'})
+  await page.waitForSelector('.gym',{timeout:15000})
+  await page.waitForTimeout(wait)
+  if(suffix)await page.screenshot({path:`screenshots/${phase}-${suffix}.png`,fullPage:true})
+  return {
+    title:await page.locator('#pageTitle').textContent().catch(()=>null),
+    buttons:await page.locator('#content button').count(),
+    selects:await page.locator('#content select').count(),
+    inputs:await page.locator('#content input').count(),
+  }
+}
+
+await goto('dashboard','dashboard',5600)
 const dashboard={
   skills:await page.locator('.skill').count(),
   nav:await page.locator('.side nav a').count(),
@@ -64,7 +75,23 @@ if(practice.answerButtons===2){
 }
 await page.screenshot({path:`screenshots/${phase}-practice.png`,fullPage:true})
 
-const report={phase,title:await page.title(),dashboard,nodes,pattern,practice,expectedOfflineRequests:expectedOffline.length,errors}
+const zones={
+  tree:await goto('tree','tree'),
+  exam:await goto('exam','exam'),
+  settings:await goto('settings','settings'),
+  data:await goto('data','data'),
+  review:await goto('review','review'),
+  cases:await goto('cases','cases'),
+  research:await goto('research','research'),
+}
+
+const report={
+  phase,
+  title:await page.title(),
+  dashboard,nodes,pattern,practice,zones,
+  expectedOfflineRequests:expectedOffline.length,
+  errors
+}
 fs.writeFileSync(`screenshots/${phase}.json`,JSON.stringify(report,null,2))
 console.log(JSON.stringify(report,null,2))
 await browser.close()
