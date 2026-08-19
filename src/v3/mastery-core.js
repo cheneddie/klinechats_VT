@@ -1,7 +1,8 @@
 window.FabioMasteryCore=(()=>{
   const clamp=(v,lo=0,hi=1)=>Math.max(lo,Math.min(hi,Number(v)||0));
   const safeDiv=(a,b,fallback=0)=>b?Number(a||0)/Number(b):fallback;
-  const dayKey=value=>{const d=value instanceof Date?value:new Date(value);if(Number.isNaN(d.getTime()))return'';return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+  const taipeiDate=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'});
+  const dayKey=value=>{const d=value&&typeof value.getTime==='function'?new Date(value.getTime()):new Date(value);if(Number.isNaN(d.getTime()))return'';const p=Object.fromEntries(taipeiDate.formatToParts(d).filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));return`${p.year}-${p.month}-${p.day}`};
   function nodeHistory(history,nodeId){return (history||[]).filter(x=>x.nodeId===nodeId)}
   function recentAccuracy(history,nodeId,limit=20){const rows=nodeHistory(history,nodeId).slice(-limit);return rows.length?safeDiv(rows.filter(x=>x.correct).length,rows.length):null}
   function correctStreak(history,nodeId){const rows=nodeHistory(history,nodeId);let n=0;for(let i=rows.length-1;i>=0;i--){if(!rows[i].correct)break;n++}return n}
@@ -19,7 +20,7 @@ window.FabioMasteryCore=(()=>{
     const due=(dueReviews||[]).filter(x=>x.nodeId===nodeId&&!x.done).length;
     const signals=wrongSignals(history,nodeId,20);
     let priority=100-score+Math.min(24,due*6)+Math.min(18,signals.recentWrong*3)+Math.min(20,signals.highConfidenceWrong*5);
-    if(!trained&&Number(stat?.total||0)>0)priority=Math.max(priority,82);
+    if(!trained&&Number(stat?.total||0)>0)priority=82;
     if(!Number(stat?.total||0)&&!trained)priority=0;
     return{nodeId,score,priority:Math.round(priority),trained,accuracy:acc,recentAccuracy:recent,streak:correctStreak(history,nodeId),balance,due,recentWrong:signals.recentWrong,highConfidenceWrong:signals.highConfidenceWrong,total:Number(stat?.total||0),yes:Number(stat?.yes||0),no:Number(stat?.no||0)}
   }
