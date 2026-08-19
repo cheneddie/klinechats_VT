@@ -17,7 +17,7 @@ from .progress_scanner import scan_files_progress
 
 ROOT = Path(os.environ.get("FABIO_DATA_ROOT", r"D:\tools\traderChatV1\data\parquet\Future"))
 DB = Path(os.environ.get("FABIO_EVENT_DB", str(Path.home() / ".fabio-decision-gym" / "events.sqlite3")))
-app = FastAPI(title="Fabio Decision Gym Local API", version="2.1.0")
+app = FastAPI(title="Fabio Decision Gym Local API", version="3.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 jobs: dict[str, dict] = {}
@@ -91,11 +91,28 @@ def _append_log(job: dict, text: str, phase: str | None = None):
     del logs[:-40]
 
 
+def node_meta(con, event_id: str):
+    rows = con.execute(
+        "SELECT node_id,answer,decision_seq,decision_time,difficulty FROM node_instances WHERE event_id=? ORDER BY decision_seq,node_id",
+        (event_id,),
+    ).fetchall()
+    return {
+        r["node_id"]: {
+            "answer": bool(r["answer"]),
+            "decision_seq": r["decision_seq"],
+            "decision_time": r["decision_time"],
+            "difficulty": r["difficulty"],
+        }
+        for r in rows
+    }
+
+
 @app.get("/api/health")
 def health():
     return {
         "ok": True,
-        "version": "2.1.0",
+        "version": "3.0.0",
+        "visual_layer": "PixiJS 8.19.0",
         "data_root": str(ROOT),
         "db": str(DB),
         "files": len(discover(ROOT)) if ROOT.exists() else 0,
@@ -117,7 +134,7 @@ def datasets():
     return {"items": rows, "root": str(ROOT)}
 
 
-def event_row(r):
+def event_row(r, meta=None):
     d = dict(r)
     d["nodes"] = json.loads(d.pop("nodes_json") or "{}")
     d["features"] = json.loads(d.pop("features_json") or "{}")
@@ -132,6 +149,8 @@ def event_row(r):
     d["entryTime"] = d.get("entry_time")
     d["entryPrice"] = d.get("entry_price")
     d["priorProfile"] = {"vah": d.get("vah"), "val": d.get("val"), "poc": d.get("poc"), "width": d.get("value_width")}
+    if meta is not None:
+        d["nodeMeta"] = meta
     return d
 
 
@@ -169,10 +188,12 @@ def cases(limit: int = 1000, offset: int = 0, node_id: str | None = None, answer
 def case(event_id: str):
     con = connect(DB)
     r = con.execute("SELECT * FROM events WHERE event_id=?", (event_id,)).fetchone()
-    con.close()
     if not r:
+        con.close()
         raise HTTPException(404, "case not found")
-    return event_row(r)
+    meta = node_meta(con, event_id)
+    con.close()
+    return event_row(r, meta)
 
 
 @app.get("/api/nodes/stats")
@@ -187,12 +208,14 @@ def node_stats():
 def replay(event_id: str, margin: int = 20000):
     con = connect(DB)
     r = con.execute("SELECT * FROM events WHERE event_id=?", (event_id,)).fetchone()
-    con.close()
     if not r:
+        con.close()
         raise HTTPException(404, "case not found")
-    event = event_row(r)
+    meta = node_meta(con, event_id)
+    con.close()
+    event = event_row(r, meta)
     bars = read_replay_window(ROOT, event, margin=max(1000, min(margin, 100000)))
-    return {"case": event, "bars": bars, "period": "1s"}
+    return {"case": event, "bars": bars, "period": "1s", "visual_schema": 1}
 
 
 @app.get("/api/research/summary")
@@ -282,8 +305,6 @@ def scan(req: ScanRequest):
                 job["status"] = "running"
                 job["heartbeat_at"] = _utcnow()
                 message = payload.get("message") or ""
-                # Keep the log readable: phase changes and completed trading days are logged;
-                # raw batch heartbeats still update the numeric progress fields.
                 if phase != last_phase or phase in {"scan_day", "file_done", "qa_failed"}:
                     _append_log(job, message, phase)
                     last_phase = phase
