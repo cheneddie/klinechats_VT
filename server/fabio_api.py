@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from .engine import ScanConfig, connect, discover, scan_files, read_replay_window
+from .causal_engine import ScanConfig, connect, discover, scan_files, read_replay_window
 
 ROOT=Path(os.environ.get('FABIO_DATA_ROOT',r'D:\tools\traderChatV1\data\parquet\Future'))
 DB=Path(os.environ.get('FABIO_EVENT_DB',str(Path.home()/'.fabio-decision-gym'/'events.sqlite3')))
