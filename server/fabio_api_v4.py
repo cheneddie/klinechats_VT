@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 from . import fabio_api as base
-from .v4_api import install
+from .v4_api_final import install
 
 app = install(base)
 
