@@ -3,13 +3,16 @@ from __future__ import annotations
 """Trading-day aware Replay reader for MTX.
 
 A Taiwan futures trading day is represented historically by the observed day
-session.  Full-session Replay for trading day T begins at 15:00 of the previous
-observed trading day and ends at 13:45 of T.  This correctly keeps Friday night
+session. Full-session Replay for trading day T begins at 15:00 of the previous
+observed trading day and ends at 13:45 of T. This correctly keeps Friday night
 / Saturday early-morning ticks with the following Monday trading day when the
 observed calendar has a weekend gap.
 
-The row-group index is built once per Parquet file and cached in-process.  All
-OHLC aggregation preserves physical `_seq` order for open/close.
+The row-group index is built once per Parquet file and cached in-process. All
+OHLC aggregation preserves physical `_seq` order for open/close. For training,
+raw physical ticks are cut at the causal decision time *before* higher-timeframe
+aggregation so a partial 1m/5m candle can never leak later ticks from the same
+bar.
 """
 
 from collections import defaultdict
@@ -112,7 +115,7 @@ class ReplayFileIndex:
             prev = pd.Timestamp(days[i - 1])
             start = prev + pd.Timedelta(hours=15)
         else:
-            start = pd.Timestamp(first) + pd.Timedelta(hours=0)
+            start = pd.Timestamp(first)
         end = pd.Timestamp(last) + pd.Timedelta(hours=13, minutes=45, seconds=59, milliseconds=999)
         return start, end
 
@@ -141,7 +144,6 @@ def get_index(path: Path) -> ReplayFileIndex:
         hit = _INDEX_CACHE.get(key)
         if hit is not None:
             return hit
-        # Drop stale versions of the same path.
         for old in [x for x in _INDEX_CACHE if x[0] == key[0] and x != key]:
             _INDEX_CACHE.pop(old, None)
         idx = ReplayFileIndex(p)
@@ -178,7 +180,6 @@ def _read_window(path: Path, target_days: list[str], contract: str, session="ful
             parts.append(x)
     if not parts:
         return pd.DataFrame()
-    # Row groups were read in physical order; concat preserves that order.
     return pd.concat(parts, ignore_index=True)
 
 
@@ -205,7 +206,7 @@ def aggregate_bars(d: pd.DataFrame, timeframe="1s"):
 
 
 def replay_trading_window(root: Path, event: dict, node_meta: dict | None = None, node_id: str | None = None,
-                          before=1, after=1, timeframe="1m", session="full"):
+                          before=1, after=1, timeframe="1m", session="full", cutoff_time: str | None = None):
     source = event.get("source_file")
     if not source:
         return {"bars": [], "dates": []}
@@ -220,14 +221,24 @@ def replay_trading_window(root: Path, event: dict, node_meta: dict | None = None
     idx = get_index(path)
     dates = idx.target_days(str(center)[:10], str(event.get("contract")), before, after)
     d = _read_window(path, dates, str(event.get("contract")), session=session)
+    applied_cutoff = None
+    if cutoff_time and len(d):
+        applied_cutoff = pd.Timestamp(cutoff_time)
+        # Critical: remove future physical rows BEFORE aggregating to 1m/5m etc.
+        d = d.loc[d["dt"] <= applied_cutoff].reset_index(drop=True)
     bars = aggregate_bars(d, timeframe=timeframe)
     return {
         "bars": bars, "dates": dates, "timeframe": timeframe, "session": session,
         "source_rows": int(len(d)),
         "first_seq": int(d["_seq"].iloc[0]) if len(d) else None,
         "last_seq": int(d["_seq"].iloc[-1]) if len(d) else None,
+        "cutoff_time": _iso_cutoff(applied_cutoff),
         "trading_day_definition": "previous observed day 15:00 -> trading day 13:45" if session == "full" else "08:45 -> 13:45",
     }
+
+
+def _iso_cutoff(v):
+    return v.isoformat() if v is not None else None
 
 
 def read_tick_path(root: Path, event: dict, start_seq: int, max_dates_after=1):
