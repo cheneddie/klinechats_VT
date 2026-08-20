@@ -51,6 +51,7 @@ try{
     const truths=state.checks.practiceQueue.map(x=>x.truth);
     if(!truths.includes(true)||!truths.includes(false))throw new Error(`practice queue not YES/NO balanced: ${JSON.stringify(truths)}`);
     await waitSel(page,'#v4PracticeChart canvas');
+    await withTimeout(page.waitForFunction(()=>Boolean(window.FabioV4?.chart?.current?.()?.payload?.cutoff_time)),15000,'practice causal cutoff state');
     state.checks.practiceCanvases=await page.locator('#v4PracticeChart canvas').count();
     state.checks.practiceCutoff=await page.evaluate(()=>FabioV4.chart.current()?.payload?.cutoff_time||null);
     if(!state.checks.practiceCutoff)throw new Error('practice replay is not using server causal cutoff');
@@ -58,7 +59,7 @@ try{
 
   await step(page,'practice-5m-hide-future',async()=>{
     await page.selectOption('#v4PracticeTf','5m');
-    await withTimeout(page.waitForFunction(()=>window.FabioV4?.chart?.current?.()?.opts?.timeframe==='5m'),15000,'practice 5m render');
+    await withTimeout(page.waitForFunction(()=>window.FabioV4?.chart?.current?.()?.opts?.timeframe==='5m'&&Boolean(window.FabioV4?.chart?.current?.()?.payload?.cutoff_time)),15000,'practice 5m causal render');
     const cur=await page.evaluate(()=>({
       cutoff:FabioV4.chart.current()?.payload?.cutoff_time,
       tf:FabioV4.chart.current()?.payload?.timeframe,
