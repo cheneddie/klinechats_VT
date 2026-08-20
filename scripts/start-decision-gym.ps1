@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 $Repo = Split-Path -Parent $PSScriptRoot
 Set-Location $Repo
 
-Write-Host 'Fabio Decision Gym V2' -ForegroundColor Cyan
+Write-Host 'Fabio Decision Gym V3' -ForegroundColor Cyan
 Write-Host "Repo      : $Repo"
 Write-Host "Data root : $DataRoot"
 Write-Host "Event DB  : $EventDb"
@@ -27,10 +27,29 @@ $Python = Join-Path $Repo '.venv\Scripts\python.exe'
 if (-not $SkipInstall) {
   & $Python -m pip install --upgrade pip
   & $Python -m pip install -r requirements-server.txt
-  if (-not (Test-Path 'node_modules')) {
-    npm install
-  }
 }
+
+$PixiSource = Join-Path $Repo 'node_modules\pixi.js\dist\pixi.min.js'
+$ViteSource = Join-Path $Repo 'node_modules\vite\bin\vite.js'
+$NeedNodeRepair = (-not (Test-Path $PixiSource)) -or (-not (Test-Path $ViteSource))
+
+if ((-not $SkipInstall) -or $NeedNodeRepair) {
+  if ($NeedNodeRepair) {
+    Write-Host 'Frontend dependencies are incomplete; repairing node_modules...' -ForegroundColor Yellow
+  }
+  npm install --ignore-scripts
+  if ($LASTEXITCODE -ne 0) { throw 'npm install failed.' }
+}
+
+Write-Host 'Preparing PixiJS vendor bundle...' -ForegroundColor Yellow
+npm run vendor:pixi
+if ($LASTEXITCODE -ne 0) { throw 'PixiJS vendor generation failed.' }
+
+$PixiVendor = Join-Path $Repo 'public\vendor\pixi-8.19.0.min.js'
+if (-not (Test-Path $PixiVendor)) {
+  throw "PixiJS vendor bundle was not created: $PixiVendor"
+}
+Write-Host 'PixiJS vendor: OK' -ForegroundColor Green
 
 $apiCmd = @"
 `$env:FABIO_DATA_ROOT='$DataRoot'
