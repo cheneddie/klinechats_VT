@@ -5,13 +5,37 @@ const defaultSettings={apiBase:'http://127.0.0.1:8765/api',questionCount:20,diff
 function loadLocal(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch{return {}}}
 const saved=loadLocal();
 const state={settings:{...defaultSettings,...saved.settings},history:saved.history||[],spaced:saved.spaced||[],cases:[],datasets:[],nodeStats:{},remoteNodeStats:{},apiOnline:false,currentCase:null,currentNode:null,sessionAnswers:[]};
+let hydrateToken=0;
 function persist(){localStorage.setItem(KEY,JSON.stringify({settings:state.settings,history:state.history.slice(-10000),spaced:state.spaced.slice(-2000)}))}
 function pathToNodes(c){const p=c.answerPath||[];const out={};if(c.strategy==='MR'){out.CTX_VALUE=true;out.AUC_ATTEMPT=p.includes('AUCTION_YES');out.MR_REJECTION=p.includes('REJECTION_YES');out.MR_CLEAR_RECLAIM=p.includes('CLEAR_RECLAIM_YES');out.MR_RECLAIM_LEG=p.includes('LEG_YES');out.MR_LVN=p.includes('LVN_YES');out.MR_PULLBACK=p.includes('PULLBACK_YES');out.MR_ENTRY=p.includes('EXECUTE_MR')||Boolean(c.entryTime)}else if(c.strategy==='BO'){out.CTX_VALUE=true;out.AUC_ATTEMPT=p.includes('AUCTION_YES');out.MR_REJECTION=p.includes('REJECTION_YES');out.BO_ACCEPTANCE=p.includes('ACCEPTANCE_YES');out.BO_DISPLACEMENT=p.includes('DISPLACEMENT_YES');out.BO_IMPULSE_LEG=p.includes('IMPULSE_LEG_YES');out.BO_LVN=p.includes('LVN_YES');out.BO_PULLBACK=p.includes('PULLBACK_YES');out.BO_RESPONSE=p.includes('RESPONSE_YES');out.BO_ENTRY=p.includes('EXECUTE_BO')}return out}
 function normalizeCase(c,i){const nodes=c.nodes||pathToNodes(c);return {...c,_i:i,nodes,year:Number(String(c.date||c.trading_date||'').slice(0,4))||0,date:c.date||c.trading_date,difficulty:c.difficulty||Math.min(5,Math.max(1,2+Object.values(nodes).filter(v=>v===false).length)),result:c.result||((c.entryTime||c.entrySeq||c.entry_time)?'ENTRY':'WAIT'),regime:c.regime||'unknown'} }
 function fallbackCases(){return (window.__REPLAY_DATA__?.cases||[]).map(normalizeCase)}
 async function api(path,opts){const base=state.settings.apiBase.replace(/\/$/,'');const r=await fetch(base+path,{signal:AbortSignal.timeout(5000),...opts});if(!r.ok)throw new Error(`${r.status} ${r.statusText}`);return r.json()}
 function mergeCases(items){const m=new Map(state.cases.map(c=>[c.id,c]));for(const c of items||[]){const n=normalizeCase(c,m.size);m.set(n.id,n)}state.cases=[...m.values()]}
-async function boot(){state.cases=fallbackCases();state.remoteNodeStats={};try{const h=await api('/health');state.apiOnline=Boolean(h?.ok);if(state.apiOnline){const [cases,datasets,nodeStats]=await Promise.all([api('/cases?limit=2000'),api('/datasets'),api('/nodes/stats')]);if(Array.isArray(cases?.items))state.cases=cases.items.map(normalizeCase);state.datasets=datasets?.items||datasets||[];for(const x of nodeStats?.items||[])state.remoteNodeStats[x.node_id]={total:+x.total||0,yes:+x.yes_count||0,no:+x.no_count||0}}}catch{state.apiOnline=false}recalc();return state}
+async function hydrateRemote(token){
+  try{
+    const h=await api('/health');if(token!==hydrateToken)return;
+    state.apiOnline=Boolean(h?.ok);
+    if(state.apiOnline){
+      const [cases,datasets,nodeStats]=await Promise.all([api('/cases?limit=2000'),api('/datasets'),api('/nodes/stats')]);
+      if(token!==hydrateToken)return;
+      if(Array.isArray(cases?.items))state.cases=cases.items.map(normalizeCase);
+      state.datasets=datasets?.items||datasets||[];
+      state.remoteNodeStats={};
+      for(const x of nodeStats?.items||[])state.remoteNodeStats[x.node_id]={total:+x.total||0,yes:+x.yes_count||0,no:+x.no_count||0};
+    }
+  }catch{if(token===hydrateToken)state.apiOnline=false}
+  if(token!==hydrateToken)return;
+  recalc();
+  document.dispatchEvent(new CustomEvent('fabio:store-hydrated',{detail:{apiOnline:state.apiOnline,cases:state.cases.length}}));
+  requestAnimationFrame(()=>window.FabioV2?.app?.render?.());
+}
+async function boot(){
+  const token=++hydrateToken;
+  state.cases=fallbackCases();state.datasets=[];state.remoteNodeStats={};state.apiOnline=false;recalc();
+  queueMicrotask(()=>hydrateRemote(token));
+  return state;
+}
 function recalc(){const stats={};for(const n of FabioV2.nodes)stats[n.id]={node:n.id,total:0,yes:0,no:0,trained:0,correct:0,ms:0,confidence:0};for(const c of state.cases){for(const [id,v] of Object.entries(c.nodes||{})){if(stats[id]&&typeof v==='boolean'){stats[id].total++;v?stats[id].yes++:stats[id].no++}}}for(const [id,r] of Object.entries(state.remoteNodeStats)){if(stats[id])Object.assign(stats[id],{total:r.total,yes:r.yes,no:r.no})}for(const h of state.history){const s=stats[h.nodeId];if(!s)continue;s.trained++;if(h.correct)s.correct++;s.ms+=h.ms||0;s.confidence+=h.confidence||0}for(const s of Object.values(stats)){s.accuracy=s.trained?s.correct/s.trained:null;s.avgMs=s.trained?s.ms/s.trained:null;s.avgConfidence=s.trained?s.confidence/s.trained:null;s.remaining=Math.max(0,s.total-s.trained)}state.nodeStats=stats;return stats}
 function casesForNode(nodeId,filters={}){let a=state.cases.filter(c=>typeof c.nodes?.[nodeId]==='boolean');if(filters.answer!==undefined)a=a.filter(c=>c.nodes[nodeId]===filters.answer);if(filters.branch)a=a.filter(c=>c.strategy===filters.branch);if(filters.year)a=a.filter(c=>c.year===Number(filters.year));if(filters.direction)a=a.filter(c=>c.direction===filters.direction);if(filters.difficulty)a=a.filter(c=>c.difficulty===Number(filters.difficulty));if(filters.result)a=a.filter(c=>c.result===filters.result);return a}
 async function loadNodeCases(nodeId,{limit=1000,answer=null,year=null,direction=null,difficulty=null}={}){const filters={...(answer!==null?{answer:Boolean(answer)}:{}),year,direction,difficulty};if(!state.apiOnline)return casesForNode(nodeId,filters).slice(0,Math.max(0,Number(limit)||1000));const q=new URLSearchParams({node_id:nodeId,limit:String(Math.min(10000,limit))});if(answer!==null)q.set('answer',String(Boolean(answer)));if(year)q.set('year',String(year));if(direction)q.set('direction',direction);if(difficulty)q.set('difficulty',String(difficulty));const r=await api('/cases?'+q);mergeCases(r.items||[]);recalc();return casesForNode(nodeId,filters).slice(0,Math.max(0,Number(limit)||1000))}

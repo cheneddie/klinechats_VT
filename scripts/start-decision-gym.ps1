@@ -7,10 +7,16 @@
 # ============================================================
 
 param(
+<<<<<<< HEAD
   [string]$DataRoot  = 'D:\tools\traderChatV1\data\parquet\Future',
   [string]$EventDb   = 'D:\tools\traderChatV1\data\fabio-events.sqlite3',
   [int]$ApiPort      = 8765,
   [int]$WebPort      = 5173,
+=======
+  [string]$DataRoot = 'D:\tools\traderChatV1\data\parquet\Future',
+  [string]$EventDb = '',
+  [int]$FrontendPort = 5173,
+>>>>>>> d449789ac31d621de1f260ca8bd95c3df2bce632
   [switch]$SkipInstall
 )
 
@@ -18,9 +24,48 @@ $ErrorActionPreference = 'Stop'
 $Repo = Split-Path -Parent $PSScriptRoot
 Set-Location $Repo
 
+<<<<<<< HEAD
 # 確保中文輸出正確 (UTF-8)
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 $OutputEncoding = [System.Text.Encoding]::UTF8
+=======
+if ([string]::IsNullOrWhiteSpace($EventDb)) {
+  $EventDb = Join-Path $Repo 'fabio-events.sqlite3'
+}
+
+function Test-PortAvailable([int]$Port) {
+  $listener = $null
+  try {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
+    $listener.Start()
+    return $true
+  }
+  catch {
+    return $false
+  }
+  finally {
+    if ($null -ne $listener) {
+      try { $listener.Stop() } catch {}
+    }
+  }
+}
+
+function Resolve-FrontendPort([int]$StartPort) {
+  $port = $StartPort
+  $maxPort = [Math]::Min(65535, $StartPort + 100)
+  while ($port -le $maxPort) {
+    if (Test-PortAvailable $port) { return $port }
+    Write-Host "Frontend port $port is already in use; trying $($port + 1)..." -ForegroundColor Yellow
+    $port++
+  }
+  throw "No free frontend port found between $StartPort and $maxPort."
+}
+
+Write-Host 'Fabio Decision Gym V3' -ForegroundColor Cyan
+Write-Host "Repo      : $Repo"
+Write-Host "Data root : $DataRoot"
+Write-Host "Event DB  : $EventDb"
+>>>>>>> d449789ac31d621de1f260ca8bd95c3df2bce632
 
 Write-Host ''
 Write-Host '  Fabio Decision Gym V2 - One-Click Start' -ForegroundColor Cyan
@@ -36,10 +81,43 @@ $Python = Join-Path $Repo '.venv\Scripts\python.exe'
 $pyLauncher = (Get-Command py -ErrorAction SilentlyContinue)
 $systemPy   = (Get-Command python -ErrorAction SilentlyContinue)
 
+<<<<<<< HEAD
 function New-Venv {
   if ($pyLauncher) { py -m venv .venv }
   elseif ($systemPy) { & $systemPy.Source -m venv .venv }
   else { throw '找不到 Python。請先安裝 Python 3.11+ 並加入 PATH。' }
+=======
+if (-not $SkipInstall) {
+  & $Python -m pip install --upgrade pip
+  & $Python -m pip install -r requirements-server.txt
+}
+
+$PixiSource = Join-Path $Repo 'node_modules\pixi.js\dist\pixi.min.js'
+$ViteSource = Join-Path $Repo 'node_modules\vite\bin\vite.js'
+$NeedNodeRepair = (-not (Test-Path $PixiSource)) -or (-not (Test-Path $ViteSource))
+
+if ((-not $SkipInstall) -or $NeedNodeRepair) {
+  if ($NeedNodeRepair) {
+    Write-Host 'Frontend dependencies are incomplete; repairing node_modules...' -ForegroundColor Yellow
+  }
+  npm install --ignore-scripts
+  if ($LASTEXITCODE -ne 0) { throw 'npm install failed.' }
+}
+
+Write-Host 'Preparing PixiJS vendor bundle...' -ForegroundColor Yellow
+npm run vendor:pixi
+if ($LASTEXITCODE -ne 0) { throw 'PixiJS vendor generation failed.' }
+
+$PixiVendor = Join-Path $Repo 'public\vendor\pixi-8.19.0.min.js'
+if (-not (Test-Path $PixiVendor)) {
+  throw "PixiJS vendor bundle was not created: $PixiVendor"
+}
+Write-Host 'PixiJS vendor: OK' -ForegroundColor Green
+
+$ResolvedPort = Resolve-FrontendPort $FrontendPort
+if ($ResolvedPort -ne $FrontendPort) {
+  Write-Host "Requested frontend port $FrontendPort is occupied. Using $ResolvedPort instead." -ForegroundColor Yellow
+>>>>>>> d449789ac31d621de1f260ca8bd95c3df2bce632
 }
 
 if (-not (Test-Path $Python)) {
@@ -77,6 +155,7 @@ if (-not $SkipInstall) {
   & $Python -m pip install --disable-pip-version-check -q -r requirements-server.txt
   if ($LASTEXITCODE -ne 0) { throw 'Python 套件安裝失敗，請檢查網路或 requirements-server.txt' }
 
+<<<<<<< HEAD
   if (-not (Test-Path 'node_modules')) {
     Write-Host '[Setup] 安裝 npm 套件 (首次) ...' -ForegroundColor Yellow
     npm install
@@ -142,3 +221,11 @@ try {
   Write-Host ''
   Write-Host '[Done] 已停止 API 與前端。' -ForegroundColor Cyan
 }
+=======
+Start-Sleep -Seconds 2
+Write-Host 'Starting Vite frontend...' -ForegroundColor Green
+Write-Host 'API      : http://127.0.0.1:8765/api/health'
+Write-Host "Frontend : http://127.0.0.1:$ResolvedPort/" -ForegroundColor Cyan
+Write-Host 'Press Ctrl+C here to stop the frontend. Close the API window separately.'
+npm run dev -- --port $ResolvedPort --strictPort
+>>>>>>> d449789ac31d621de1f260ca8bd95c3df2bce632

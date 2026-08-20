@@ -1,6 +1,6 @@
 window.FabioV3=window.FabioV3||{};
 (()=>{
-let selectedNode=null,lastRoute='';
+let selectedNode=null,lastRoute='',enhanceQueued=false;
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const fmtTime=t=>{if(t==null)return'—';try{return new Date(Number(t)).toLocaleTimeString('zh-TW',{hour12:false,timeZone:'Asia/Taipei'})}catch{return'—'}};
 const fmtPrice=n=>Number.isFinite(Number(n))?Number(n).toLocaleString():'—';
@@ -15,11 +15,13 @@ function enhanceReplay(){const outcomes=$('.node-outcomes'),toolbar=$('.replay-t
  const layer=getLayer();if(layer)setActiveMode(layer.mode)
 }
 function enhancePractice(){const tools=$('.practice-tools');if(tools&&!tools.querySelector('.practice-visual-state'))tools.insertAdjacentHTML('beforeend','<span class="practice-visual-state">答題前：裸圖 · 答題後：揭露 Decision Visuals</span>')}
-function enhanceChrome(){const small=$('.logo small');if(small)small.textContent='Binary Decision Training · V3';const header=$('.header-actions');if(header&&!header.querySelector('.pixi-pill'))header.insertAdjacentHTML('afterbegin','<span class="pill pixi-pill">PixiJS 8.19.0</span>')}
+function ensureLogoBase(small){let base=[...small.childNodes].find(n=>n.nodeType===3);if(!base){base=document.createTextNode('');small.insertBefore(base,small.firstChild)}if(base.nodeValue!=='Binary Decision Training · V3')base.nodeValue='Binary Decision Training · V3'}
+function enhanceChrome(){const small=$('.logo small');if(small)ensureLogoBase(small);const header=$('.header-actions');if(header&&!header.querySelector('.pixi-pill'))header.insertAdjacentHTML('afterbegin','<span class="pill pixi-pill">PixiJS 8.19.0</span>')}
 function enhance(){enhanceChrome();const r=location.hash.replace(/^#\/?/,'').split('/')[0]||'dashboard';if(r==='replay')enhanceReplay();if(r==='practice')enhancePractice();lastRoute=r}
+function scheduleEnhance(){if(enhanceQueued)return;enhanceQueued=true;requestAnimationFrame(()=>{enhanceQueued=false;enhance()})}
 document.addEventListener('click',e=>{const node=e.target.closest?.('.node-outcomes button.visual-node-row');if(node){e.preventDefault();e.stopImmediatePropagation();focusNode(node.dataset.nodeId,{scroll:true,mode:'single'});return}const vm=e.target.closest?.('[data-vmode]');if(vm){e.preventDefault();e.stopImmediatePropagation();const layer=getLayer();if(!layer)return;const mode=vm.dataset.vmode;if(mode==='blind'){selectedNode=null;layer.clearFocus();layer.setMode('blind');$$('.visual-node-row').forEach(b=>b.classList.remove('focused'));detail(null)}else if(mode==='single'){const id=selectedNode||$('.visual-node-row')?.dataset.nodeId;if(id)focusNode(id,{scroll:false,mode:'single'})}else{layer.setMode('teaching');setActiveMode('teaching')}return}const reveal=e.target.closest?.('.replay-toolbar [data-reveal]');if(reveal){e.preventDefault();e.stopImmediatePropagation();const layer=getLayer();if(!layer)return;const v=reveal.dataset.reveal;if(v==='none'){selectedNode=null;layer.clearFocus();layer.setMode('blind');detail(null)}else if(v==='structure'){layer.setMode('structure')}else{layer.setMode('teaching')}setActiveMode(layer.mode)}},true);
 document.addEventListener('pointerover',e=>{const node=e.target.closest?.('.visual-node-row');if(!node||selectedNode===node.dataset.nodeId)return;const layer=getLayer();if(!layer||layer.mode==='blind')return;layer.focus(node.dataset.nodeId,{scroll:false});detail(layer.getVisual(node.dataset.nodeId))});
 document.addEventListener('pointerout',e=>{const node=e.target.closest?.('.visual-node-row');if(!node)return;const layer=getLayer();if(!layer)return;if(selectedNode)layer.focus(selectedNode,{scroll:false});else{layer.clearFocus();detail(null)}});
-const mo=new MutationObserver(()=>requestAnimationFrame(enhance));mo.observe(document.documentElement,{subtree:true,childList:true});window.addEventListener('hashchange',()=>setTimeout(enhance,0));setTimeout(enhance,300);
+const mo=new MutationObserver(scheduleEnhance);mo.observe(document.documentElement,{subtree:true,childList:true});window.addEventListener('hashchange',()=>setTimeout(enhance,0));setTimeout(enhance,300);
 FabioV3.visualUI={focusNode,enhance,get selectedNode(){return selectedNode}};
 })();

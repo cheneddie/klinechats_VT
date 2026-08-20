@@ -9,6 +9,8 @@ on:
       - src/v3/**
       - scripts/qa-browser-contract.mjs
       - scripts/capture-mastery.mjs
+      - scripts/perf-home.mjs
+      - scripts/perf-startup.mjs
       - .github/workflows/browser-release-qa.yml
   pull_request:
     branches: [main]
@@ -26,6 +28,8 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --ignore-scripts
+      - name: Prepare PixiJS vendor bundle
+        run: npm run vendor:pixi
       - run: npm install --no-save playwright@1.57.0
       - name: Serve Decision Gym
         run: |
@@ -33,6 +37,10 @@ jobs:
           for i in {1..20}; do curl -sf http://127.0.0.1:4173 >/dev/null && exit 0; sleep 1; done
           cat /tmp/fabio-browser-http.log
           exit 1
+      - name: Non-blocking dashboard startup
+        run: node scripts/perf-startup.mjs
+      - name: Dashboard idle performance
+        run: node scripts/perf-home.mjs
       - name: V3.2 interaction contract
         run: node scripts/qa-browser-contract.mjs
       - name: V3.3 mastery contract
