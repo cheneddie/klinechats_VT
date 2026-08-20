@@ -1,12 +1,45 @@
 param(
   [string]$DataRoot = 'D:\tools\traderChatV1\data\parquet\Future',
-  [string]$EventDb = 'D:\tools\traderChatV1\data\fabio-events.sqlite3',
+  [string]$EventDb = '',
+  [int]$FrontendPort = 5173,
   [switch]$SkipInstall
 )
 
 $ErrorActionPreference = 'Stop'
 $Repo = Split-Path -Parent $PSScriptRoot
 Set-Location $Repo
+
+if ([string]::IsNullOrWhiteSpace($EventDb)) {
+  $EventDb = Join-Path $Repo 'fabio-events.sqlite3'
+}
+
+function Test-PortAvailable([int]$Port) {
+  $listener = $null
+  try {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
+    $listener.Start()
+    return $true
+  }
+  catch {
+    return $false
+  }
+  finally {
+    if ($null -ne $listener) {
+      try { $listener.Stop() } catch {}
+    }
+  }
+}
+
+function Resolve-FrontendPort([int]$StartPort) {
+  $port = $StartPort
+  $maxPort = [Math]::Min(65535, $StartPort + 100)
+  while ($port -le $maxPort) {
+    if (Test-PortAvailable $port) { return $port }
+    Write-Host "Frontend port $port is already in use; trying $($port + 1)..." -ForegroundColor Yellow
+    $port++
+  }
+  throw "No free frontend port found between $StartPort and $maxPort."
+}
 
 Write-Host 'Fabio Decision Gym V3' -ForegroundColor Cyan
 Write-Host "Repo      : $Repo"
@@ -51,6 +84,11 @@ if (-not (Test-Path $PixiVendor)) {
 }
 Write-Host 'PixiJS vendor: OK' -ForegroundColor Green
 
+$ResolvedPort = Resolve-FrontendPort $FrontendPort
+if ($ResolvedPort -ne $FrontendPort) {
+  Write-Host "Requested frontend port $FrontendPort is occupied. Using $ResolvedPort instead." -ForegroundColor Yellow
+}
+
 $apiCmd = @"
 `$env:FABIO_DATA_ROOT='$DataRoot'
 `$env:FABIO_EVENT_DB='$EventDb'
@@ -63,6 +101,7 @@ Start-Process powershell -ArgumentList '-NoExit','-ExecutionPolicy','Bypass','-C
 
 Start-Sleep -Seconds 2
 Write-Host 'Starting Vite frontend...' -ForegroundColor Green
-Write-Host 'API: http://127.0.0.1:8765/api/health'
+Write-Host 'API      : http://127.0.0.1:8765/api/health'
+Write-Host "Frontend : http://127.0.0.1:$ResolvedPort/" -ForegroundColor Cyan
 Write-Host 'Press Ctrl+C here to stop the frontend. Close the API window separately.'
-npm run dev
+npm run dev -- --port $ResolvedPort --strictPort
