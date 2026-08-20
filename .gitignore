@@ -9,6 +9,11 @@ dist/
 __pycache__/
 *.py[cod]
 
+# Local Fabio Event Store (rebuildable from Parquet)
+fabio-events.sqlite3
+fabio-events.sqlite3-wal
+fabio-events.sqlite3-shm
+
 # Playwright MCP artifacts
 .playwright-mcp/
 
