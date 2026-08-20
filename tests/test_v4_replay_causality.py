@@ -29,17 +29,13 @@ def main():
         root = Path(td)
         path = root / 'MTX_2025.parquet'
         rows = [
-            # Friday day session establishes observed trading day.
             ('2025-01-03 09:00:00', 90),
-            # Friday night / Saturday early morning belong to Monday full session.
             ('2025-01-03 15:00:00', 91),
             ('2025-01-04 00:30:00', 92),
-            # Monday partial minute: decision occurs at :15; :45 is forbidden future.
             ('2025-01-06 09:10:00', 100),
             ('2025-01-06 09:10:15', 101),
             ('2025-01-06 09:10:45', 999),
             ('2025-01-06 13:00:00', 102),
-            # Tuesday observed day keeps Monday from being last/edge case.
             ('2025-01-07 09:00:00', 110),
         ]
         write(path, rows)
@@ -59,7 +55,7 @@ def main():
             timeframe='1m', session='full', cutoff_time='2025-01-06 09:10:15'
         )
         assert hidden['cutoff_time'] is not None
-        bar = next(b for b in hidden['bars'] if b['timestamp'] == 1736125800000)  # 2025-01-06 09:10 local-naive epoch encoding used by pandas
+        bar = next(b for b in hidden['bars'] if b['timestamp'] == 1736154600000)
         assert bar['open'] == 100.0 and bar['close'] == 101.0, bar
         assert bar['high'] == 101.0, '09:10:45 spike leaked into pre-decision 1m bar'
         assert 999.0 not in [b['high'] for b in hidden['bars']]
