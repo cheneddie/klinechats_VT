@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 from . import fabio_api as base
+from . import v4_release_engine as _release_engine  # applies tested V4.1 release semantics
 from .v4_api_final import install
 from .v4_training_api import install_training
 
