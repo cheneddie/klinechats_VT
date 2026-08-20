@@ -7,7 +7,7 @@ on:
       - index.html
       - src/v2/**
       - src/v3/**
-      - scripts/qa-v32.mjs
+      - scripts/qa-browser-contract.mjs
       - scripts/capture-mastery.mjs
       - .github/workflows/browser-release-qa.yml
   pull_request:
@@ -17,7 +17,7 @@ on:
 jobs:
   browser-release:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,8 +27,6 @@ jobs:
           node-version: '22'
       - run: npm install --ignore-scripts
       - run: npm install --no-save playwright@1.57.0
-      - name: Install Playwright Chromium bundle
-        run: npx playwright install chromium
       - name: Serve Decision Gym
         run: |
           python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/fabio-browser-http.log 2>&1 &
@@ -36,6 +34,6 @@ jobs:
           cat /tmp/fabio-browser-http.log
           exit 1
       - name: V3.2 interaction contract
-        run: node scripts/qa-v32.mjs
+        run: node scripts/qa-browser-contract.mjs
       - name: V3.3 mastery contract
         run: node scripts/capture-mastery.mjs
