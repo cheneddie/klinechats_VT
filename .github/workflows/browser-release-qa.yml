@@ -27,6 +27,8 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --ignore-scripts
+      - name: Prepare PixiJS vendor bundle
+        run: npm run vendor:pixi
       - run: npm install --no-save playwright@1.57.0
       - name: Serve Decision Gym
         run: |
