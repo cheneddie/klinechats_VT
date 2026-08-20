@@ -9,6 +9,7 @@ on:
       - src/v3/**
       - scripts/qa-browser-contract.mjs
       - scripts/capture-mastery.mjs
+      - scripts/perf-home.mjs
       - .github/workflows/browser-release-qa.yml
   pull_request:
     branches: [main]
@@ -33,6 +34,8 @@ jobs:
           for i in {1..20}; do curl -sf http://127.0.0.1:4173 >/dev/null && exit 0; sleep 1; done
           cat /tmp/fabio-browser-http.log
           exit 1
+      - name: Dashboard idle performance
+        run: node scripts/perf-home.mjs
       - name: V3.2 interaction contract
         run: node scripts/qa-browser-contract.mjs
       - name: V3.3 mastery contract
