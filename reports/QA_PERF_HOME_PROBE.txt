@@ -1,0 +1,1 @@
+QA-only probe for dashboard idle-performance validation. Do not merge.
