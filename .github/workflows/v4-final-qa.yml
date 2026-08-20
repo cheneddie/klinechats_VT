@@ -93,13 +93,18 @@ jobs:
           timeout 180s node scripts/qa-v4-watchdog.mjs
           echo '{"stage":"browser-watchdog","ok":true}' > qa-artifacts/workflow-status.json
 
-      - name: Snapshot service state
+      - name: Snapshot service state and validated source
         if: always()
         run: |
           curl -sS http://127.0.0.1:8765/api/v4/health > qa-artifacts/final-health.json 2>&1 || true
           curl -sS http://127.0.0.1:8765/api/v4/audit/jobs > qa-artifacts/final-audit-jobs.json 2>&1 || true
-          cp /tmp/*.log qa-artifacts/ 2>/dev/null || true
           ps -ef > qa-artifacts/processes.txt || true
+          tar -czf qa-artifacts/v4-diagnostic-source.tgz \
+            server/engine.py server/contracts.py server/causal_engine.py \
+            server/v4_engine.py server/v4_final_engine.py server/v4_audit.py server/v4_audit_final.py \
+            server/v4_replay.py server/v4_replay_final.py \
+            config tests/test_v4_unbiased_universe.py tests/test_v4_replay_causality.py \
+            requirements-server.txt 2>/dev/null || true
 
       - name: Upload watchdog evidence
         if: always()
@@ -114,6 +119,7 @@ jobs:
         if: success()
         run: |
           test -s qa-artifacts/qa-status.json
+          test -s qa-artifacts/v4-diagnostic-source.tgz
           python - <<'PY'
           import json
           from pathlib import Path
