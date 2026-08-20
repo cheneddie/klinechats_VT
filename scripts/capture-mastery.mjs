@@ -7,16 +7,16 @@ async function launchBrowser(){
 }
 const browser=await launchBrowser()
 const page=await browser.newPage({viewport:{width:1600,height:1000},deviceScaleFactor:1})
-const errors=[]
+const errors=[],warnings=[]
 page.on('console',msg=>{if(msg.type()==='error'&&!msg.text().includes('ERR_CONNECTION_REFUSED'))errors.push(`console: ${msg.text()}`)})
 page.on('pageerror',err=>errors.push(`pageerror: ${err.message}`))
 fs.mkdirSync('screenshots',{recursive:true})
+async function shot(path){try{await page.screenshot({path,fullPage:false,animations:'disabled',caret:'hide',timeout:8000})}catch(e){warnings.push(`screenshot: ${e.message}`)}}
 
 await page.goto('http://127.0.0.1:4173/#/dashboard',{waitUntil:'domcontentloaded'})
 await page.waitForSelector('.gym',{timeout:15000})
 await page.waitForFunction(()=>window.FabioV3?.mastery&&window.FabioMasteryCore,{timeout:15000})
 
-// Seed browser-only training evidence so the adaptive planner can be verified deterministically.
 await page.evaluate(()=>{
   const st=FabioV2.store.state
   const nodeId='MR_CLEAR_RECLAIM'
@@ -29,7 +29,7 @@ await page.evaluate(()=>{
   FabioV2.app.render()
 })
 await page.waitForSelector('#v33Mastery',{timeout:10000})
-await page.waitForTimeout(500)
+await page.waitForTimeout(350)
 const dashboard={
   panel:await page.locator('#v33Mastery').count(),
   sessions:await page.locator('#v33Mastery .v33-session').count(),
@@ -40,18 +40,18 @@ const dashboard={
   version:await page.locator('.v33-version').textContent().catch(()=>null),
   plan:await page.evaluate(()=>{const p=FabioV3.mastery.plan();return{overall:p.overall,todayAttempts:p.todayAttempts,dueCount:p.dueCount,first:p.sessions[0]?.nodeId,wrongQueue:p.wrongQueue.length}})
 }
-await page.screenshot({path:'screenshots/decision-gym-v3-3-mastery-dashboard.png',fullPage:true})
+await shot('screenshots/decision-gym-v3-3-mastery-dashboard.png')
 
 await page.evaluate(()=>{location.hash='#/review'})
 await page.waitForSelector('#v33WeakReview',{timeout:10000})
-await page.waitForTimeout(400)
+await page.waitForTimeout(300)
 const review={
   panel:await page.locator('#v33WeakReview').count(),
   rows:await page.locator('#v33WeakReview .v33-review-row').count(),
   practiceButtons:await page.locator('#v33WeakReview [data-v33-practice]').count(),
   replayButtons:await page.locator('#v33WeakReview [data-v33-replay]').count(),
 }
-await page.screenshot({path:'screenshots/decision-gym-v3-3-weak-review.png',fullPage:true})
+await shot('screenshots/decision-gym-v3-3-weak-review.png')
 
 if(dashboard.panel!==1)errors.push('V3.3 mastery dashboard missing')
 if(dashboard.sessions<1)errors.push('V3.3 adaptive session plan is empty')
@@ -66,7 +66,7 @@ if(review.panel!==1)errors.push('V3.3 weakness review panel missing')
 if(review.practiceButtons<1)errors.push('V3.3 weakness practice actions missing')
 if(review.replayButtons<1)errors.push('V3.3 wrong-case Replay actions missing')
 
-const report={dashboard,review,errors}
+const report={dashboard,review,warnings,errors}
 fs.writeFileSync('screenshots/decision-gym-v3-3-mastery.json',JSON.stringify(report,null,2))
 console.log(JSON.stringify(report,null,2))
 await browser.close()
