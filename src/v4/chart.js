@@ -14,10 +14,13 @@ function metaTime(c,nodeId){
   return m?.decision_time||m?.anchor_time||c?.entryTime||c?.entry_time||c?.attemptStartTime||c?.attempt_start_time;
 }
 async function fetchWindow(c,{nodeId=null,timeframe='1m',before=1,after=1,session='full',hideFuture=false}={}){
-  const q=new URLSearchParams({
-    timeframe,days_before:String(before),days_after:String(after),session,
-    hide_future:String(Boolean(hideFuture))
-  });
+  const q=new URLSearchParams({timeframe,days_before:String(before),session});
+  if(hideFuture){
+    if(!nodeId)throw new Error('Hide Future requires nodeId');
+    q.set('node_id',nodeId);
+    return api('/v4/training-replay/'+encodeURIComponent(c.id)+'?'+q.toString());
+  }
+  q.set('days_after',String(after));
   if(nodeId)q.set('node_id',nodeId);
   return api('/v4/replay/'+encodeURIComponent(c.id)+'?'+q.toString());
 }
@@ -32,8 +35,8 @@ async function render(host,c,opts={}){
   }
   if(payload?.case)Object.assign(c,payload.case);
   let bars=payload?.bars||[];
-  /* Defensive only. Server already cuts physical rows before aggregation when
-     hide_future=true. Never depend on this bar-level filter for causality. */
+  /* Defense-in-depth only: causal training endpoint has already removed future
+     physical rows before bar aggregation. */
   if(opts.hideFuture&&payload?.cutoff_time){
     const cut=Date.parse(payload.cutoff_time);
     if(Number.isFinite(cut))bars=bars.filter(b=>Number(b.timestamp)<=cut);
