@@ -27,6 +27,21 @@ async function shot(name){
     await page.screenshot({path:`screenshots/${name}.png`,fullPage:false,animations:'disabled',caret:'hide',timeout:12000})
   }catch(e){warnings.push(`screenshot ${name}: ${e.message}`)}
 }
+async function pointerClick(selector){
+  const loc=page.locator(selector).first()
+  await loc.waitFor({state:'visible',timeout:10000})
+  await loc.scrollIntoViewIfNeeded()
+  const box=await loc.boundingBox()
+  if(!box)throw new Error(`No bounding box for ${selector}`)
+  const x=box.x+box.width/2,y=box.y+box.height/2
+  const hit=await page.evaluate(({x,y,selector})=>{
+    const el=document.elementFromPoint(x,y)
+    return {tag:el?.tagName||null,text:el?.textContent?.trim()||null,matches:Boolean(el?.matches?.(selector)||el?.closest?.(selector))}
+  },{x,y,selector})
+  if(!hit.matches)throw new Error(`Pointer hit-test failed for ${selector}: ${JSON.stringify(hit)}`)
+  await page.mouse.click(x,y)
+  return {box,hit}
+}
 
 await page.goto('http://127.0.0.1:4173/#/dashboard',{waitUntil:'domcontentloaded'})
 await page.waitForSelector('.gym',{timeout:15000})
@@ -37,7 +52,6 @@ const dashboard={
   nav:await page.locator('.side nav a').count(),
 }
 
-// Create a deterministic offline NO partner while preserving the same SPA runtime.
 await page.evaluate(()=>{
   const s=FabioV2.store.state
   const node='MR_CLEAR_RECLAIM'
@@ -59,7 +73,7 @@ const pattern={
   tiles:await page.locator('.pl-tile').count(),
   actions:await page.locator('.pl-v32-actions button').count(),
 }
-await page.locator('[data-v32-yn]').click()
+pattern.pointer=await pointerClick('[data-v32-yn]')
 await page.waitForSelector('#v32Compare',{timeout:10000})
 await page.waitForFunction(()=>document.querySelectorAll('#v32Compare .decision-pixi-canvas').length===2,{timeout:10000})
 await page.waitForTimeout(350)
@@ -68,7 +82,7 @@ pattern.pixi=await page.locator('#v32Compare .decision-pixi-canvas').count()
 pattern.answers=await page.locator('#v32Compare .v32-answer').allTextContents()
 pattern.reason=await page.locator('#v32ExplainA').textContent().catch(()=>null)
 await shot('decision-gym-v3-2-yes-no-compare')
-await page.locator('#v32Close').click()
+await page.locator('#v32Close').click({force:true})
 
 await hashGo('practice/MR_CLEAR_RECLAIM','#gymChart',250)
 await page.waitForSelector('#gymChart .decision-pixi-canvas',{timeout:10000})
@@ -78,7 +92,7 @@ const practice={
   chipBefore:await page.locator('.practice-reveal-chip').textContent().catch(()=>null),
   answerButtons:await page.locator('.answer-buttons button').count(),
 }
-await page.locator('#ansYes').click()
+await pointerClick('#ansYes')
 await page.waitForSelector('#practiceFeedback.correct, #practiceFeedback.wrong',{timeout:10000})
 await page.waitForFunction(()=>FabioV3?.pixi?.current?.()?.mode==='single',{timeout:10000})
 await page.waitForTimeout(300)
@@ -87,9 +101,8 @@ practice.chipAfter=await page.locator('.practice-reveal-chip').textContent().cat
 practice.feedback=await page.locator('#practiceFeedback').textContent().catch(()=>null)
 await shot('decision-gym-v3-2-practice-reveal')
 
-// Re-enter Pattern Lab, then open a case so the selected Node persists into Replay.
 await hashGo('nodes/MR_CLEAR_RECLAIM','#patternLab',350)
-await page.locator('.pl-open').first().click()
+await pointerClick('.pl-open')
 await page.waitForSelector('#replayChart .decision-pixi-canvas',{timeout:12000})
 await page.waitForSelector('#nodeDrillbar',{timeout:10000})
 await page.waitForFunction(()=>document.querySelectorAll('.visual-node-row.focused').length===1,{timeout:10000})
@@ -105,6 +118,7 @@ await shot('decision-gym-v3-2-replay-drill')
 
 if(dashboard.pixiVersion!=='8.19.0')errors.push(`PixiJS version mismatch: ${dashboard.pixiVersion}`)
 if(pattern.tiles<2)errors.push(`Pattern Wall needs YES and NO cases, got ${pattern.tiles}`)
+if(pattern.actions<2)errors.push(`Pattern V3.2 actions missing: ${pattern.actions}`)
 if(pattern.compareOpen!==1||pattern.pixi!==2)errors.push(`YES/NO compare mount failed: open=${pattern.compareOpen}, pixi=${pattern.pixi}`)
 if(!pattern.answers.includes('YES')||!pattern.answers.includes('NO'))errors.push(`YES/NO compare pair invalid: ${pattern.answers.join(',')}`)
 if(practice.modeBefore!=='blind')errors.push(`Practice pre-answer mode=${practice.modeBefore}`)
