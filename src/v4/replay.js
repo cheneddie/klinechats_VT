@@ -73,11 +73,10 @@ async function showManagement(c){
   const p=$('#v4MgmtPanel');if(!p)return;
   p.innerHTML='<div class="v4-mgmt-empty">用 physical Tick path 計算此案例管理策略…</div>';
   try{
-    let d;
-    try{d=await FabioV2.store.api('/v4/management/'+encodeURIComponent(c.id))}
-    catch{
-      d=await FabioV2.store.api('/v4/management/simulate/'+encodeURIComponent(c.id),{method:'POST'});
-    }
+    /* A Replay case can be opened before the batch Audit has populated
+       opportunity_outcomes. Calling the simulation endpoint directly avoids an
+       intentional 404 -> fallback cycle that polluted browser/network QA. */
+    const d=await FabioV2.store.api('/v4/management/simulate/'+encodeURIComponent(c.id),{method:'POST'});
     p.innerHTML=mgmtTable(d);
   }catch(e){
     p.innerHTML='<div class="v4-mgmt-empty">無法計算：'+esc(e.message||e)+'</div>';
