@@ -4,8 +4,10 @@ import os
 
 from . import fabio_api as base
 from .v4_api_final import install
+from .v4_training_api import install_training
 
 app = install(base)
+app = install_training(base)
 
 
 def main():
