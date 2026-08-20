@@ -1,2 +1,3 @@
 QA-only probe for dashboard idle-performance validation. Do not merge.
 Retrigger after main added mandatory PixiJS vendor generation before browser QA.
+Retrigger after non-blocking Local API hydration and startup performance gate.
