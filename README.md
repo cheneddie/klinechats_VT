@@ -274,7 +274,6 @@ config/strategies/       versioned strategy parameters
 
 這是交易**訓練/研究平台**，不是保證獲利的自動下單系統。
 
-<<<<<<< HEAD
 規劃與驗收條件：[`docs/DEVELOPMENT_PLAN.md`](docs/DEVELOPMENT_PLAN.md)
 
 最終 QA：[`reports/FINAL_QA.md`](reports/FINAL_QA.md)
@@ -283,7 +282,5 @@ config/strategies/       versioned strategy parameters
 完整開發版：`fabio-replay-v1`
 
 PR 保持獨立審查，不會在未經確認的情況下自動合併到 `main`。
->>>>>>> 382a01c0532c12fc50bb6ab4c0ed1b99cd992ef0
-=======
+
 目前 MTX `side` 已知是 Tick Direction proxy，不是真正 Bid/Ask aggressor，因此真正 Fabio Footprint / Delta / CVD / Absorption / Aggression layer 仍需要 Bid/Ask classified trades、TBBO 或 MBO。
->>>>>>> bfa61963a3f027d5116f93c3aaf4efc1f0225cc7
