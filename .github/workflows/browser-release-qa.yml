@@ -1,0 +1,39 @@
+name: Browser release QA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - src/v2/**
+      - src/v3/**
+      - scripts/qa-v32.mjs
+      - scripts/capture-mastery.mjs
+      - .github/workflows/browser-release-qa.yml
+  workflow_dispatch:
+
+jobs:
+  browser-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --ignore-scripts
+      - run: npm install --no-save playwright@1.57.0
+      - name: Install Playwright Chromium bundle
+        run: npx playwright install chromium
+      - name: Serve Decision Gym
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/fabio-browser-http.log 2>&1 &
+          for i in {1..20}; do curl -sf http://127.0.0.1:4173 >/dev/null && exit 0; sleep 1; done
+          cat /tmp/fabio-browser-http.log
+          exit 1
+      - name: V3.2 interaction contract
+        run: node scripts/qa-v32.mjs
+      - name: V3.3 mastery contract
+        run: node scripts/capture-mastery.mjs
