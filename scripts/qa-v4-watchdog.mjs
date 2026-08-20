@@ -125,7 +125,7 @@ try{
     if(!state.checks.latestAuditItems)throw new Error('latest reverse audit empty');
   });
 
-  const hardErrors=state.errors.filter(e=>e.stage!=='console'||!/favicon|ERR_CONNECTION_REFUSED/i.test(e.message)===false);
+  const hardErrors=state.errors.filter(e=>e.stage!=='console'||!/favicon/i.test(e.message));
   if(hardErrors.length)throw new Error(`browser/runtime errors: ${JSON.stringify(hardErrors.slice(0,10))}`);
   state.ok=true;state.finishedAt=new Date().toISOString();mark('FINAL:PASS',{screenshots:state.screenshots.length});
 }catch(e){
