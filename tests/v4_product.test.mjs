@@ -23,9 +23,11 @@ test('V4 replay exposes trading-day context and selectable timeframes',()=>{
   assert.match(replay,/physical _seq/)
 })
 
-test('V4 research exposes reverse audit and ablation without claiming final OOS validation',()=>{
+test('V4 research exposes unbiased reverse audit and ablation without claiming final OOS validation',()=>{
   assert.match(research,/REVERSE NODE EDGE AUDIT/)
-  assert.match(research,/shadow downstream construction/)
+  assert.match(research,/寬鬆終端機會/)
+  assert.match(research,/不要求 BO Response/)
+  assert.match(research,/避免循環論證/)
   assert.match(research,/Ablation Test/)
   assert.match(research,/待 OOS/)
 })
