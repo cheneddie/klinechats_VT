@@ -10,6 +10,8 @@ on:
       - scripts/qa-v32.mjs
       - scripts/capture-mastery.mjs
       - .github/workflows/browser-release-qa.yml
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
