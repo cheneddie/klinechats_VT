@@ -27,20 +27,41 @@ async function shot(name){
     await page.screenshot({path:`screenshots/${name}.png`,fullPage:false,animations:'disabled',caret:'hide',timeout:12000})
   }catch(e){warnings.push(`screenshot ${name}: ${e.message}`)}
 }
+async function inspectElement(selector){
+  return page.evaluate(selector=>{
+    const all=[...document.querySelectorAll(selector)]
+    return all.map((el,index)=>{
+      const rect=el.getBoundingClientRect(),cs=getComputedStyle(el)
+      const ancestors=[]
+      let p=el.parentElement,depth=0
+      while(p&&depth<8){
+        const r=p.getBoundingClientRect(),s=getComputedStyle(p)
+        ancestors.push({tag:p.tagName,id:p.id,cls:p.className,display:s.display,visibility:s.visibility,opacity:s.opacity,overflow:s.overflow,width:r.width,height:r.height})
+        p=p.parentElement;depth++
+      }
+      return {index,connected:el.isConnected,text:el.textContent?.trim(),display:cs.display,visibility:cs.visibility,opacity:cs.opacity,pointerEvents:cs.pointerEvents,position:cs.position,width:rect.width,height:rect.height,x:rect.x,y:rect.y,clientRects:el.getClientRects().length,offsetParent:el.offsetParent?`${el.offsetParent.tagName}#${el.offsetParent.id}.${el.offsetParent.className}`:null,ancestors}
+    })
+  },selector)
+}
 async function pointerClick(selector){
   const loc=page.locator(selector).first()
-  await loc.waitFor({state:'visible',timeout:10000})
-  await loc.scrollIntoViewIfNeeded()
+  await loc.waitFor({state:'attached',timeout:10000})
+  const diagnostics=await inspectElement(selector)
+  const first=diagnostics[0]
+  if(!first||first.width<=0||first.height<=0||first.display==='none'||first.visibility==='hidden'||Number(first.opacity)===0){
+    throw new Error(`Element not visibly boxed for ${selector}: ${JSON.stringify(diagnostics)}`)
+  }
+  await loc.scrollIntoViewIfNeeded().catch(()=>{})
   const box=await loc.boundingBox()
-  if(!box)throw new Error(`No bounding box for ${selector}`)
+  if(!box)throw new Error(`No bounding box for ${selector}: ${JSON.stringify(diagnostics)}`)
   const x=box.x+box.width/2,y=box.y+box.height/2
   const hit=await page.evaluate(({x,y,selector})=>{
     const el=document.elementFromPoint(x,y)
-    return {tag:el?.tagName||null,text:el?.textContent?.trim()||null,matches:Boolean(el?.matches?.(selector)||el?.closest?.(selector))}
+    return {tag:el?.tagName||null,id:el?.id||null,cls:el?.className||null,text:el?.textContent?.trim()||null,matches:Boolean(el?.matches?.(selector)||el?.closest?.(selector))}
   },{x,y,selector})
-  if(!hit.matches)throw new Error(`Pointer hit-test failed for ${selector}: ${JSON.stringify(hit)}`)
+  if(!hit.matches)throw new Error(`Pointer hit-test failed for ${selector}: ${JSON.stringify({hit,diagnostics})}`)
   await page.mouse.click(x,y)
-  return {box,hit}
+  return {box,hit,diagnostics}
 }
 
 await page.goto('http://127.0.0.1:4173/#/dashboard',{waitUntil:'domcontentloaded'})
@@ -72,6 +93,7 @@ await page.waitForFunction(()=>document.querySelectorAll('.pl-tile').length>=2,{
 const pattern={
   tiles:await page.locator('.pl-tile').count(),
   actions:await page.locator('.pl-v32-actions button').count(),
+  actionDiagnostics:await inspectElement('[data-v32-yn]'),
 }
 pattern.pointer=await pointerClick('[data-v32-yn]')
 await page.waitForSelector('#v32Compare',{timeout:10000})
