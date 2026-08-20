@@ -105,6 +105,10 @@ jobs:
             server/v4_replay.py server/v4_replay_final.py \
             config tests/test_v4_unbiased_universe.py tests/test_v4_replay_causality.py \
             requirements-server.txt 2>/dev/null || true
+          mkdir -p qa-artifacts/wheels
+          python -m pip download --no-deps --only-binary=:all: \
+            --implementation cp --python-version 3.13 --abi cp313 --platform manylinux_2_28_x86_64 \
+            pyarrow==24.0.0 -d qa-artifacts/wheels || true
 
       - name: Upload watchdog evidence
         if: always()
