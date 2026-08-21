@@ -1,19 +1,19 @@
-# Fabio Decision Gym V4 — 2024–2026 Multi-Year Execution Status
+# Fabio Decision Gym V4 — 2024–2026 Research Execution Status
 
 Date: 2026-08-21  
 Branch: `fabio-decision-gym-v4`  
 PR: #21  
 Status: research branch only — **do not merge to `main` without explicit approval**
 
-## 1. Source evidence now available
+## 1. Source evidence available
 
-The project source layer now contains a corrected MTX 2024–2026 research report documenting these raw files:
+The project source layer documents these MTX raw datasets:
 
-| Year | Raw transaction rows | Coverage |
-|---|---:|---|
-| 2024 | 50,862,751 | full year |
-| 2025 | 39,416,621 | full year |
-| 2026 | 36,158,882 | through 2026-08-14 |
+| Year | Raw transaction rows | Coverage | Fabio role |
+|---|---:|---|---|
+| 2025 | 39,416,621 | full year | Discovery / Single-Year Diagnostic |
+| 2024 | 50,862,751 | full year | External Validation |
+| 2026 | 36,158,882 | through 2026-08-14 | Final Holdout (YTD/partial-year) |
 
 Documented raw columns:
 
@@ -24,43 +24,115 @@ Documented raw columns:
 - `volume`
 - `side`
 
-Documented immutable data semantics:
+Immutable data semantics:
 
 1. preserve physical Parquet row order;
 2. never re-sort equal-second transactions;
 3. keep MTX outright contracts only (`^\d{6}$`), remove spreads;
 4. vendor volume is two-sided and normalized research volume is `volume / 2`;
 5. `side` is tick-price direction, not true exchange aggressor;
-6. different expiry contracts must never be joined into a return path.
+6. different expiry contracts must never be joined into one return path.
 
-These data facts are shared input semantics only.  Strategy conclusions from the separate short-horizon/order-flow report are **not** imported as Fabio V4 evidence.
+These shared data facts do **not** import strategy conclusions from the separate order-flow research stream into Fabio V4.
 
-## 2. Runtime boundary
+## 2. Current execution boundary
 
-At this update, the current ChatGPT execution runtime / searchable File Library does not expose the three raw Parquet file bodies as executable files.  Searches return the corrected research report and derived CSV artifacts, but not `MTX_2024.parquet`, `MTX_2025.parquet`, or `MTX_2026.parquet` as mountable raw files.
+The current ChatGPT execution runtime / searchable File Library exposes source reports and derived artifacts, but still does not expose `MTX_2024.parquet`, `MTX_2025.parquet`, or `MTX_2026.parquet` as mountable raw file bodies.
 
-Therefore no Fabio V4 2024–2026 scanner result, edge table or performance result is fabricated from another research stream.
+Therefore no Fabio V4 scanner, edge or strict-trade result is fabricated from another research stream. The branch is prepared to run the canonical pipeline as soon as the raw files are physically available to the runtime/local deployment.
 
-## 3. Important research correction: relaxed opportunity != actual strict trade
+## 3. Validation governance — do not pool all years before holdout reveal
 
-V4 reverse-node research intentionally uses a relaxed terminal opportunity universe.  This is necessary to evaluate gates without circular selection.
+`config/research/v4_validation_plan.json` freezes the current research roles:
 
-That research anchor cannot be reused as actual strategy execution performance.
+```text
+2025 = Discovery
+2024 = Validation
+2026 = Final Holdout (YTD through documented source coverage)
+```
+
+Why:
+
+- V4 development and the original Single-Year Diagnostic were already centered on 2025, so 2025 cannot honestly be called untouched OOS.
+- 2024 can test the frozen 2025-developed generation without immediately consuming 2026.
+- 2026 is reserved for one-time final holdout evaluation after the candidate rules are frozen.
+
+The diagnostic runner refuses a pooled development+holdout request by default. `--allow-holdout-reveal` exists only for an intentional post-freeze reveal; using it means 2026 has been opened for that generation.
+
+Any material scanner/node/parameter change after inspecting 2026 Fabio results creates a new strategy generation, and 2026 is no longer final OOS for that new generation.
+
+## 4. Relaxed research opportunity != actual strict trade
+
+Reverse-node research intentionally uses a relaxed terminal-opportunity universe to avoid circular gate selection.
+
+That anchor is not actual strategy execution performance.
 
 Especially for BO:
 
-- research terminal anchor: Pullback opportunity;
-- strict strategy entry: only after `BO_RESPONSE` causally confirms.
+```text
+Research anchor = Pullback opportunity
+Strict entry    = after BO_RESPONSE causal confirmation
+```
 
-The branch now persists a separate `strict_trade_outcomes` table built from actual `events.result='ENTRY'` and actual strict `entry_seq`.
+The branch persists a separate `strict_trade_outcomes` table from actual `events.result='ENTRY'` and actual strict physical `entry_seq`.
 
-This prevents optimistic BO performance from being measured at an earlier research-only price.
+Node/gate research therefore uses relaxed outcomes; production diagnostics use strict outcomes.
 
-## 4. Multi-year Edge Map
+## 5. Complete source / contract audit
 
-`server/v4_multiyear.py` now creates a cross-year Node map from the relaxed opportunity universe.
+The scanner persists `dataset_integrity`:
 
-A Node is not classified from a pooled average alone.
+- source rows;
+- MTX rows;
+- outright rows;
+- spread rows removed;
+- outright contracts found;
+- source-order QA.
+
+It also persists `contract_selection_audit` by trading date:
+
+- candidate contracts;
+- candidate raw volume;
+- normalized `volume/2`;
+- selected contract;
+- selected volume;
+- roll / ambiguity state;
+- causal flag;
+- selection mode and reason.
+
+`scan_summary.json` covers the required funnel:
+
+```text
+source rows
+→ MTX rows
+→ outright rows
+→ spread removed
+→ contracts found
+→ active contracts
+→ trading days
+→ roll days
+→ Auction attempts
+→ MR / BO / WAIT-invalid
+→ terminal opportunities
+→ strict entries
+```
+
+## 6. Clean rebuild rule
+
+A canonical fresh diagnostic no longer layers a new scanner generation on stale SQLite events.
+
+Default behavior:
+
+1. raw Parquet remains untouched;
+2. human `training_attempts` and research history remain preserved;
+3. selected-year rebuildable Events / Nodes / relaxed outcomes / strict outcomes / source audit / contract audit are deleted;
+4. selected years are rescanned from raw Parquet.
+
+This prevents events from an older scanner generation surviving into new statistics.
+
+## 7. Multi-Year Edge Map
+
+`server/v4_multiyear.py` creates a cross-year Node map from the relaxed research universe.
 
 Per year it records:
 
@@ -72,26 +144,29 @@ Per year it records:
 - rejected signed Total R;
 - same-seq parent redundancy.
 
-Conservative classification rules:
+Conservative classifications:
 
 - fewer than two sufficient years (`n >= 50`) → `INSUFFICIENT`;
 - material mixed-sign yearly effect → `REGIME_DEPENDENT`;
-- high same-seq redundancy plus negligible incremental R → `REDUNDANT`;
+- high same-seq redundancy + negligible incremental R → `REDUNDANT`;
 - materially negative incremental R → `HARMFUL`;
-- consistent positive multi-year contribution with loser rejection and right-tail retention → `CORE`;
+- consistent positive contribution with loser rejection and right-tail retention → `CORE`;
 - otherwise → `OPTIONAL`.
 
-This prevents a strong year from hiding a harmful regime in another year.
+Before final holdout reveal, production-node selection should use **2025 + 2024 only**.
 
-## 5. Strict strategy diagnostics
+## 8. Strict strategy diagnostics
 
-Actual strict-entry results are reported separately by year and combined.
+Actual strict-entry results are reported by year and combined.
 
-For MR the practical management basis is `fixed_1R`.
+Practical management bases:
 
-For BO the practical management basis is `fixed_2R`.
+```text
+MR = fixed_1R
+BO = fixed_2R
+```
 
-Reported metrics include:
+Reported metrics:
 
 - N;
 - Avg / Median / Total R;
@@ -104,20 +179,42 @@ Reported metrics include:
 - P90 / P95 / Max MFE R;
 - Avg winner points.
 
-Right-tail results are explicitly split between relaxed research opportunities and actual strict entries.
+Right-tail evidence is explicitly split into relaxed research opportunities versus actual strict entries.
 
-## 6. Execution stress
+## 9. Stratified Edge Report
 
-`server/v4_execution_stress.py` now computes objective cost and concentration stress from actual strict entries.
+`server/v4_stratified.py` prevents pooled averages from hiding concentration.
 
-Round-trip cost grid:
+Strict strategy results are segmented by:
 
-- 0 points;
-- 1 point;
-- 2 points;
-- 3 points.
+- month;
+- direction;
+- intraday detection window:
+  - 08:45–09:00
+  - 09:00–09:30
+  - 09:30–10:30
+  - 10:30–11:30
+  - 11:30–13:45
+- auction side;
+- Value Width quartile;
+- excursion quartile;
+- LVN depth quartile.
 
-For every cost level:
+Each segment includes N, Avg R, Total R, PF, Win Rate, MFE, MAE and 1R/2R/3R/5R rates.
+
+Node research also gets monthly consistency: per-month N / Pass / Fail / Δ control Avg R and sign consistency.
+
+The current event schema does not yet persist a frozen causal volatility/trend/range regime, so those are reported as unavailable instead of inferred after seeing outcomes. Current V4 signal detection is day session only; no night-detection result is invented.
+
+## 10. Execution stress
+
+`server/v4_execution_stress.py` runs objective strict-entry round-trip cost stress at:
+
+```text
+0 / 1 / 2 / 3 points
+```
+
+For each cost level:
 
 - Avg Net R;
 - Total Net R;
@@ -125,102 +222,89 @@ For every cost level:
 - Profit Factor;
 - Max Drawdown R.
 
-It also reports:
+It also reports monthly/yearly concentration and the largest positive-period share.
 
-- monthly Total R;
-- yearly Total R;
-- positive/negative period counts;
-- largest positive-period share.
+Latency remains `PENDING_FROZEN_SPEC` until these rules are frozen:
 
-Latency is intentionally marked `PENDING_FROZEN_SPEC`.  The source requirements demand latency robustness but do not yet freeze:
-
-- the delay-second grid;
+- delay-second grid;
 - delayed-fill rule;
-- how the original structural stop behaves after a delayed fill;
-- session crossing behavior.
+- structural-stop behavior after delayed fill;
+- session-crossing behavior.
 
-No favorable latency model is invented.
+No favorable latency assumption is invented.
 
-## 7. Complete source / contract funnel
+## 11. Canonical role-separated execution
 
-The scanner now persists `dataset_integrity` with:
+### Stage A — Discovery: 2025
 
-- source rows;
-- MTX rows;
-- outright rows;
-- spread rows removed;
-- outright contracts found;
-- source-order QA.
+```bash
+python tools/run_v4_diagnostic.py \
+  --root <PARQUET_ROOT> \
+  --db <FABIO_EVENT_DB> \
+  --year 2025 \
+  --out <RESULT_ROOT>/2025-discovery
+```
 
-It also persists `contract_selection_audit` per trading date:
+Review Event Sanity, manual replay samples, Reverse Audit, Sequential Contribution, Ablation, strict performance, right tail, strata and execution stress. Fix scanner/event bugs before proceeding.
 
-- candidate contracts;
-- candidate raw volume;
-- normalized `volume/2`;
-- selected contract;
-- selected volume;
-- roll state;
-- ambiguity state;
-- causal flag;
-- selection mode;
-- selection reason.
+### Stage B — Validation: 2024
 
-`scan_summary.json` therefore covers the complete requested funnel:
-
-source rows → MTX rows → outright rows → spread removed → contracts found → active contracts → trading days → roll days → Auction attempts → MR / BO / WAIT → terminal opportunities → strict entries.
-
-## 8. Clean rebuild rule
-
-A formal diagnostic no longer layers a new scan over potentially stale events.
-
-Default behavior:
-
-1. preserve raw Parquet;
-2. preserve `training_attempts` and research history;
-3. delete selected-year rebuildable Events / Nodes / relaxed outcomes / strict outcomes / source audit / contract audit;
-4. rescan the selected years from raw Parquet.
-
-This prevents stale Events from an older scanner generation from surviving into new multi-year statistics.
-
-## 9. Canonical multi-year run
-
-Once the three raw Parquet files are physically available under one execution root, the canonical command is:
+After the candidate generation is frozen enough to validate:
 
 ```bash
 python tools/run_v4_diagnostic.py \
   --root <PARQUET_ROOT> \
   --db <FABIO_EVENT_DB> \
   --year 2024 \
-  --year 2025 \
-  --year 2026 \
-  --out <RESULT_DIR>
+  --out <RESULT_ROOT>/2024-validation
 ```
 
-The run is gated in this order:
+Then a descriptive development Edge Map may be created from **2024+2025 only** using the already-built event DB (`--skip-scan`) or APIs. Do not add 2026 yet.
 
-1. clean selected-year rebuildable state;
-2. raw source-order / source-funnel QA;
-3. causal contract-selection audit;
-4. V4.1 release scanner;
-5. physical Event Sanity Gate;
-6. relaxed terminal physical outcomes;
-7. Reverse Node Audit;
-8. Sequential Gate Contribution;
-9. Ablation;
-10. Trade Management / Capture;
-11. actual strict-entry physical outcomes;
-12. strict strategy summary;
-13. right-tail summary;
-14. multi-year Edge Map;
-15. Production Gate.
+### Stage C — Freeze candidate
 
-The execution-stress API additionally exposes 0/1/2/3-point cost and concentration stress while latency policy remains frozen-spec pending.
+Freeze:
 
-## 10. Required output artifacts
+- scanner generation;
+- Node set;
+- strategy parameters;
+- execution assumptions that are actually specified;
+- production candidate definition.
 
-Canonical runner outputs include:
+### Stage D — Final Holdout: 2026
+
+Only after Stage C:
+
+```bash
+python tools/run_v4_diagnostic.py \
+  --root <PARQUET_ROOT> \
+  --db <FABIO_EVENT_DB> \
+  --year 2026 \
+  --out <RESULT_ROOT>/2026-final-holdout
+```
+
+This opens the current 2026 Fabio holdout. Coverage is partial-year/YTD according to the documented source.
+
+### Stage E — post-holdout descriptive all-years report
+
+After intentional reveal, an all-years report may be generated with the explicit override:
+
+```bash
+python tools/run_v4_diagnostic.py \
+  --root <PARQUET_ROOT> \
+  --db <FABIO_EVENT_DB> \
+  --year 2024 --year 2025 --year 2026 \
+  --skip-scan \
+  --allow-holdout-reveal \
+  --out <RESULT_ROOT>/post-holdout-all-years
+```
+
+That pooled output is descriptive evidence, **not** a new parameter-optimization dataset.
+
+## 12. Canonical runner outputs
 
 - `provenance.json`
+- `validation_plan.json`
 - `progress.json`
 - `rebuild_cleanup.json`
 - `scan_summary.json`
@@ -233,26 +317,25 @@ Canonical runner outputs include:
 - `strict_trade_summary.json`
 - `right_tail.json`
 - `multi_year_edge_map.json`
+- `stratified_edge.json`
+- `execution_stress.json`
 - `production_gate.json`
 - `final_summary.json`
 
-Execution stress is also exposed by:
+Research API also exposes strict summary, right tail, Multi-Year Edge Map, stratified edge, execution stress and production-gate views.
 
-```text
-GET /api/v4/research/execution-stress
-```
+## 13. Production boundary
 
-## 11. Production boundary
+Even with positive historical results, `live_approved` remains false by default.
 
-Even after 2024–2026 is computed, `live_approved` remains false by default.
-
-A production claim still requires explicit resolution of:
+A live claim still requires explicit resolution of:
 
 - representative ATR timeframe/reference for the “average profit >= ~10% ATR” gate;
 - accepted round-trip cost threshold;
-- frozen latency model and latency robustness;
+- frozen latency model + latency robustness;
 - maximum acceptable drawdown;
 - maximum month/year concentration;
-- paper/live causal parity.
+- Historical ↔ Live causal parity;
+- signal opportunity versus execution opportunity versus actual-fill assumptions.
 
-The correct output is therefore evidence and gate status, not an automatic claim that a historical positive average is deployable alpha.
+The correct output is evidence and Gate status—not an automatic claim that a positive historical average is deployable alpha.
