@@ -6,12 +6,12 @@ Research order:
 
     clean rebuildable year state -> scan -> physical Event Sanity Gate
     -> relaxed outcomes -> reverse audit -> ablation -> sequential contribution
-    -> strict-entry outcomes -> multi-year edge map -> right-tail -> production gate
+    -> strict-entry outcomes -> multi-year edge map -> right-tail
+    -> stratified edge -> execution stress -> production gate
 
 Synthetic data may validate software, but output from synthetic data must never
-be described as strategy evidence.  A real single year is still diagnostic,
-not final OOS validation.  Multi-year evidence is still not automatically a
-live approval: cost/latency/ATR/drawdown/concentration gates remain explicit.
+be described as strategy evidence. A validation plan prevents an intended final
+holdout from being silently pooled into development analysis.
 """
 
 import argparse
@@ -29,6 +29,7 @@ if str(ROOT_DIR) not in sys.path:
 from server import progress_scanner
 from server.engine import connect
 from server.v4_audit_final import ablation_audit, compute_outcomes, reverse_node_audit
+from server.v4_execution_stress import EXECUTION_STRESS_VERSION, execution_stress_summary
 from server.v4_multiyear import (
     MULTIYEAR_VERSION,
     PRODUCTION_GATE_VERSION,
@@ -55,6 +56,9 @@ from server.v4_research_release import (
     sequential_gate_contribution,
     start_research_run,
 )
+from server.v4_stratified import STRATIFIED_VERSION, stratified_edge_report
+
+DEFAULT_VALIDATION_PLAN = ROOT_DIR / "config" / "research" / "v4_validation_plan.json"
 
 
 def utcnow():
@@ -68,6 +72,44 @@ def dump(path: Path, payload):
 
 def table_exists(con, name: str) -> bool:
     return bool(con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone())
+
+
+def load_validation_plan(path: Path | None):
+    if path is None or not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def requested_roles(plan, years):
+    if not plan:
+        return {}
+    result = {}
+    for role, role_years in (plan.get("roles") or {}).items():
+        for year in years:
+            if int(year) in {int(x) for x in role_years or []}:
+                result[str(year)] = role
+    return result
+
+
+def validate_holdout_request(plan, years, allow_holdout_reveal=False):
+    roles = requested_roles(plan, years)
+    if not plan:
+        return {"ok": True, "roles": roles, "warning": "NO_VALIDATION_PLAN_LOADED"}
+    holdouts = {int(x) for x in (plan.get("roles") or {}).get("final_holdout", [])}
+    requested = {int(x) for x in years}
+    mixed = bool(requested & holdouts) and bool(requested - holdouts)
+    if mixed and not allow_holdout_reveal:
+        raise RuntimeError(
+            "HOLDOUT_PROTECTION: final-holdout year cannot be pooled with discovery/validation by default. "
+            "Run holdout separately after candidate freeze, or pass --allow-holdout-reveal only after the holdout has intentionally been opened."
+        )
+    return {
+        "ok": True,
+        "roles": roles,
+        "holdout_revealed_in_this_run": bool(requested & holdouts),
+        "pooled_with_development": mixed,
+        "explicit_reveal_override": bool(allow_holdout_reveal),
+    }
 
 
 def write_audit_csv(path: Path, audit):
@@ -110,7 +152,7 @@ def clean_rebuildable_years(db: Path, years):
     """Remove only market-derived state for selected years before a fresh scan.
 
     Human `training_attempts`, research-run history and prior audit snapshots are
-    deliberately preserved.  Raw Parquet is the source of truth; Events, Nodes,
+    deliberately preserved. Raw Parquet is the source of truth; Events, Nodes,
     outcomes and data/contract audit rows are rebuildable and must not leak stale
     scanner generations into a new diagnostic.
     """
@@ -245,9 +287,14 @@ def main():
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--max-after-days", type=int, default=1)
     ap.add_argument("--skip-scan", action="store_true", help="Use an already-built V4 event DB without deleting/rebuilding it")
+    ap.add_argument("--validation-plan", type=Path, default=DEFAULT_VALIDATION_PLAN)
+    ap.add_argument("--allow-holdout-reveal", action="store_true", help="Explicitly allow pooling a final holdout with development years after intentional reveal")
     args = ap.parse_args()
 
     years = sorted(set(args.year))
+    plan = load_validation_plan(args.validation_plan)
+    holdout_guard = validate_holdout_request(plan, years, args.allow_holdout_reveal)
+    role_map = requested_roles(plan, years)
     args.out.mkdir(parents=True, exist_ok=True)
     progress_file = args.out / "progress.json"
     start = time.monotonic()
@@ -268,8 +315,13 @@ def main():
                 "db": str(args.db),
                 "out": str(args.out),
                 "evidence_label": "Single-Year Diagnostic" if len(years) == 1 else "Multi-Year Diagnostic",
+                "validation_plan_id": (plan or {}).get("plan_id"),
+                "validation_roles": role_map,
+                "holdout_guard": holdout_guard,
                 "strict_outcome_version": STRICT_OUTCOME_VERSION,
                 "multiyear_version": MULTIYEAR_VERSION,
+                "execution_stress_version": EXECUTION_STRESS_VERSION,
+                "stratified_version": STRATIFIED_VERSION,
                 "production_gate_version": PRODUCTION_GATE_VERSION,
                 "rebuild_mode": "reuse_existing" if args.skip_scan else "clean_selected_years_then_rescan",
             },
@@ -292,12 +344,19 @@ def main():
         run_id=run_id,
         years=years,
         started_at=utcnow(),
+        validation_plan=(plan or {}).get("plan_id"),
+        validation_roles=role_map,
+        holdout_guard=holdout_guard,
         strict_outcome_version=STRICT_OUTCOME_VERSION,
         multiyear_version=MULTIYEAR_VERSION,
+        execution_stress_version=EXECUTION_STRESS_VERSION,
+        stratified_version=STRATIFIED_VERSION,
         production_gate_version=PRODUCTION_GATE_VERSION,
         rebuild_mode="reuse_existing" if args.skip_scan else "clean_selected_years_then_rescan",
     )
     dump(args.out / "provenance.json", manifest)
+    if plan:
+        dump(args.out / "validation_plan.json", plan)
 
     try:
         if not args.skip_scan:
@@ -375,6 +434,8 @@ def main():
             strict_summary = strict_trade_summary(con, years)
             right_tail = right_tail_summary(con, years)
             edge_map = multi_year_edge_map(con, years)
+            stratified = stratified_edge_report(con, years)
+            execution_stress = execution_stress_summary(con, years)
             live_gate = production_gate(con, years)
         finally:
             con.close()
@@ -382,6 +443,8 @@ def main():
         dump(args.out / "strict_trade_summary.json", strict_summary)
         dump(args.out / "right_tail.json", right_tail)
         dump(args.out / "multi_year_edge_map.json", edge_map)
+        dump(args.out / "stratified_edge.json", stratified)
+        dump(args.out / "execution_stress.json", execution_stress)
         dump(args.out / "production_gate.json", live_gate)
 
         classifications = {}
@@ -395,6 +458,9 @@ def main():
             "run_id": run_id,
             "evidence_label": "Single-Year Diagnostic" if len(years) == 1 else "Multi-Year Diagnostic",
             "years": years,
+            "validation_plan_id": (plan or {}).get("plan_id"),
+            "validation_roles": role_map,
+            "holdout_guard": holdout_guard,
             "automatic_event_sanity": "PASS",
             "source_order_qa": "PASS" if summary.get("source_order_qa_pass") else "UNKNOWN_OR_FAIL",
             "contract_policy_qa": "PASS" if summary.get("contract_policy_causal") else "UNKNOWN_OR_FAIL",
@@ -403,6 +469,8 @@ def main():
             "strict_entry_outcomes": strict_count,
             "node_classifications": classifications,
             "cross_year_node_classifications": cross_year_classifications,
+            "stratified_edge_available": True,
+            "execution_stress_available": True,
             "production_gate": {
                 "MR": live_gate.get("strategies", {}).get("MR", {}).get("status"),
                 "BO": live_gate.get("strategies", {}).get("BO", {}).get("status"),
@@ -414,15 +482,16 @@ def main():
                 "strict_outcome": STRICT_OUTCOME_VERSION,
                 "management": MANAGEMENT_VERSION,
                 "multiyear": MULTIYEAR_VERSION,
+                "execution_stress": EXECUTION_STRESS_VERSION,
+                "stratified": STRATIFIED_VERSION,
                 "production_gate": PRODUCTION_GATE_VERSION,
                 "contract_policy": CONTRACT_POLICY_VERSION,
                 "config_hash": manifest["config_hash"],
                 "git_commit": manifest["git_commit"],
             },
             "evidence_boundary": (
-                "Single-year results are diagnostic only. Multi-year results are not automatically final OOS. "
-                "Synthetic QA is software validation only. Live approval remains blocked until the explicit "
-                "cost/latency/ATR/drawdown/concentration policies are measured and passed."
+                "Single-year results are diagnostic only. A final-holdout year must not be pooled into development analysis before intentional reveal. "
+                "Synthetic QA is software validation only. Live approval remains blocked until explicit cost/latency/ATR/drawdown/concentration policies are frozen and passed."
             ),
             "production_value_targets": {
                 "MR": "candidate should support approximately 1R practical reward",
@@ -448,6 +517,8 @@ def main():
                     "automatic_event_sanity": "PASS",
                     "source_order_qa": final["source_order_qa"],
                     "contract_policy_qa": final["contract_policy_qa"],
+                    "validation_roles": role_map,
+                    "holdout_guard": holdout_guard,
                     "production_gate": final["production_gate"],
                 },
             )
