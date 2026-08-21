@@ -62,6 +62,7 @@ jobs:
           timeout 60s python tests/test_v4_multiyear.py
           timeout 60s python tests/test_v4_scan_audit.py
           timeout 60s python tests/test_v4_execution_stress.py
+          timeout 60s python tests/test_v4_stratified.py
           echo '{"stage":"python-tests","ok":true}' > qa-artifacts/workflow-status.json
 
       - name: Seed real API QA environment
@@ -113,6 +114,7 @@ jobs:
           curl -sS http://127.0.0.1:8765/api/v4/research/provenance > qa-artifacts/final-provenance.json 2>&1 || true
           curl -sS http://127.0.0.1:8765/api/v4/research/strict-summary > qa-artifacts/final-strict-summary.json 2>&1 || true
           curl -sS http://127.0.0.1:8765/api/v4/research/multi-year-edge > qa-artifacts/final-multi-year-edge.json 2>&1 || true
+          curl -sS http://127.0.0.1:8765/api/v4/research/stratified-edge > qa-artifacts/final-stratified-edge.json 2>&1 || true
           curl -sS http://127.0.0.1:8765/api/v4/research/execution-stress > qa-artifacts/final-execution-stress.json 2>&1 || true
           curl -sS http://127.0.0.1:8765/api/v4/research/production-gate > qa-artifacts/final-production-gate.json 2>&1 || true
           curl -sS http://127.0.0.1:8765/api/v4/sanity/latest > qa-artifacts/final-sanity.json 2>&1 || true
@@ -122,12 +124,12 @@ jobs:
             server/engine.py server/contracts.py server/causal_engine.py server/progress_scanner.py \
             server/v4_engine.py server/v4_final_engine.py server/v4_release_engine.py \
             server/v4_audit.py server/v4_audit_final.py server/v4_research_release.py \
-            server/v4_multiyear.py server/v4_multiyear_api.py server/v4_execution_stress.py \
+            server/v4_multiyear.py server/v4_multiyear_api.py server/v4_execution_stress.py server/v4_stratified.py \
             server/v4_replay.py server/v4_replay_final.py server/v4_research_api.py \
             tools/run_v4_diagnostic.py config \
             tests/test_v4_unbiased_universe.py tests/test_v4_replay_causality.py \
             tests/test_v4_research_release.py tests/test_v4_multiyear.py tests/test_v4_scan_audit.py \
-            tests/test_v4_execution_stress.py requirements-server.txt 2>/dev/null || true
+            tests/test_v4_execution_stress.py tests/test_v4_stratified.py requirements-server.txt 2>/dev/null || true
           mkdir -p qa-artifacts/wheels
           python -m pip download --no-deps --only-binary=:all: \
             --implementation cp --python-version 3.13 --abi cp313 --platform manylinux_2_28_x86_64 \
@@ -148,6 +150,7 @@ jobs:
           test -s qa-artifacts/qa-status.json
           test -s qa-artifacts/network-errors.json
           test -s qa-artifacts/provenance.json
+          test -s qa-artifacts/final-stratified-edge.json
           test -s qa-artifacts/final-execution-stress.json
           test -s qa-artifacts/final-production-gate.json
           test -s qa-artifacts/v4-diagnostic-source.tgz
@@ -157,6 +160,7 @@ jobs:
           q=json.loads(Path('qa-artifacts/qa-status.json').read_text())
           n=json.loads(Path('qa-artifacts/network-errors.json').read_text())
           p=json.loads(Path('qa-artifacts/provenance.json').read_text())
+          s=json.loads(Path('qa-artifacts/final-stratified-edge.json').read_text())
           e=json.loads(Path('qa-artifacts/final-execution-stress.json').read_text())
           g=json.loads(Path('qa-artifacts/final-production-gate.json').read_text())
           assert q.get('ok') is True, q
@@ -167,6 +171,7 @@ jobs:
           assert n.get('ok') is True, n
           assert int(p.get('sqlite_user_version') or 0) >= 5, p
           assert p.get('config_hash'), p
+          assert s.get('version'), s
           assert e.get('latency',{}).get('status') == 'PENDING_FROZEN_SPEC', e
           assert g.get('strategies') is not None, g
           assert all(not x.get('live_approved') for x in g.get('strategies',{}).values()), g
