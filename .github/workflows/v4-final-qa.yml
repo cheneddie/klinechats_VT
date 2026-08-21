@@ -17,6 +17,7 @@ jobs:
       QA_OUT: ${{ github.workspace }}/qa-artifacts
       QA_BASE_URL: http://127.0.0.1:4173
       QA_API_URL: http://127.0.0.1:8765/api
+      FABIO_GIT_COMMIT: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
@@ -57,6 +58,7 @@ jobs:
           timeout 60s python tests/test_v4_reverse_audit.py
           timeout 60s python tests/test_v4_unbiased_universe.py
           timeout 60s python tests/test_v4_replay_causality.py
+          timeout 60s python tests/test_v4_research_release.py
           echo '{"stage":"python-tests","ok":true}' > qa-artifacts/workflow-status.json
 
       - name: Seed real API QA environment
@@ -70,13 +72,14 @@ jobs:
         timeout-minutes: 1
         run: |
           echo '{"stage":"serve","ok":false}' > qa-artifacts/workflow-status.json
-          FABIO_DATA_ROOT="$QA_ROOT" FABIO_EVENT_DB="$QA_DB" FABIO_API_PORT=8765 \
+          FABIO_DATA_ROOT="$QA_ROOT" FABIO_EVENT_DB="$QA_DB" FABIO_API_PORT=8765 FABIO_GIT_COMMIT="$GITHUB_SHA" \
             python -m server.fabio_api_v4 > qa-artifacts/api.log 2>&1 &
           echo $! > qa-artifacts/api.pid
           python3 -m http.server 4173 --bind 127.0.0.1 > qa-artifacts/http.log 2>&1 &
           echo $! > qa-artifacts/http.pid
           for i in {1..30}; do
             if curl -sf http://127.0.0.1:8765/api/v4/health > qa-artifacts/health.json && curl -sf http://127.0.0.1:4173/ >/dev/null; then
+              curl -sf http://127.0.0.1:8765/api/v4/research/provenance > qa-artifacts/provenance.json
               echo '{"stage":"serve","ok":true}' > qa-artifacts/workflow-status.json
               exit 0
             fi
@@ -93,18 +96,28 @@ jobs:
           timeout 180s node scripts/qa-v4-watchdog.mjs
           echo '{"stage":"browser-watchdog","ok":true}' > qa-artifacts/workflow-status.json
 
+      - name: Network failure watchdog
+        timeout-minutes: 2
+        run: |
+          echo '{"stage":"network-watchdog","ok":false}' > qa-artifacts/workflow-status.json
+          timeout 90s node scripts/qa-v4-network.mjs
+          echo '{"stage":"network-watchdog","ok":true}' > qa-artifacts/workflow-status.json
+
       - name: Snapshot service state and validated source
         if: always()
         run: |
           curl -sS http://127.0.0.1:8765/api/v4/health > qa-artifacts/final-health.json 2>&1 || true
+          curl -sS http://127.0.0.1:8765/api/v4/research/provenance > qa-artifacts/final-provenance.json 2>&1 || true
+          curl -sS http://127.0.0.1:8765/api/v4/sanity/latest > qa-artifacts/final-sanity.json 2>&1 || true
           curl -sS http://127.0.0.1:8765/api/v4/audit/jobs > qa-artifacts/final-audit-jobs.json 2>&1 || true
           ps -ef > qa-artifacts/processes.txt || true
           tar -czf qa-artifacts/v4-diagnostic-source.tgz \
             server/engine.py server/contracts.py server/causal_engine.py \
-            server/v4_engine.py server/v4_final_engine.py server/v4_audit.py server/v4_audit_final.py \
-            server/v4_replay.py server/v4_replay_final.py \
+            server/v4_engine.py server/v4_final_engine.py server/v4_release_engine.py \
+            server/v4_audit.py server/v4_audit_final.py server/v4_research_release.py \
+            server/v4_replay.py server/v4_replay_final.py server/v4_research_api.py \
             config tests/test_v4_unbiased_universe.py tests/test_v4_replay_causality.py \
-            requirements-server.txt 2>/dev/null || true
+            tests/test_v4_research_release.py requirements-server.txt 2>/dev/null || true
           mkdir -p qa-artifacts/wheels
           python -m pip download --no-deps --only-binary=:all: \
             --implementation cp --python-version 3.13 --abi cp313 --platform manylinux_2_28_x86_64 \
@@ -123,16 +136,22 @@ jobs:
         if: success()
         run: |
           test -s qa-artifacts/qa-status.json
+          test -s qa-artifacts/network-errors.json
+          test -s qa-artifacts/provenance.json
           test -s qa-artifacts/v4-diagnostic-source.tgz
           python - <<'PY'
           import json
           from pathlib import Path
-          p=Path('qa-artifacts/qa-status.json')
-          d=json.loads(p.read_text())
-          assert d.get('ok') is True, d
-          assert d.get('stage') == 'FINAL:PASS', d.get('stage')
-          assert len(d.get('screenshots') or []) >= 6, d.get('screenshots')
-          assert d.get('checks',{}).get('practiceCanvases',0) >= 1
-          assert d.get('checks',{}).get('latestAuditItems',0) >= 1
+          q=json.loads(Path('qa-artifacts/qa-status.json').read_text())
+          n=json.loads(Path('qa-artifacts/network-errors.json').read_text())
+          p=json.loads(Path('qa-artifacts/provenance.json').read_text())
+          assert q.get('ok') is True, q
+          assert q.get('stage') == 'FINAL:PASS', q.get('stage')
+          assert len(q.get('screenshots') or []) >= 6, q.get('screenshots')
+          assert q.get('checks',{}).get('practiceCanvases',0) >= 1
+          assert q.get('checks',{}).get('latestAuditItems',0) >= 1
+          assert n.get('ok') is True, n
+          assert int(p.get('sqlite_user_version') or 0) >= 5, p
+          assert p.get('config_hash'), p
           print('V4 final watchdog evidence: PASS')
           PY
