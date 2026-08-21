@@ -1,0 +1,291 @@
+{
+  "schema_version": 1,
+  "campaign_id": "FABIO_REAL_EVIDENCE_V1_20260821",
+  "status": "PRE_REGISTERED_BEFORE_REAL_EDGE_CAMPAIGN",
+  "roles": {
+    "discovery": [2025],
+    "validation": [2024],
+    "final_holdout": [2026]
+  },
+  "gate_order": [
+    "G0_SOFTWARE_INTEGRITY",
+    "G1_RAW_DATA_TRUTH",
+    "G2_CAUSAL_SIGNAL_TRUTH",
+    "G3_STATISTICAL_EDGE_TRUTH",
+    "G4_MULTI_YEAR_FROZEN_OOS",
+    "G5_TRAINING_TRUTH_LEARNABILITY",
+    "G6_HUMAN_CERTIFICATION",
+    "G7_EXECUTION_RISK",
+    "G8_LIVE_PARITY_PAPER",
+    "PRODUCTION"
+  ],
+  "hard_rules": [
+    "Physical Parquet row order is market order truth; assign _seq before filtering and never re-sort raw ticks.",
+    "side is a tick-direction proxy only and must never be relabelled as true aggressor/bid-ask delta/CVD/absorption.",
+    "Only MTX six-digit outright expiries enter strategy research; spreads/combos are excluded.",
+    "Contract selection for causal claims uses calendar front-month policy; completed-day volume rank is diagnostic only.",
+    "No 2024 threshold, feature, regime, node or management selection is permitted; 2024 is validation only.",
+    "No 2026 Fabio outcome may be inspected before the candidate is frozen and the final holdout is intentionally opened.",
+    "Synthetic fixtures validate software only and never count as market edge evidence.",
+    "Signal edge, learnability and tradability are separate claims and separate gates."
+  ],
+  "coverage_policy": {
+    "version": "CALENDAR_GAP_V1",
+    "max_profile_gap_calendar_days": 3,
+    "rule": "Friday-to-Monday (3 calendar days) may retain Previous Value; any longer observed day-session gap resets the Previous Value chain. Exchange-calendar completeness audit may impose stricter quarantines for shorter missing expected sessions.",
+    "known_gap_action": "Do not bridge. Current observed day may rebuild a fresh profile for the next observed day.",
+    "production_requirement": "A versioned exchange-calendar completeness artifact must be included in the run manifest before G4 promotion."
+  },
+  "causal_volatility_reference": {
+    "candidate_features": [
+      "prev_day_ATR_5m_14",
+      "prev_5day_ATR_5m_14_mean",
+      "opening_realized_range_30m_so_far",
+      "previous_value_width"
+    ],
+    "atr_session": "08:45:00-13:45:00 Asia/Taipei day session",
+    "atr_bar": "5m",
+    "atr_true_range": "max(high-low, abs(high-prev_close), abs(low-prev_close))",
+    "causality": "At event time only completed bars/ticks plus prior trading days may be used.",
+    "selection": "Compare candidate scales in 2025 Discovery only; freeze one primary representative scale and any pre-declared secondary scale before opening 2024 Validation.",
+    "winner_value_rule": "Mean winner points / frozen representative volatility scale must be reported; the 10% guideline is descriptive until the scale is frozen at Discovery exit."
+  },
+  "causal_regime_registry": {
+    "status": "DISCOVERY_CANDIDATES_PRE_REGISTERED_NOT_YET_SELECTED",
+    "features": [
+      "volatility_ratio_to_prior_history",
+      "rolling_30m_return_normalized_by_causal_volatility",
+      "rolling_30m_efficiency_ratio",
+      "price_vs_session_vwap_so_far",
+      "opening_range_width_so_far",
+      "previous_value_width"
+    ],
+    "labels": [
+      "VOL_LOW",
+      "VOL_NORMAL",
+      "VOL_HIGH",
+      "TREND_UP",
+      "TREND_DOWN",
+      "RANGE",
+      "OPENING",
+      "MID_SESSION",
+      "LATE_SESSION",
+      "VALUE_NARROW",
+      "VALUE_NORMAL",
+      "VALUE_WIDE"
+    ],
+    "causality": "A label at t may use only observations <= t and previous historical data; end-of-day labels cannot backfill intraday events.",
+    "freeze_rule": "Definitions/thresholds selected only in 2025 Discovery and frozen before 2024 Validation."
+  },
+  "hypothesis_registry_policy": {
+    "required_fields": [
+      "hypothesis_id",
+      "status",
+      "feature_or_node",
+      "expected_direction",
+      "primary_metric",
+      "secondary_metrics",
+      "parameter_range",
+      "discovery_period",
+      "validation_period",
+      "family_id"
+    ],
+    "statuses": ["PRE_REGISTERED", "EXPLORATORY", "POST_HOC"],
+    "production_rule": "EXPLORATORY/POST_HOC findings cannot enter the production tree without a new pre-registered generation and untouched validation data.",
+    "multiple_testing": {
+      "discovery_method": "Benjamini-Hochberg FDR within each pre-registered family",
+      "discovery_q": 0.10,
+      "primary_inference_unit": "trading_day_cluster",
+      "validation_rule": "Only hypotheses frozen at Discovery exit may be evaluated as confirmatory on 2024; no validation-driven parameter search."
+    }
+  },
+  "dependence_and_bootstrap": {
+    "primary_resampling_unit": "trading_day",
+    "bootstrap_method": "cluster bootstrap with replacement over trading days",
+    "bootstrap_repetitions": 10000,
+    "confidence_interval": 0.95,
+    "secondary_robustness_unit": "calendar_week",
+    "same_day_policy": "All events on a trading day remain in the same resampled cluster.",
+    "overlap_policy": "Overlapping attempts/setups are retained for signal-structure research but are not treated as independent observations; portfolio execution later applies duplicate suppression/cooldown separately."
+  },
+  "production_rejection_thresholds": {
+    "normalized_in_R": true,
+    "max_drawdown": {
+      "validation_max_dd_R": 10.0,
+      "execution_stress_max_dd_R": 12.0,
+      "rule": "Reject production candidate if either threshold is exceeded. Do not tune these thresholds on 2024 or 2026."
+    },
+    "concentration": {
+      "max_single_month_share_of_positive_month_R": 0.30,
+      "two_year_max_single_year_share_of_positive_year_R": 0.70,
+      "three_plus_year_max_single_year_share_of_positive_year_R": 0.60,
+      "minimum_positive_years_before_production": 2,
+      "rule": "Shares use positive-period R in the denominator; negative periods remain visible and are never dropped."
+    }
+  },
+  "execution_model": {
+    "baseline": {
+      "latency": "NEXT_PHYSICAL_TICK_AFTER_DECISION",
+      "fill": "MARKET_AT_ELIGIBLE_TICK",
+      "same_tick_fill_allowed": false
+    },
+    "latency_stress": [
+      "PLUS_3_PHYSICAL_TICKS",
+      "PLUS_5_PHYSICAL_TICKS",
+      "PLUS_1_SECOND_FIRST_TICK_AT_OR_AFTER",
+      "PLUS_3_SECONDS_FIRST_TICK_AT_OR_AFTER"
+    ],
+    "fill_models": {
+      "MARKET": "Fill at the eligible physical tick after the frozen latency rule.",
+      "LIMIT_TOUCH": "Optimistic analytic upper bound only; first future trade at limit or better. Never the sole production evidence.",
+      "LIMIT_PENETRATION": "Conservative limit proxy; require at least 1 index point penetration through the limit before fill.",
+      "TOUCH_NO_QUEUE": "Research-only sensitivity model; explicitly labelled as no queue model."
+    },
+    "friction": "Report gross and a frozen round-trip friction grid; production promotion requires positive edge under the pre-registered stress grid."
+  },
+  "session_policy": {
+    "production_v1_scope": "DAY_SESSION_INTRADAY_ONLY",
+    "day_session": "08:45:00-13:45:00 Asia/Taipei",
+    "night_session": "Separate research generation; never pooled into DAY_SESSION_INTRADAY_ONLY evidence.",
+    "overnight": "DISABLED for production_v1; no position may cross the day-session close.",
+    "forced_flat_rule": "Execution research must include a deterministic session-end liquidation rule before G7 promotion; its exact cutoff is frozen at Discovery exit before 2024 Validation."
+  },
+  "risk_policy_engine": {
+    "separate_from_signal_edge": true,
+    "fields": [
+      "risk_per_trade_R",
+      "max_daily_R_loss",
+      "max_concurrent_positions",
+      "same_direction_cooldown_seconds",
+      "duplicate_setup_suppression",
+      "daily_stop"
+    ],
+    "initial_frozen_limits": {
+      "risk_per_trade_R": 1.0,
+      "max_daily_R_loss": 2.0,
+      "max_concurrent_positions": 1,
+      "duplicate_setup_suppression": true,
+      "daily_stop": true
+    },
+    "cooldown": "Exact seconds selected in 2025 Discovery and frozen before 2024 Validation.",
+    "rule": "Risk policy may reduce exposure but may not be used to hide a negative raw signal edge."
+  },
+  "human_review_protocol": {
+    "sequence": [
+      "MACHINE_LABEL",
+      "REVIEWER_A_BLIND",
+      "REVIEWER_B_BLIND",
+      "CONSENSUS_IF_AGREE",
+      "DISPUTED_IF_DISAGREE",
+      "ADJUDICATION"
+    ],
+    "agreement_metrics": ["raw_agreement", "cohens_kappa"],
+    "minimum_cases_per_node_before_claim": 50,
+    "low_learnability_warning": "Cohens kappa < 0.60 or hard-negative discrimination near chance triggers review of whether the node belongs in human training."
+  },
+  "learnability": {
+    "scores": ["STRUCTURAL_SCORE", "EDGE_SCORE", "LEARNABILITY_SCORE"],
+    "inputs": [
+      "human_agreement",
+      "pre_to_post_unseen_accuracy_change",
+      "reaction_time",
+      "delayed_retention_accuracy",
+      "hard_negative_discrimination"
+    ],
+    "routing": {
+      "HIGH_EDGE_HIGH_LEARNABILITY": "TRAINING_AND_PRODUCTION",
+      "HIGH_EDGE_LOW_LEARNABILITY": "MACHINE_PRODUCTION_ONLY",
+      "LOW_EDGE_HIGH_LEARNABILITY": "CONCEPT_TRAINING_ONLY",
+      "LOW_EDGE_LOW_LEARNABILITY": "REMOVE"
+    }
+  },
+  "training_effectiveness": {
+    "design": ["PRE_TEST_UNSEEN", "TRAINING", "POST_TEST_UNSEEN", "DELAYED_RETENTION_UNSEEN"],
+    "retention_delay_days_min": 7,
+    "primary_metrics": [
+      "accuracy",
+      "balanced_accuracy",
+      "hard_negative_accuracy",
+      "WAIT_false_entry_rate",
+      "median_reaction_time"
+    ],
+    "claim_rule": "Mastery volume/accuracy alone cannot establish training effectiveness."
+  },
+  "certification_leakage": {
+    "block_same_event": true,
+    "block_same_auction": true,
+    "block_same_causal_leg": true,
+    "block_same_day_near_duplicate": true,
+    "block_high_visual_similarity": true,
+    "preferred_split_unit": "trading_day",
+    "rule": "Certification cases must be unseen at the semantic and near-duplicate level, not merely have a different event_id."
+  },
+  "live_validation": {
+    "order": ["HISTORICAL_LIVE_PARITY", "SHADOW_MODE", "PAPER_TRADING", "L6", "SMALL_CAPITAL_PRODUCTION"],
+    "shadow_min_trading_days": 20,
+    "paper_min_trading_days": 20,
+    "paper_min_executable_entries_combined": 50,
+    "shadow": "Generate live decisions without orders; compare live decisions to offline reconstruction from the exact captured feed.",
+    "paper": "Apply frozen latency/fill/risk/session policies to live feed without capital.",
+    "promotion": "No direct jump from historical/live parity to capital deployment."
+  },
+  "drift_monitor": {
+    "windows": [5, 20, 60],
+    "metrics": [
+      "feature_distribution",
+      "node_pass_rate",
+      "signal_frequency",
+      "MFE_MAE",
+      "win_loss",
+      "execution_slippage"
+    ],
+    "distribution_alerts": {
+      "psi_warning": 0.20,
+      "psi_critical": 0.30
+    },
+    "structural_drift_rule": "Raise STRUCTURAL_DRIFT when a frozen node/feature distribution or pass-rate moves beyond its pre-registered historical control limits; do not silently retune live."
+  },
+  "reproducibility": {
+    "required_manifest_fields": [
+      "research_run_id",
+      "git_commit",
+      "source_files_sha256",
+      "scanner_version",
+      "strategy_versions",
+      "config_hash",
+      "contract_policy_version",
+      "coverage_policy_version",
+      "outcome_version",
+      "management_version",
+      "python_version",
+      "dependencies",
+      "created_at"
+    ],
+    "determinism_rule": "Same raw bytes + same code/config/dependencies must reproduce the same event/node/outcome evidence hashes."
+  },
+  "database_policy": {
+    "migration": "Versioned transactional migrations only; fail closed on unknown schema version.",
+    "backup": "Create timestamped backup/checksum before production migration.",
+    "recovery": "A restore dry-run must be demonstrated before G8 promotion.",
+    "event_store": "Rebuildable from Parquet.",
+    "training_store": "Human attempts/reviews are non-rebuildable and require backup."
+  },
+  "performance_sla": {
+    "status": "TARGET_NOT_YET_EVIDENCED",
+    "reference_dataset_rows": 40000000,
+    "reference_machine_must_be_recorded": true,
+    "targets": {
+      "full_scanner_wall_clock_minutes": 20,
+      "api_event_list_p95_ms": 300,
+      "api_replay_p95_ms": 500,
+      "ui_route_ready_p95_ms": 2000
+    },
+    "rule": "No SLA claim until measured on a recorded CPU/RAM/storage reference machine using real data."
+  },
+  "production_freeze": {
+    "promotion_authority": "EXPLICIT_HUMAN_APPROVAL_REQUIRED",
+    "required_gates": ["G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"],
+    "rollback": "Keep prior production manifest/artifacts addressable; rollback is a manifest/version switch, never an in-place silent mutation.",
+    "material_change_rule": "Any material scanner/node/threshold/regime/execution/risk change creates a new generation and reopens required validation gates."
+  }
+}

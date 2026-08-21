@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "plan_id": "FABIO_V4_2024_2026_20260821",
+  "scanner_generation": "V4.3_RESEARCH_GOVERNED",
+  "roles": {
+    "discovery": [2025],
+    "validation": [2024],
+    "final_holdout": [2026]
+  },
+  "holdout_coverage_note": "2026 source is currently documented through 2026-08-14, so final holdout is partial-year/YTD unless a later raw file replaces it.",
+  "rationale": {
+    "2025": "Fabio V4 scanner and Single-Year Diagnostic were already centered on 2025, so it cannot honestly be called untouched OOS.",
+    "2024": "Use as external validation for the frozen 2025-developed generation; do not optimize pooled 2024+2025 parameters.",
+    "2026": "Reserve Fabio outcomes for one-time final holdout evaluation after discovery/validation rules and production candidate are frozen."
+  },
+  "rules": [
+    "Never optimize parameters on discovery+validation+holdout pooled data.",
+    "Do not inspect 2026 Fabio outcome tables before the production candidate/rules are frozen if 2026 is to retain final-holdout meaning.",
+    "Any material scanner/node/parameter change after seeing 2026 Fabio outcomes creates a new strategy generation and invalidates 2026 as final OOS for that generation.",
+    "Multi-Year Edge Map used for production-node selection must default to discovery+validation only before final holdout.",
+    "After final holdout is revealed, an all-years report is descriptive evidence, not a new optimization dataset.",
+    "Synthetic QA remains software validation only."
+  ]
+}

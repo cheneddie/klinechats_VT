@@ -1,0 +1,120 @@
+name: V4 CI
+
+on:
+  push:
+    branches: [fabio-decision-gym-v4]
+  pull_request:
+    branches: [main]
+
+jobs:
+  v4-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install frontend dependencies
+        timeout-minutes: 3
+        run: timeout 150s npm install --ignore-scripts
+
+      - name: Existing + V4 JS tests
+        timeout-minutes: 2
+        run: timeout 90s npm test
+
+      - name: V4 browser module syntax
+        run: |
+          node --check src/v4/chart.js
+          node --check src/v4/practice.js
+          node --check src/v4/replay.js
+          node --check src/v4/research.js
+          node --check scripts/qa-v4-watchdog.mjs
+          node --check scripts/qa-v4-network.mjs
+
+      - name: Production build
+        timeout-minutes: 2
+        run: timeout 90s npm run build
+
+      - name: Install scanner runtime dependencies
+        timeout-minutes: 3
+        run: timeout 150s python -m pip install -r requirements-server.txt
+
+      - name: V4 Python syntax
+        run: |
+          python -m py_compile \
+            server/v4_engine.py server/v4_final_engine.py server/v4_release_engine.py \
+            server/v4_replay.py server/v4_replay_final.py server/progress_scanner.py \
+            server/v4_audit.py server/v4_audit_final.py \
+            server/v4_api.py server/v4_api_final.py server/v4_training_api.py \
+            server/v4_research_release.py server/v4_research_api.py \
+            server/v4_multiyear.py server/v4_multiyear_api.py server/v4_execution_stress.py \
+            server/v4_stratified.py server/fabio_api_v4.py tools/run_v4_diagnostic.py
+          python -m py_compile \
+            tests/test_v4_node_semantics.py tests/test_v4_replay.py tests/test_v4_reverse_audit.py \
+            tests/test_v4_unbiased_universe.py tests/test_v4_replay_causality.py \
+            tests/test_v4_research_release.py tests/test_v4_multiyear.py tests/test_v4_scan_audit.py \
+            tests/test_v4_execution_stress.py tests/test_v4_stratified.py tests/seed_v4_qa_env.py
+
+      - name: Distinct causal node semantics
+        run: timeout 60s python tests/test_v4_node_semantics.py
+
+      - name: Trading-day replay + timeframe aggregation
+        run: timeout 60s python tests/test_v4_replay.py
+
+      - name: Reverse node edge audit
+        run: timeout 60s python tests/test_v4_reverse_audit.py
+
+      - name: Unbiased shadow terminal universe
+        run: timeout 60s python tests/test_v4_unbiased_universe.py
+
+      - name: Trading-day / partial-candle hide-future causality
+        run: timeout 60s python tests/test_v4_replay_causality.py
+
+      - name: Research governance + Event Sanity Gate
+        run: timeout 60s python tests/test_v4_research_release.py
+
+      - name: Multi-year edge map + strict production diagnostics
+        run: timeout 60s python tests/test_v4_multiyear.py
+
+      - name: Source funnel + causal contract audit + clean rebuild
+        run: timeout 60s python tests/test_v4_scan_audit.py
+
+      - name: Strict cost + concentration execution stress
+        run: timeout 60s python tests/test_v4_execution_stress.py
+
+      - name: Monthly direction intraday + node consistency strata
+        run: timeout 60s python tests/test_v4_stratified.py
+
+      - name: V4 artifact contract
+        run: |
+          test -s src/v4/chart.js
+          test -s src/v4/practice.js
+          test -s src/v4/replay.js
+          test -s src/v4/research.js
+          test -s src/v4/v4.css
+          test -s server/v4_final_engine.py
+          test -s server/v4_release_engine.py
+          test -s server/v4_replay_final.py
+          test -s server/v4_audit_final.py
+          test -s server/v4_api_final.py
+          test -s server/v4_training_api.py
+          test -s server/v4_research_release.py
+          test -s server/v4_research_api.py
+          test -s server/v4_multiyear.py
+          test -s server/v4_multiyear_api.py
+          test -s server/v4_execution_stress.py
+          test -s server/v4_stratified.py
+          test -s server/fabio_api_v4.py
+          test -s tools/run_v4_diagnostic.py
+          test -s config/research/v4_validation_plan.json
+          test -s tests/test_v4_scan_audit.py
+          test -s tests/test_v4_execution_stress.py
+          test -s tests/test_v4_stratified.py
+          test -s scripts/qa-v4-watchdog.mjs
+          test -s scripts/qa-v4-network.mjs
+          grep -q 'Fabio Decision Gym V4' index.html

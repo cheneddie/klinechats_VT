@@ -1,0 +1,88 @@
+{
+  "campaign_id": "FABIO_REAL_EVIDENCE_V1_20260821",
+  "bundle_created_at": "2026-08-21T22:24:00+08:00",
+  "repository": "cheneddie/klinechats_VT",
+  "branch": "fabio-decision-gym-v4",
+  "methodology_tested_commit": "53dbd9450922cfd24385e9f98b116d0d912e21e5",
+  "raw_parquet_committed": false,
+  "text_artifact_formatting": "JSON whitespace/minification is non-semantic; Git history is authoritative for exact repository text bytes. Source SHA-256 and decoded SHA-256 fields below are the reproducibility identities that must match.",
+  "source_files": {
+    "2024_validation": {
+      "filename": "MTX_2024(4).parquet",
+      "bytes": 173260633,
+      "sha256": "6f76ecde2c6d9c13fe5381ffe0798fe05668a7d1e8abe85c7b0125581d5eb25c",
+      "artifact_alias_note": "The preserved original G1 artifact was generated when the identical bytes were mounted as MTX_2024(2).parquet. MTX_2024(4).parquet has the same SHA-256, so this is a filename alias only, not a data-version change."
+    },
+    "2025_discovery": {
+      "filename": "MTX_2025(5).parquet",
+      "bytes": 146569961,
+      "sha256": "774b6f62b1e1a30ec159c7402b6967045ea3d99b59bfb16aeb0e0462a7a15156"
+    },
+    "2026_final_holdout": {
+      "filename": "MTX_2026(4).parquet",
+      "bytes": 137413619,
+      "sha256": "304f7d4e531374c3d4776f0c4d0e93e135dbd96c8b74956e9eb629fadbc957d6",
+      "strategy_outcomes_inspected": false
+    }
+  },
+  "methodology": {
+    "coverage_policy": "TAIFEX_SESSION_CALENDAR_V2",
+    "calendar_version": "TAIFEX_REGULAR_SESSION_V1_20260821",
+    "original_preregistration": "config/research/evidence_campaign_v1.json",
+    "amendment": "methodology/coverage_policy_amendment_001.json",
+    "commits": [
+      "e86742d92c69315d02149dce4a9a6259ff7c64d0",
+      "8a9e00ae631c9975d240ba68f804042c3692ba2a",
+      "53dbd9450922cfd24385e9f98b116d0d912e21e5"
+    ]
+  },
+  "lossless_compressed_artifacts": [
+    {
+      "path": "2024_validation_g1/contract_selection_audit.json.gz.b64",
+      "decoded_filename": "contract_selection_audit.json",
+      "decoded_bytes": 139001,
+      "decoded_sha256": "efddc55fff815e34ff322a9eaf91f6119ad81ccf400a67500cb9f955255925a2"
+    },
+    {
+      "path": "2024_validation_g1/date_counts_all.json.gz.b64",
+      "decoded_filename": "date_counts_all.json",
+      "decoded_bytes": 23828,
+      "decoded_sha256": "10ad1356dfadf608eb57a75d15f8ee8fb8f7f329641eada37c70ee9b90e24f91"
+    },
+    {
+      "path": "2025_discovery_g1/contract_selection_audit.json.gz.b64",
+      "decoded_filename": "contract_selection_audit.json",
+      "decoded_bytes": 77089,
+      "decoded_sha256": "f3b96c658bd33f4e0b3d28d3fcf0d63ca5670ebb1766350a65fc88e0cb373047"
+    }
+  ],
+  "artifacts": [
+    "README.md",
+    "FULL_REPORT_20260821.md",
+    "MANIFEST.json",
+    "g0/ci_status.json",
+    "methodology/coverage_policy_amendment_001.json",
+    "registry/source_manifest.json",
+    "registry/source_sha256.txt",
+    "registry/2026_holdout_metadata.json",
+    "2024_validation_g1/g1_raw_contract_summary.json",
+    "2024_validation_g1/parquet_metadata.json",
+    "2024_validation_g1/contract_selection_audit.json.gz.b64",
+    "2024_validation_g1/date_counts_all.json.gz.b64",
+    "2024_validation_g1/exchange_calendar_coverage_v2.json",
+    "2024_validation_g1/sha256.txt",
+    "2025_discovery_g1/g1_raw_contract_summary.json",
+    "2025_discovery_g1/parquet_metadata.json",
+    "2025_discovery_g1/contract_selection_audit.json.gz.b64",
+    "2025_discovery_g1/date_counts_day_session_raw_volume.json",
+    "2025_discovery_g1/exchange_calendar_coverage.json"
+  ],
+  "gate_snapshot": {
+    "G0": "PASS",
+    "G1": "EVIDENCE_BUNDLE_COMPLETE_FOR_SUPPLIED_2024_2025_SOURCES",
+    "G2": "NOT_COMPLETE",
+    "G3": "NOT_COMPLETE",
+    "2024_strategy_validation": "NOT_OPENED",
+    "2026_final_holdout": "SEALED"
+  }
+}

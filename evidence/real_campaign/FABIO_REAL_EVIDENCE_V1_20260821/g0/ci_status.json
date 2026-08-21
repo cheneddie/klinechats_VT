@@ -1,0 +1,17 @@
+{
+  "tested_commit": "53dbd9450922cfd24385e9f98b116d0d912e21e5",
+  "branch": "fabio-decision-gym-v4",
+  "status": "PASS",
+  "workflow_count": 8,
+  "workflows": [
+    "CI",
+    "V4 CI",
+    "V4 Final QA Watchdog",
+    "V5 Research CI",
+    "V5 Training CI",
+    "V5 Final Watchdog",
+    "Browser release QA",
+    "Stage screenshot"
+  ],
+  "note": "All eight workflows were verified completed/success after the Exchange Calendar V2 regression changes. Evidence bundle commits occur after this tested methodology commit and only add text/JSON evidence artifacts."
+}
