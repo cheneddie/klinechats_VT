@@ -32,7 +32,7 @@ function errorView(nodeId,error){
   const online=FabioV2.store.state.apiOnline;
   content.innerHTML=`<div class="v4-practice-root v4-empty"><h2>${esc(n?.code||nodeId)} · 無法建立練習題組</h2>
     <p>${esc(error||'目前沒有可用案例。')}</p>
-    <p>${online?'Local API 已連線，請確認此 Node 已完成 Scanner。':'Local API 尚未完成連線；系統會在 hydration 完成後自動重試。'}</p>
+    <p>${online?'Local API 已連線，請確認此 Node 已完成 Scanner。':'Local API 尚未完成連線；系統保留 V3 fallback 練習介面，連線後會自動切換到 causal V4 Practice。'}</p>
     <div class="hero-actions"><button id="v4PracticeRetry" class="primary">重新載入</button><button data-go="data">前往 Scanner</button></div></div>`;
   $('#v4PracticeRetry').onclick=()=>start(nodeId,true);
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{location.hash='#/'+b.dataset.go});
@@ -129,13 +129,18 @@ function renderQuestion(){
 }
 function ensure(){
   const r=route();if(r.page!=='practice')return;
+  // V4 Practice requires the causal replay API.  When Local API is offline,
+  // do not destroy the already-rendered V3 fallback practice page.  Hydration
+  // will promote the same route to V4 automatically once the API is online.
+  if(!FabioV2.store.state.apiOnline){state.waitingHydration=true;return}
   const node=r.id||'MR_CLEAR_RECLAIM';
   if($('.v4-practice-root')&&state.nodeId===node&&!state.waitingHydration)return;
+  state.waitingHydration=false;
   start(node);
 }
 document.addEventListener('fabio:store-hydrated',e=>{
   if(route().page!=='practice')return;
-  if(e?.detail?.apiOnline&&(state.waitingHydration||!state.queue.length)){
+  if(e?.detail?.apiOnline){
     state.waitingHydration=false;setTimeout(()=>start(route().id||state.nodeId||'MR_CLEAR_RECLAIM',true),20);
   }
 });
@@ -145,7 +150,7 @@ document.addEventListener('keydown',e=>{
   if(e.key.toLowerCase()==='n'){e.preventDefault();e.stopImmediatePropagation();if(!state.answered){answer(false);const b=$('#v4Next');if(b)b.disabled=false}}
   if((e.key==='Enter'||e.key==='ArrowRight')&&state.answered){e.preventDefault();e.stopImmediatePropagation();next()}
 },true);
-const mo=new MutationObserver(()=>{if(route().page==='practice'&&!$('.v4-practice-root'))setTimeout(ensure,0)});mo.observe(document.documentElement,{subtree:true,childList:true});
+const mo=new MutationObserver(()=>{if(route().page==='practice'&&FabioV2.store.state.apiOnline&&!$('.v4-practice-root'))setTimeout(ensure,0)});mo.observe(document.documentElement,{subtree:true,childList:true});
 window.addEventListener('hashchange',()=>setTimeout(ensure,30));setTimeout(ensure,800);
 FabioV4.practice={start,get state(){return state},balancedQueue};
 })();
