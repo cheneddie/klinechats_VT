@@ -4,9 +4,9 @@ from __future__ import annotations
 
 Research order:
 
-    scan -> physical Event Sanity Gate -> relaxed outcomes -> reverse audit
-         -> ablation -> sequential contribution -> strict-entry outcomes
-         -> multi-year edge map -> right-tail -> production gate
+    clean rebuildable year state -> scan -> physical Event Sanity Gate
+    -> relaxed outcomes -> reverse audit -> ablation -> sequential contribution
+    -> strict-entry outcomes -> multi-year edge map -> right-tail -> production gate
 
 Synthetic data may validate software, but output from synthetic data must never
 be described as strategy evidence.  A real single year is still diagnostic,
@@ -66,6 +66,10 @@ def dump(path: Path, payload):
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def table_exists(con, name: str) -> bool:
+    return bool(con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone())
+
+
 def write_audit_csv(path: Path, audit):
     rows = []
     for rec in audit.get("rows") or []:
@@ -102,6 +106,57 @@ def write_audit_csv(path: Path, audit):
         writer.writerows(rows)
 
 
+def clean_rebuildable_years(db: Path, years):
+    """Remove only market-derived state for selected years before a fresh scan.
+
+    Human `training_attempts`, research-run history and prior audit snapshots are
+    deliberately preserved.  Raw Parquet is the source of truth; Events, Nodes,
+    outcomes and data/contract audit rows are rebuildable and must not leak stale
+    scanner generations into a new diagnostic.
+    """
+    con = connect(db)
+    try:
+        migrate_multiyear_schema(con)
+        marks = ",".join("?" for _ in years)
+        args = [int(x) for x in years]
+        event_ids = [r["event_id"] for r in con.execute(
+            f"SELECT event_id FROM events WHERE year IN ({marks})", args
+        ).fetchall()]
+        source_files = [r["source_file"] for r in con.execute(
+            f"SELECT DISTINCT source_file FROM events WHERE year IN ({marks})", args
+        ).fetchall() if r["source_file"]]
+        source_files.extend(
+            r["file"] for r in con.execute(
+                f"SELECT file FROM datasets WHERE year IN ({marks})", args
+            ).fetchall() if r["file"]
+        )
+        source_files = sorted(set(source_files))
+
+        for start in range(0, len(event_ids), 800):
+            chunk = event_ids[start:start + 800]
+            q = ",".join("?" for _ in chunk)
+            for table in ("node_instances", "opportunity_outcomes", "strict_trade_outcomes"):
+                if table_exists(con, table):
+                    con.execute(f"DELETE FROM {table} WHERE event_id IN ({q})", chunk)
+        con.execute(f"DELETE FROM events WHERE year IN ({marks})", args)
+        con.execute(f"DELETE FROM datasets WHERE year IN ({marks})", args)
+        if table_exists(con, "dataset_integrity"):
+            con.execute(f"DELETE FROM dataset_integrity WHERE year IN ({marks})", args)
+        if table_exists(con, "contract_selection_audit") and source_files:
+            q = ",".join("?" for _ in source_files)
+            con.execute(f"DELETE FROM contract_selection_audit WHERE source_file IN ({q})", source_files)
+        con.commit()
+        return {
+            "years": list(years),
+            "removed_event_ids": len(event_ids),
+            "source_files": source_files,
+            "preserved_nonrebuildable": ["training_attempts"],
+            "preserved_history": ["research_runs", "event_sanity_runs", "node_edge_audit"],
+        }
+    finally:
+        con.close()
+
+
 def db_summary(db: Path, years):
     con = connect(db)
     try:
@@ -115,14 +170,51 @@ def db_summary(db: Path, years):
         datasets = [dict(r) for r in con.execute(
             f"SELECT * FROM datasets WHERE year IN ({marks}) ORDER BY year,file", args
         ).fetchall()]
+
+        integrity = []
+        if table_exists(con, "dataset_integrity"):
+            integrity = [dict(r) for r in con.execute(
+                f"SELECT * FROM dataset_integrity WHERE year IN ({marks}) ORDER BY year,file", args
+            ).fetchall()]
+        files = [x["file"] for x in integrity] or [x["file"] for x in datasets]
+        contract_rows = []
+        if files and table_exists(con, "contract_selection_audit"):
+            q = ",".join("?" for _ in files)
+            contract_rows = [dict(r) for r in con.execute(
+                f"SELECT * FROM contract_selection_audit WHERE source_file IN ({q}) ORDER BY trading_date",
+                files,
+            ).fetchall()]
+            for row in contract_rows:
+                for key in ("candidate_contracts_json", "candidate_volumes_raw_json", "candidate_volumes_normalized_json"):
+                    try:
+                        row[key.removesuffix("_json")] = json.loads(row.pop(key) or "{}")
+                    except Exception:
+                        row[key.removesuffix("_json")] = {}
+                row["roll"] = bool(row.get("roll"))
+                row["ambiguous"] = bool(row.get("ambiguous"))
+                row["causal"] = bool(row.get("causal"))
+
+        contracts_found = set()
+        for row in integrity:
+            try:
+                contracts_found.update(json.loads(row.get("outright_contracts_json") or "[]"))
+            except Exception:
+                pass
+        active_contracts = sorted({r["selected_contract"] for r in contract_rows if r.get("selected_contract")})
         funnel = {
+            "source_rows": sum(int(x.get("source_rows") or 0) for x in integrity) if integrity else sum(int(x.get("rows") or 0) for x in datasets),
+            "mtx_rows": sum(int(x.get("mtx_rows") or 0) for x in integrity) if integrity else None,
+            "outright_rows": sum(int(x.get("outright_rows") or 0) for x in integrity) if integrity else None,
+            "spread_removed_rows": sum(int(x.get("spread_removed_rows") or 0) for x in integrity) if integrity else None,
+            "contracts_found": sorted(contracts_found),
+            "active_contracts": active_contracts,
+            "trading_days": len(contract_rows) if contract_rows else len({r["trading_date"] for r in event_rows}),
+            "roll_days": sum(bool(r.get("roll")) for r in contract_rows),
             "events": len(event_rows),
-            "trading_days": len({r["trading_date"] for r in event_rows}),
-            "contracts": sorted({r["contract"] for r in event_rows if r["contract"]}),
             "auction_attempts": len({r["event_id"].rsplit("-", 1)[0] for r in event_rows}),
             "mr_candidates": sum(r["strategy"] == "MR" for r in event_rows),
             "bo_candidates": sum(r["strategy"] == "BO" for r in event_rows),
-            "wait_candidates": sum(r["strategy"] not in {"MR", "BO"} for r in event_rows),
+            "wait_invalid": sum(r["strategy"] not in {"MR", "BO"} for r in event_rows),
             "strict_entries": sum(r["result"] == "ENTRY" for r in event_rows),
             "terminal_opportunities": 0,
         }
@@ -132,7 +224,15 @@ def db_summary(db: Path, years):
             except Exception:
                 f = {}
             funnel["terminal_opportunities"] += int(bool(f.get("terminal_signal")))
-        return {"datasets": datasets, "funnel": funnel}
+        return {
+            "years": list(years),
+            "datasets": datasets,
+            "dataset_integrity": integrity,
+            "contract_selection": contract_rows,
+            "source_order_qa_pass": bool(integrity) and all(x.get("source_order_qa") == "PASS" for x in integrity),
+            "contract_policy_causal": bool(contract_rows) and all(bool(x.get("causal")) for x in contract_rows),
+            "funnel": funnel,
+        }
     finally:
         con.close()
 
@@ -144,7 +244,7 @@ def main():
     ap.add_argument("--year", type=int, action="append", required=True)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--max-after-days", type=int, default=1)
-    ap.add_argument("--skip-scan", action="store_true", help="Use an already-built V4 event DB")
+    ap.add_argument("--skip-scan", action="store_true", help="Use an already-built V4 event DB without deleting/rebuilding it")
     args = ap.parse_args()
 
     years = sorted(set(args.year))
@@ -171,6 +271,7 @@ def main():
                 "strict_outcome_version": STRICT_OUTCOME_VERSION,
                 "multiyear_version": MULTIYEAR_VERSION,
                 "production_gate_version": PRODUCTION_GATE_VERSION,
+                "rebuild_mode": "reuse_existing" if args.skip_scan else "clean_selected_years_then_rescan",
             },
         )
     finally:
@@ -194,12 +295,16 @@ def main():
         strict_outcome_version=STRICT_OUTCOME_VERSION,
         multiyear_version=MULTIYEAR_VERSION,
         production_gate_version=PRODUCTION_GATE_VERSION,
+        rebuild_mode="reuse_existing" if args.skip_scan else "clean_selected_years_then_rescan",
     )
     dump(args.out / "provenance.json", manifest)
 
     try:
         if not args.skip_scan:
-            heartbeat({"phase": "scan", "done": 0, "total": 0, "message": "Starting V4.1 release scanner"})
+            heartbeat({"phase": "clean", "done": 0, "total": 0, "message": "Removing stale rebuildable rows for selected years"})
+            cleaned = clean_rebuildable_years(args.db, years)
+            dump(args.out / "rebuild_cleanup.json", cleaned)
+            heartbeat({"phase": "scan", "done": 0, "total": 0, "message": "Starting V4.1 release scanner from raw Parquet"})
             cfg = ScanConfigV4Final(contract_mode="strict")
             count = progress_scanner.scan_files_progress(
                 args.root,
@@ -212,6 +317,10 @@ def main():
 
         summary = db_summary(args.db, years)
         dump(args.out / "scan_summary.json", summary)
+        if summary["source_order_qa_pass"] is False and not args.skip_scan:
+            raise RuntimeError("SOURCE_ORDER_QA failed or missing")
+        if summary["contract_policy_causal"] is False and not args.skip_scan:
+            raise RuntimeError("CONTRACT_POLICY_CAUSAL audit failed or missing")
 
         # Hard gate: persisted decision/entry prices must map to raw physical rows.
         heartbeat({"phase": "event_sanity", "done": 0, "total": summary["funnel"]["events"], "message": "Validating persisted events against physical _seq"})
@@ -287,6 +396,8 @@ def main():
             "evidence_label": "Single-Year Diagnostic" if len(years) == 1 else "Multi-Year Diagnostic",
             "years": years,
             "automatic_event_sanity": "PASS",
+            "source_order_qa": "PASS" if summary.get("source_order_qa_pass") else "UNKNOWN_OR_FAIL",
+            "contract_policy_qa": "PASS" if summary.get("contract_policy_causal") else "UNKNOWN_OR_FAIL",
             "manual_replay_spot_check": "REQUIRED",
             "relaxed_terminal_outcomes": outcome_count,
             "strict_entry_outcomes": strict_count,
@@ -335,6 +446,8 @@ def main():
                     "relaxed_terminal_outcomes": outcome_count,
                     "strict_entry_outcomes": strict_count,
                     "automatic_event_sanity": "PASS",
+                    "source_order_qa": final["source_order_qa"],
+                    "contract_policy_qa": final["contract_policy_qa"],
                     "production_gate": final["production_gate"],
                 },
             )
