@@ -3,14 +3,21 @@ from __future__ import annotations
 """Release adapter for the V4.1 scanner.
 
 The relaxed BO terminal opportunity is anchored at Pullback touch for unbiased
-reverse-audit of the Response gate.  The *strict* BO strategy, however, may only
-enter after Response is causally confirmed.  This adapter makes that distinction
-explicit without changing the relaxed outcome anchor.
+reverse-audit of the Response gate. The *strict* BO strategy, however, may only
+enter after Response is causally confirmed.
+
+The supplied MTX vendor volume is two-sided. Fabio research semantics therefore
+use normalized ``volume / 2``. The release wrapper performs that normalization
+before event construction while preserving immutable physical `_seq` and row
+order. Contract selection may still rank raw volume because uniform /2 scaling
+cannot change the ranking; its audit table persists both raw and normalized
+values.
 """
 
 from . import v4_final_engine as core
 
 _ORIGINAL_FINISH = core._finish_event
+_ORIGINAL_SCAN = core.scan_day_v4_final
 
 
 def _release_finish(e, chain, cfg, strict_entry):
@@ -59,9 +66,20 @@ def _release_finish(e, chain, cfg, strict_entry):
 core._finish_event = _release_finish
 
 ScanConfigV4Final = core.ScanConfigV4Final
-scan_day_v4_final = core.scan_day_v4_final
 migrate_v4_schema = core.migrate_v4_schema
 write_events_v4 = core.write_events_v4
 _best_valley_leg = core._best_valley_leg
+
+
+def scan_day_v4_final(g, prior, cfg, file, day, contract):
+    """Release scan with source-defined volume normalization and no reordering."""
+    work = g.copy()
+    if "volume" in work.columns:
+        work["volume"] = work["volume"].astype(float) / 2.0
+    events = _ORIGINAL_SCAN(work, prior, cfg, file, day, contract)
+    for event in events:
+        event.setdefault("features", {})["volume_normalization"] = "vendor_volume_div_2"
+    return events
+
 
 __all__ = ["ScanConfigV4Final","scan_day_v4_final","migrate_v4_schema","write_events_v4","_best_valley_leg"]
