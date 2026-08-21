@@ -114,13 +114,17 @@ def install_research_release(base):
 
     @app.get("/api/v4/audit/sequential")
     def audit_sequential(years: str | None = None):
+        ys = _years(years)
         con = base.connect(base.DB)
         try:
-            return {"years": _years(years), "items": sequential_gate_contribution(con, _years(years))}
+            return {"years": ys, "items": sequential_gate_contribution(con, ys)}
         finally:
             con.close()
 
-    @app.get("/api/v4/management/capture")
+    # Keep release research summaries under /research.  The legacy API already
+    # owns /api/v4/management/{event_id}; registering /management/capture later
+    # would let Starlette interpret "capture" as an event_id and return 404.
+    @app.get("/api/v4/research/management-capture")
     def management_capture(strategy: str | None = None):
         if strategy and strategy not in {"MR", "BO"}:
             raise HTTPException(400, "strategy must be MR or BO")
