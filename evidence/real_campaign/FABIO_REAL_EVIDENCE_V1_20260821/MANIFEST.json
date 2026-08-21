@@ -10,7 +10,8 @@
     "2024_validation": {
       "filename": "MTX_2024(4).parquet",
       "bytes": 173260633,
-      "sha256": "6f76ecde2c6d9c13fe5381ffe0798fe05668a7d1e8abe85c7b0125581d5eb25c"
+      "sha256": "6f76ecde2c6d9c13fe5381ffe0798fe05668a7d1e8abe85c7b0125581d5eb25c",
+      "artifact_alias_note": "The preserved original G1 artifact was generated when the identical bytes were mounted as MTX_2024(2).parquet. MTX_2024(4).parquet has the same SHA-256, so this is a filename alias only, not a data-version change."
     },
     "2025_discovery": {
       "filename": "MTX_2025(5).parquet",
