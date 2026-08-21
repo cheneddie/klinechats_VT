@@ -1,0 +1,35 @@
+{
+  "schema_version": "POC_SESSION_CALENDAR_OVERRIDES_V1",
+  "timezone": "Asia/Taipei",
+  "research_policy": {
+    "missing_source_session": "blackout_and_propagate_context_gap",
+    "verified_exchange_closure": "not_a_data_gap",
+    "imputation": "forbidden"
+  },
+  "source_data_blackouts": [
+    {
+      "date": "2024-12-27",
+      "session": "day",
+      "reason": "regular_day_session_missing_from_uploaded_2024_parquet",
+      "verified_exchange_status": "trading_day",
+      "action": "NO_RESEARCH_AND_CONTEXT_GAP"
+    }
+  ],
+  "verified_exchange_closures": [
+    {
+      "date": "2026-02-12",
+      "session": "all",
+      "reason": "lunar_new_year_closure"
+    },
+    {
+      "date": "2026-02-13",
+      "session": "all",
+      "reason": "lunar_new_year_closure"
+    },
+    {
+      "date": "2026-07-10",
+      "session": "all",
+      "reason": "typhoon_bavi_exchange_closure"
+    }
+  ]
+}
