@@ -1,0 +1,53 @@
+name: POC Absorption Research CI
+
+on:
+  push:
+    branches:
+      - research/poc-absorption-reversal-v1
+    paths:
+      - 'server/poc_absorption/**'
+      - 'server/contracts.py'
+      - 'tools/poc_absorption/**'
+      - 'tests/test_poc_absorption_*.py'
+      - 'config/poc_absorption/**'
+      - 'reports/poc_absorption/**'
+      - 'requirements-data.txt'
+      - '.github/workflows/poc-absorption-research-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  causal-research-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install data/test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-data.txt pytest
+
+      - name: Run M1-M3 causal research tests
+        env:
+          PYTHONPATH: .
+        run: |
+          python -m pytest -q \
+            tests/test_poc_absorption_m1.py \
+            tests/test_poc_absorption_bars.py \
+            tests/test_poc_absorption_features.py
+
+      - name: Run committed M3 QA runner self-test
+        env:
+          PYTHONPATH: .
+        run: |
+          python tools/poc_absorption/m3_feature_qa.py --self-test
