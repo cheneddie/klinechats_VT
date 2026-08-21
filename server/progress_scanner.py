@@ -12,6 +12,10 @@ This module only adds granular progress around the three expensive Parquet passe
 It deliberately does not reorder raw ticks.  The first pass also persists the
 source-integrity funnel, while the second pass persists the exact causal contract
 selection used for each trading day so a real-data diagnostic is auditable.
+
+Previous Value continuity is guarded causally.  A conservative calendar-gap
+policy resets the profile chain rather than silently bridging a source-coverage
+hole.  The exact policy/version is persisted per observed day.
 """
 
 import json
@@ -35,6 +39,11 @@ from .causal_engine import (
     profile_levels,
     scan_day,
     write_events,
+)
+from .coverage_guard import (
+    COVERAGE_POLICY_VERSION,
+    DEFAULT_MAX_PROFILE_GAP_CALENDAR_DAYS,
+    evaluate_profile_coverage,
 )
 from .engine import OUTRIGHT_RE, _session_seconds, _to_dt, _txt
 
@@ -76,6 +85,20 @@ def _ensure_audit_tables(con):
         );
         CREATE INDEX IF NOT EXISTS ix_contract_selection_date
           ON contract_selection_audit(trading_date,selected_contract);
+        CREATE TABLE IF NOT EXISTS source_coverage_audit(
+          source_file TEXT,
+          trading_date TEXT,
+          previous_trading_date TEXT,
+          gap_calendar_days INTEGER,
+          max_gap_calendar_days INTEGER NOT NULL,
+          policy_version TEXT NOT NULL,
+          status TEXT NOT NULL,
+          reason TEXT NOT NULL,
+          profile_chain_reset INTEGER NOT NULL,
+          PRIMARY KEY(source_file,trading_date)
+        );
+        CREATE INDEX IF NOT EXISTS ix_source_coverage_status
+          ON source_coverage_audit(status,trading_date);
         """
     )
     con.commit()
@@ -227,6 +250,26 @@ def _persist_contract_audit(con, file: Path, volume_map, active):
             ),
         )
     con.commit()
+
+
+def _persist_coverage_audit(con, file: Path, coverage: dict, max_gap_days: int):
+    con.execute(
+        """INSERT OR REPLACE INTO source_coverage_audit(
+        source_file,trading_date,previous_trading_date,gap_calendar_days,
+        max_gap_calendar_days,policy_version,status,reason,profile_chain_reset)
+        VALUES(?,?,?,?,?,?,?,?,?)""",
+        (
+            file.name,
+            coverage["trading_date"],
+            coverage.get("previous_trading_date"),
+            coverage.get("gap_calendar_days"),
+            int(max_gap_days),
+            coverage.get("policy_version") or COVERAGE_POLICY_VERSION,
+            coverage["status"],
+            coverage["reason"],
+            int(bool(coverage.get("profile_chain_reset"))),
+        ),
+    )
 
 
 def _iter_active_days(path: Path, active: dict, cfg: ScanConfig, progress=None, common=None):
@@ -443,6 +486,10 @@ def scan_files_progress(root: Path, db: Path, years=None, config=None, progress=
             completed_work_rows += file_rows[file.name]
             active = choose_contracts(volume_map, cfg.contract_mode)
             _persist_contract_audit(con, file, volume_map, active)
+            # Coverage audit is rebuildable market-derived state. Clear the file's
+            # prior rows so a rescanned source cannot leave stale dates behind.
+            con.execute("DELETE FROM source_coverage_audit WHERE source_file=?", (file.name,))
+            con.commit()
             days_total = len(active)
             roll_days = sum(bool(x.get("roll")) for x in active.values())
             report(
@@ -455,21 +502,37 @@ def scan_files_progress(root: Path, db: Path, years=None, config=None, progress=
                 trading_days_found=days_total,
                 days_total=days_total,
                 roll_days=roll_days,
+                coverage_policy_version=COVERAGE_POLICY_VERSION,
                 message=f"{file.name}：找到 {days_total} 個日盤交易日，{roll_days} 個 roll days。",
             )
 
             previous_profile = None
             previous_contract = None
+            previous_day = None
             blackout = 0
             days_processed = 0
+            coverage_breaks = 0
+            max_gap_days = int(
+                getattr(cfg, "max_profile_calendar_gap_days", DEFAULT_MAX_PROFILE_GAP_CALENDAR_DAYS)
+            )
 
             def row_progress(p):
                 p["days_processed"] = days_processed
                 p["days_total"] = days_total
+                p["coverage_breaks"] = coverage_breaks
                 report(file, file_index, completed_work_rows, **p)
 
             for day, g in _iter_active_days(file, active, cfg, row_progress):
                 days_processed += 1
+                coverage = evaluate_profile_coverage(previous_day, day, max_gap_days)
+                if coverage["profile_chain_reset"]:
+                    # Critical invariant: a missing/long source-session gap may
+                    # never be bridged by Previous Value. Current day can rebuild
+                    # a fresh profile for the following observed day.
+                    previous_profile = None
+                    coverage_breaks += 1
+                _persist_coverage_audit(con, file, coverage, max_gap_days)
+
                 contract = active[day]["contract"]
                 roll = previous_contract is not None and contract != previous_contract
                 if roll:
@@ -485,11 +548,12 @@ def scan_files_progress(root: Path, db: Path, years=None, config=None, progress=
                     write_events(con, events, now())
                     total_events += len(events)
                     _update_counts(events, counters, node_counts)
-                    con.commit()
                 if blackout > 0:
                     blackout -= 1
                 previous_profile = profile
                 previous_contract = contract
+                previous_day = day
+                con.commit()
                 report(
                     file,
                     file_index,
@@ -504,7 +568,14 @@ def scan_files_progress(root: Path, db: Path, years=None, config=None, progress=
                     days_processed=days_processed,
                     days_total=days_total,
                     events_today=len(events),
-                    message=f"{day} {contract}：+{len(events)} events · 累積 {total_events}",
+                    coverage_status=coverage["status"],
+                    coverage_reason=coverage["reason"],
+                    coverage_gap_calendar_days=coverage.get("gap_calendar_days"),
+                    coverage_breaks=coverage_breaks,
+                    message=(
+                        f"{day} {contract}：+{len(events)} events · 累積 {total_events}"
+                        + (" · Previous Value chain RESET" if coverage["profile_chain_reset"] else "")
+                    ),
                 )
 
             completed_work_rows += file_rows[file.name]
@@ -517,7 +588,9 @@ def scan_files_progress(root: Path, db: Path, years=None, config=None, progress=
                 pass_rows_processed=0,
                 days_processed=days_processed,
                 days_total=days_total,
-                message=f"{file.name} 完成：累積 {total_events} events。",
+                coverage_breaks=coverage_breaks,
+                coverage_policy_version=COVERAGE_POLICY_VERSION,
+                message=f"{file.name} 完成：累積 {total_events} events；coverage resets={coverage_breaks}。",
             )
 
         con.commit()
