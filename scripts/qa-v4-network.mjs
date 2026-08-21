@@ -55,9 +55,18 @@ try {
   await visit(`${BASE}/#/replay/${encodeURIComponent(manifest.mr_yes)}`);
   await visit(`${BASE}/#/research`);
 
-  // Exercise research-governance endpoints too; any >=400 is captured above only
-  // for browser requests, so direct fetches are explicitly checked here.
-  for (const route of ['/v4/health', '/v4/research/provenance', '/v4/sanity/latest', '/v4/research/management-capture']) {
+  // Direct API probes complement browser request tracking.
+  const routes = [
+    '/v4/health',
+    '/v4/research/provenance',
+    '/v4/sanity/latest',
+    '/v4/research/management-capture',
+    '/v4/research/strict-summary',
+    '/v4/research/right-tail',
+    '/v4/research/multi-year-edge',
+    '/v4/research/production-gate',
+  ];
+  for (const route of routes) {
     const res = await fetch(API + route);
     if (!res.ok) add({ kind: 'api', method: 'GET', url: API + route, status: res.status, statusText: res.statusText });
   }
