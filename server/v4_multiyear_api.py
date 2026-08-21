@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import HTTPException
 
+from .v4_execution_stress import execution_stress_summary
 from .v4_multiyear import (
     compute_strict_outcomes,
     migrate_multiyear_schema,
@@ -61,6 +62,14 @@ def install_multiyear(base):
         con = base.connect(base.DB)
         try:
             return multi_year_edge_map(con, _years(years))
+        finally:
+            con.close()
+
+    @app.get("/api/v4/research/execution-stress")
+    def execution_stress(years: str | None = None):
+        con = base.connect(base.DB)
+        try:
+            return execution_stress_summary(con, _years(years))
         finally:
             con.close()
 
