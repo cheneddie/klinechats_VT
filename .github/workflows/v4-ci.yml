@@ -34,6 +34,7 @@ jobs:
           node --check src/v4/replay.js
           node --check src/v4/research.js
           node --check scripts/qa-v4-watchdog.mjs
+          node --check scripts/qa-v4-network.mjs
 
       - name: Production build
         timeout-minutes: 2
@@ -50,7 +51,8 @@ jobs:
             server/v4_replay.py server/v4_replay_final.py \
             server/v4_audit.py server/v4_audit_final.py \
             server/v4_api.py server/v4_api_final.py server/v4_training_api.py \
-            server/v4_research_release.py server/v4_research_api.py server/fabio_api_v4.py
+            server/v4_research_release.py server/v4_research_api.py server/fabio_api_v4.py \
+            tools/run_v4_diagnostic.py
           python -m py_compile \
             tests/test_v4_node_semantics.py tests/test_v4_replay.py tests/test_v4_reverse_audit.py \
             tests/test_v4_unbiased_universe.py tests/test_v4_replay_causality.py \
@@ -90,5 +92,7 @@ jobs:
           test -s server/v4_research_release.py
           test -s server/v4_research_api.py
           test -s server/fabio_api_v4.py
+          test -s tools/run_v4_diagnostic.py
           test -s scripts/qa-v4-watchdog.mjs
+          test -s scripts/qa-v4-network.mjs
           grep -q 'Fabio Decision Gym V4' index.html
