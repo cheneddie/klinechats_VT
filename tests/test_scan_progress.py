@@ -21,11 +21,16 @@ def build_fixture(root: Path, days=None):
     rows = []
     for day_i, day in enumerate(days):
         base = 100.0 + day_i
+        # Preserve the production contract rule inside the fixture too: after
+        # March 2025's third-Wednesday expiry, only the next monthly contract is
+        # a legal causal front-month candidate.  A test must not rely on an
+        # expired 202503 contract merely to manufacture a coverage row.
+        expiry = "202503" if day <= "2025-03-19" else "202504"
         for i in range(80):
             rows.append({
                 "datetime": pd.Timestamp(f"{day} 09:00:00") + pd.Timedelta(seconds=i),
                 "product": "MTX",
-                "expiry": "202503",
+                "expiry": expiry,
                 "price": base + ((i % 12) - 6),
                 "volume": 1 + (i % 5),
                 "side": 0 if i == 0 else (1 if i % 2 else -1),
