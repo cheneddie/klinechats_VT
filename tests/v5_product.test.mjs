@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+const html=fs.readFileSync('v5.html','utf8'),js=fs.readFileSync('src/v5/app.js','utf8'),rules=fs.readFileSync('docs/V5_ENGINEERING_RULES.md','utf8'),reg=fs.readFileSync('config/research/node_registry.yaml','utf8');
+test('V5 standalone surface loads KLineChart/Pixi and app',()=>{assert.match(html,/klinecharts-10\.0\.2/);assert.match(html,/pixi-8\.19\.0/);assert.match(html,/src\/v5\/app\.js/)});
+test('V5 exposes all eight product areas',()=>{for(const s of ['Research Dashboard','Node Explorer','Pattern Wall','Compare Lab','Single Node Drill','Decision Tree Drill','Exam / Certification','My Performance'])assert.match(js,new RegExp(s.replace(/[\/]/g,'\\/')))});
+test('V5 causal training uses server pre-aggregation cutoff endpoint',()=>{assert.match(js,/v4\/training-replay/);assert.match(rules,/before.*candle aggregation/i)});
+test('V5 registry contains MR and BO gates and production defaults false',()=>{const x=JSON.parse(reg);for(const n of ['MR_CLEAR_RECLAIM','MR_LVN','BO_ACCEPTANCE','BO_RESPONSE'])assert.ok(x.nodes[n]);assert.ok(Object.values(x.nodes).every(n=>n.production_eligible===false))});

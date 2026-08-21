@@ -1,0 +1,30 @@
+name: V5 Training CI
+on:
+  push:
+    branches: [fabio-decision-gym-v4]
+  pull_request:
+    branches: [main]
+jobs:
+  training:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Install frontend dependencies
+        run: timeout 150s npm install --ignore-scripts
+      - name: V5 JS tests
+        run: node --test tests/v5_product.test.mjs
+      - name: Syntax
+        run: |
+          node --check src/v5/app.js
+          node --check src/v5/launcher.js
+          node --check scripts/qa-v5-watchdog.mjs
+      - name: Static build
+        run: npm run build
+      - name: Built V5 artifacts
+        run: |
+          test -s dist/v5.html
+          test -s dist/src/v5/app.js
+          test -s dist/config/research/node_registry.yaml

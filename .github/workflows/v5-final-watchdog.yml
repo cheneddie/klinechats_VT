@@ -1,0 +1,75 @@
+name: V5 Final Watchdog
+on:
+  push:
+    branches: [fabio-decision-gym-v4]
+  workflow_dispatch:
+jobs:
+  browser-watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install
+        run: |
+          npm install --ignore-scripts
+          npm install --no-save playwright@1.54.2
+          npx playwright install --with-deps chromium
+          python -m pip install -r requirements-server.txt
+      - name: Seed V4 physical truth
+        run: |
+          mkdir -p qa-v5-artifacts/data
+          python tests/seed_v4_qa_env.py --root qa-v5-artifacts/data --db qa-v5-artifacts/v4.sqlite3 --manifest qa-v5-artifacts/seed.json
+      - name: Normalize V5 physical decision truth in synthetic fixture
+        run: |
+          python - <<'PY'
+          import sqlite3
+          import pyarrow.parquet as pq
+          from pathlib import Path
+          parquet=Path('qa-v5-artifacts/data/MTX_2025.parquet')
+          db='qa-v5-artifacts/v4.sqlite3'
+          table=pq.read_table(parquet,columns=['datetime','price'])
+          times=table.column('datetime').to_pylist(); prices=table.column('price').to_pylist()
+          con=sqlite3.connect(db)
+          rows=con.execute('SELECT event_id,node_id,decision_seq FROM node_instances WHERE decision_seq IS NOT NULL').fetchall()
+          for event_id,node_id,seq in rows:
+              seq=int(seq)
+              if 0 <= seq < len(times):
+                  con.execute('UPDATE node_instances SET decision_time=?,decision_price=? WHERE event_id=? AND node_id=?',(str(times[seq]),float(prices[seq]),event_id,node_id))
+          con.commit();con.close()
+          print(f'normalized {len(rows)} V5 QA decision rows to physical _seq truth')
+          PY
+      - name: Start API and frontend
+        env:
+          FABIO_DATA_ROOT: ${{ github.workspace }}/qa-v5-artifacts/data
+          FABIO_EVENT_DB: ${{ github.workspace }}/qa-v5-artifacts/v4.sqlite3
+          FABIO_V5_EVENT_DB: ${{ github.workspace }}/qa-v5-artifacts/v5-events.sqlite3
+          FABIO_V5_TRAINING_DB: ${{ github.workspace }}/qa-v5-artifacts/v5-training.sqlite3
+        run: |
+          python -m server.fabio_api_v5 > qa-v5-artifacts/api.log 2>&1 & echo $! > qa-v5-artifacts/api.pid
+          python -m http.server 4173 > qa-v5-artifacts/http.log 2>&1 & echo $! > qa-v5-artifacts/http.pid
+          for i in {1..40}; do curl -sf http://127.0.0.1:8765/api/v5/health && break; sleep 1; done
+      - name: Build V5 research fixture
+        run: |
+          curl -fsS -X POST http://127.0.0.1:8765/api/v5/research/scan -H 'content-type: application/json' -d '{"research_run_id":"v5-qa-discovery","role":"DISCOVERY","years":[2025],"git_commit":"${{ github.sha }}"}'
+          curl -fsS -X POST http://127.0.0.1:8765/api/v5/research/sanity -H 'content-type: application/json' -d '{"research_run_id":"v5-qa-discovery"}'
+          curl -fsS -X POST http://127.0.0.1:8765/api/v5/research/outcomes -H 'content-type: application/json' -d '{"research_run_id":"v5-qa-discovery"}'
+          curl -fsS -X POST http://127.0.0.1:8765/api/v5/research/reverse-audit -H 'content-type: application/json' -d '{"research_run_id":"v5-qa-discovery"}'
+          curl -fsS -X POST http://127.0.0.1:8765/api/v5/research/sequential -H 'content-type: application/json' -d '{"research_run_id":"v5-qa-discovery"}'
+          curl -fsS -X POST http://127.0.0.1:8765/api/v5/research/ablation -H 'content-type: application/json' -d '{"research_run_id":"v5-qa-discovery"}'
+          curl -fsS -X POST http://127.0.0.1:8765/api/v5/research/evidence -H 'content-type: application/json' -d '{"research_run_id":"v5-qa-discovery"}'
+          curl -fsS -X POST http://127.0.0.1:8765/api/v5/training/build -H 'content-type: application/json' -d '{"research_run_id":"v5-qa-discovery"}'
+      - name: Browser watchdog
+        env:
+          QA_OUT: qa-v5-artifacts
+          QA_RUN_ID: v5-qa-discovery
+        run: node scripts/qa-v5-watchdog.mjs
+      - name: Upload watchdog artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v5-final-watchdog
+          path: qa-v5-artifacts

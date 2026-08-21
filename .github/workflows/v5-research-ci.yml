@@ -1,0 +1,39 @@
+name: V5 Research CI
+on:
+  push:
+    branches: [fabio-decision-gym-v4]
+  pull_request:
+    branches: [main]
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install runtime
+        run: |
+          python -m pip install -r requirements-server.txt
+          python -m pip install pytest
+      - name: V5 syntax
+        run: python -m py_compile server/v5/*.py server/fabio_api_v5.py
+      - name: V5 research/training integration
+        run: python -m pytest -q tests/test_v5_layer.py
+      - name: V4 causal regression
+        run: |
+          python tests/test_v4_node_semantics.py
+          python tests/test_v4_replay_causality.py
+          python tests/test_v4_unbiased_universe.py
+      - name: V5 artifact contract
+        run: |
+          test -s config/research/node_registry.yaml
+          test -s docs/V5_ENGINEERING_RULES.md
+          test -s server/v5/storage.py
+          test -s server/v5/sanity.py
+          test -s server/v5/outcomes.py
+          test -s server/v5/research.py
+          test -s server/v5/training.py
+          test -s server/v5/certification.py
+          test -s server/v5/api.py
+          test -s server/fabio_api_v5.py
