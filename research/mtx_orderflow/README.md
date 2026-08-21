@@ -1,10 +1,32 @@
-# MTX 2025 Order-Flow / Price-Response Research
+# MTX 2024–2026 Order-Flow / Price-Response Research
 
-Research branch for validating the hypotheses in arXiv:2505.17388 against the uploaded MTX 2025 transaction data.
+This branch is a standalone research branch. It is **not intended to merge into `main`**.
 
-## Important data semantics
+The project began by testing ideas from arXiv:2505.17388 against MTX transaction data. The final corrected conclusion is that the available transaction-only data do **not** support a live-deployable independent order-flow alpha. The only surviving hypothesis is an extreme short-term **price** selloff followed by multi-minute mean reversion.
 
-The uploaded file has columns:
+## Final status
+
+| Candidate | Status |
+|---|---|
+| True L1 OFI | Cannot reproduce with current data |
+| Second-level Aggressive Proxy | **INVALIDATED** by aggregation bias |
+| Tick-level Aggressive Proxy | **REJECT** |
+| Raw TRSV | **REJECT FOR LIVE** |
+| TRSV Night / High-Intensity regimes | **REJECT** after 2024 holdout |
+| Price 30s / lower 0.05% / Long / 300s | **PAPER-TRADING CANDIDATE** |
+
+The price-only candidate is **not live approved** because its Net@2 contract-block 95% confidence interval still includes zero and the untouched 2024 sample weakens when execution latency exceeds roughly 2 seconds.
+
+See:
+
+- `reports/mtx_orderflow/FINAL_RESEARCH_REPORT.md`
+- `reports/mtx_orderflow/2024_UNTOUCHED_HOLDOUT.md`
+- `reports/mtx_orderflow/FINAL_SUMMARY.csv`
+- `reports/mtx_orderflow/LIVE_GATE_SCORECARD.csv`
+
+## Critical data semantics
+
+Raw columns:
 
 - `datetime`
 - `product`
@@ -13,127 +35,70 @@ The uploaded file has columns:
 - `volume`
 - `side`
 
-Phase-1 audit found that `side` is **not an independent aggressor-side label**. In sampled row groups across the year:
+Rules:
+
+1. Preserve original parquet row order. Never re-sort same-second trades.
+2. Keep only outright expiry strings matching `^\d{6}$`; remove calendar spreads.
+3. Vendor volume is doubled two-sided volume; divide by 2.
+4. `side` is tick-price direction, not an independent exchange aggressor flag.
+5. Never call TRSV true OFI/TI.
+6. Never join different expiry contracts into one return path.
+7. A complete-second signal becomes knowable only after that second ends.
+8. Entry uses the **first real print** after confirmation + latency, never the second close.
+9. Fixed-time exits must remain in the same session.
+10. Thresholds use only previous completed contracts.
+
+## Corrected Tick-level Aggressive Proxy
+
+For every trade:
 
 ```text
-side == sign(price_t - price_{t-1})
+if side_i != 0:
+    direction_i = side_i
+else:
+    direction_i = previous non-zero direction in the same contract/session
+
+proxy_i = direction_i * (volume_i / 2)
 ```
 
-matched 100% for adjacent rows of the same outright contract. Therefore this project calls volume signed with this field **Tick-Rule Signed Volume (TRSV)**, not true Trade Imbalance (TI) and not L1 Order Flow Imbalance (OFI).
+Direction carry resets at every new session. The proxy is built trade-by-trade **before** aggregating to seconds.
 
-The paper's L1 OFI cannot be reproduced exactly without best bid/ask price and size. The data can still validate price-direction persistence, signed-volume state, shock/response decay, event-time vs clock-time decay, regime dependence, MFE/MAE, cost sensitivity and executable position logic.
+This corrected proxy rejected the earlier second-level result.
 
-## Research rules
+## Canonical reproduction engine
 
-1. Preserve original parquet row order. Never re-sort equal-second records by price, side or volume.
-2. Only `expiry` matching `^\d{6}$` is an outright contract. Calendar-spread records such as `202501W4/202502` are audited separately and excluded from outright price-return calculations.
-3. Never call TRSV `OFI` or true aggressor TI.
-4. Never use random train/test splits for overlapping forward returns.
-5. Thresholds and normalization parameters must be estimated on train data only.
-6. Report gross results and 0/1/2/3-tick cost sensitivity separately.
-7. Do not call aggregate overlapping forward returns a strategy PnL.
-8. A candidate is acceptable only if it survives walk-forward OOS, parameter perturbation and regime splits.
+Use:
 
-## Planned phases
+`research/mtx_orderflow/final_engine.py`
 
-### Phase 1 — Data integrity and semantics
-
-- schema / row count / time range
-- outright vs spread-expiry separation
-- monotonic timestamp check while preserving row sequence
-- `side` semantic validation
-- volume-unit audit
-- contract-roll boundaries
-
-### Phase 2 — Memory and null models
-
-Study both clock time and event time:
-
-- direction ACF / transition probabilities
-- TRSV ACF
-- run-length / switching statistics
-- single exponential vs double exponential vs power-law decay
-- shuffled and block-shuffled null tests
-
-### Phase 3 — Shock discovery and response surface
-
-Candidate signals include:
-
-- rolling TRSV
-- normalized signed volume
-- direction-count imbalance
-- run length
-- flow acceleration
-- trade intensity
-
-For each signal, produce `lookback × shock-strength × forecast-horizon` surfaces in seconds and event counts.
-
-### Phase 4 — Trading-path validation
-
-For non-overlapping shock episodes report:
-
-- N
-- mean / median forward move
-- directional hit rate
-- MFE / MAE
-- first-hit target/stop probability
-- peak impact time
-- alpha half-life
-- zero-crossing / reversal time
-
-### Phase 5 — Continuation vs absorption proxy
-
-Without L1 depth, absorption cannot be observed directly. We can only study a transaction-data proxy:
-
-```text
-FlowEfficiency = price_move / abs(signed_volume)
-```
-
-Strong signed flow with weak/negative price response is treated as a **candidate absorption/failure state**, not proof of passive-book absorption.
-
-### Phase 6 — Regimes
-
-Rolling regime features:
-
-- realized volatility
-- trade intensity
-- direction-memory score
-- flow efficiency
-- day/night session
-- time of day
-- roll proximity
-
-### Phase 7 — Executable backtest
-
-Use one explicit position state, no independent overlapping pseudo-trades. Compare:
-
-- fixed holding time
-- signal-decay exit
-- opposite-flow exit
-- dynamic holding time
-- target/stop combinations
-
-Because bid/ask is unavailable, use explicit 0/1/2/3-tick round-trip cost scenarios instead of pretending to know exact queue/slippage.
-
-### Phase 8 — Walk-forward falsification
-
-- chronological walk-forward
-- purge/embargo overlapping labels
-- parameter plateau tests
-- remove-best-month test
-- remove-top-1%-trade test
-- day/night split
-- volatility/intensity split
-- contract-month split
-
-## Reproduction
-
-The normal project environment already declares `numpy`, `pandas`, and `pyarrow` in `requirements-data.txt`.
-
-Run:
+Build deterministic second caches:
 
 ```bash
-python research/mtx_orderflow/phase1_audit.py /path/to/MTX_2025.parquet --out reports/mtx_orderflow
+python research/mtx_orderflow/final_engine.py build-cache /data/MTX_2024.parquet data/mtx_sec_2024
+python research/mtx_orderflow/final_engine.py build-cache /data/MTX_2025.parquet data/mtx_sec_2025
+python research/mtx_orderflow/final_engine.py build-cache /data/MTX_2026.parquet data/mtx_sec_2026
 ```
 
-Phase-1 writes JSON/CSV audit artifacts and is intentionally conservative: it identifies what the data **can** prove before any alpha fitting is attempted.
+Run the surviving paper-trading candidate:
+
+```bash
+python research/mtx_orderflow/final_engine.py backtest data/mtx_sec_2024 \
+  --spec price,30,0.0005,300,1,2 \
+  --out reports/mtx_orderflow/price_2024.csv
+```
+
+Run the rejected Tick-level Aggressive Proxy for reproducibility:
+
+```bash
+python research/mtx_orderflow/final_engine.py backtest data/mtx_sec_2024 \
+  --spec tick_aggr,15,0.001,240,1,2 \
+  --out reports/mtx_orderflow/tick_aggr_2024.csv
+```
+
+`requirements-data.txt` already declares `numpy`, `pandas`, and `pyarrow`.
+
+## Research integrity notes
+
+Several bugs were found and corrected during the project: execution-time indexing, too-early signal availability, a temporary Parquet page-decoding implementation, non-idempotent cache append logic, session-first-window pseudo-crossings, and second-level aggressor aggregation bias. Earlier figures affected by these issues are retained only as research history; the final report is authoritative.
+
+Do not optimize a new generation on 2024–2026 and then call those years untouched. Any volatility-normalized or otherwise redesigned strategy must be validated prospectively on new data.
