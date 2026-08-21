@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-"""Run a reproducible Fabio V4 Single-Year Diagnostic.
+"""Run a reproducible Fabio V4 diagnostic.
 
-This runner intentionally enforces the research order documented for V4:
+Research order:
 
-    scan -> physical Event Sanity Gate -> outcomes -> reverse audit
-         -> ablation -> sequential contribution -> management extraction
+    scan -> physical Event Sanity Gate -> relaxed outcomes -> reverse audit
+         -> ablation -> sequential contribution -> strict-entry outcomes
+         -> multi-year edge map -> right-tail -> production gate
 
 Synthetic data may validate software, but output from synthetic data must never
 be described as strategy evidence.  A real single year is still diagnostic,
-not final OOS validation.
+not final OOS validation.  Multi-year evidence is still not automatically a
+live approval: cost/latency/ATR/drawdown/concentration gates remain explicit.
 """
 
 import argparse
@@ -27,6 +29,17 @@ if str(ROOT_DIR) not in sys.path:
 from server import progress_scanner
 from server.engine import connect
 from server.v4_audit_final import ablation_audit, compute_outcomes, reverse_node_audit
+from server.v4_multiyear import (
+    MULTIYEAR_VERSION,
+    PRODUCTION_GATE_VERSION,
+    STRICT_OUTCOME_VERSION,
+    compute_strict_outcomes,
+    migrate_multiyear_schema,
+    multi_year_edge_map,
+    production_gate,
+    right_tail_summary,
+    strict_trade_summary,
+)
 from server.v4_release_engine import ScanConfigV4Final, scan_day_v4_final, write_events_v4
 from server.v4_research_release import (
     AUDIT_VERSION,
@@ -145,7 +158,7 @@ def main():
 
     con = connect(args.db)
     try:
-        migrate_release_schema(con)
+        migrate_multiyear_schema(con)
         run_id = start_research_run(
             con,
             kind="single_year_diagnostic" if len(years) == 1 else "multi_year_diagnostic",
@@ -155,6 +168,9 @@ def main():
                 "db": str(args.db),
                 "out": str(args.out),
                 "evidence_label": "Single-Year Diagnostic" if len(years) == 1 else "Multi-Year Diagnostic",
+                "strict_outcome_version": STRICT_OUTCOME_VERSION,
+                "multiyear_version": MULTIYEAR_VERSION,
+                "production_gate_version": PRODUCTION_GATE_VERSION,
             },
         )
     finally:
@@ -171,7 +187,14 @@ def main():
         print(json.dumps(row, ensure_ascii=False), flush=True)
 
     manifest = provenance_manifest()
-    manifest.update(run_id=run_id, years=years, started_at=utcnow())
+    manifest.update(
+        run_id=run_id,
+        years=years,
+        started_at=utcnow(),
+        strict_outcome_version=STRICT_OUTCOME_VERSION,
+        multiyear_version=MULTIYEAR_VERSION,
+        production_gate_version=PRODUCTION_GATE_VERSION,
+    )
     dump(args.out / "provenance.json", manifest)
 
     try:
@@ -190,7 +213,7 @@ def main():
         summary = db_summary(args.db, years)
         dump(args.out / "scan_summary.json", summary)
 
-        # Formal hard gate: exact persisted decision/entry prices must map to raw physical rows.
+        # Hard gate: persisted decision/entry prices must map to raw physical rows.
         heartbeat({"phase": "event_sanity", "done": 0, "total": summary["funnel"]["events"], "message": "Validating persisted events against physical _seq"})
         con = connect(args.db)
         try:
@@ -202,7 +225,8 @@ def main():
             raise RuntimeError(f"EVENT_SANITY_CHECK failed with {sanity['error_count']} errors")
         heartbeat({"phase": "event_sanity_pass", "done": sanity["physical_points_checked"], "total": sanity["physical_points_checked"], "message": "Automatic Event Sanity Gate PASS; manual replay spot-check remains required"})
 
-        heartbeat({"phase": "outcomes", "done": 0, "total": sanity["funnel"]["terminal_opportunities"], "message": "Computing physical-tick outcome paths"})
+        # Research universe outcomes: deliberately anchored at relaxed terminal opportunities.
+        heartbeat({"phase": "outcomes", "done": 0, "total": sanity["funnel"]["terminal_opportunities"], "message": "Computing relaxed physical-tick outcome paths"})
         outcome_count = compute_outcomes(
             args.db,
             args.root,
@@ -228,33 +252,71 @@ def main():
         dump(args.out / "ablation.json", ablation)
         dump(args.out / "management_capture.json", management)
 
+        # Actual strategy outcomes must start from strict entry, not the relaxed audit anchor.
+        heartbeat({"phase": "strict_outcomes", "done": 0, "total": summary["funnel"]["strict_entries"], "message": "Computing actual strict-entry physical outcomes"})
+        strict_count = compute_strict_outcomes(
+            args.db,
+            args.root,
+            years,
+            max(0, min(3, args.max_after_days)),
+            progress=lambda p: heartbeat(p),
+        )
+        con = connect(args.db)
+        try:
+            strict_summary = strict_trade_summary(con, years)
+            right_tail = right_tail_summary(con, years)
+            edge_map = multi_year_edge_map(con, years)
+            live_gate = production_gate(con, years)
+        finally:
+            con.close()
+
+        dump(args.out / "strict_trade_summary.json", strict_summary)
+        dump(args.out / "right_tail.json", right_tail)
+        dump(args.out / "multi_year_edge_map.json", edge_map)
+        dump(args.out / "production_gate.json", live_gate)
+
         classifications = {}
         for row in audit.get("rows") or []:
             classifications[f"{row['strategy']}:{row['node_id']}"] = (row.get("details") or {}).get("classification")
+        cross_year_classifications = {
+            f"{row['strategy']}:{row['node_id']}": row.get("classification")
+            for row in edge_map.get("nodes") or []
+        }
         final = {
             "run_id": run_id,
             "evidence_label": "Single-Year Diagnostic" if len(years) == 1 else "Multi-Year Diagnostic",
             "years": years,
             "automatic_event_sanity": "PASS",
             "manual_replay_spot_check": "REQUIRED",
-            "outcomes": outcome_count,
+            "relaxed_terminal_outcomes": outcome_count,
+            "strict_entry_outcomes": strict_count,
             "node_classifications": classifications,
+            "cross_year_node_classifications": cross_year_classifications,
+            "production_gate": {
+                "MR": live_gate.get("strategies", {}).get("MR", {}).get("status"),
+                "BO": live_gate.get("strategies", {}).get("BO", {}).get("status"),
+                "live_approval_is_automatic": False,
+            },
             "versions": {
                 "audit": AUDIT_VERSION,
                 "outcome": OUTCOME_VERSION,
+                "strict_outcome": STRICT_OUTCOME_VERSION,
                 "management": MANAGEMENT_VERSION,
+                "multiyear": MULTIYEAR_VERSION,
+                "production_gate": PRODUCTION_GATE_VERSION,
                 "contract_policy": CONTRACT_POLICY_VERSION,
                 "config_hash": manifest["config_hash"],
                 "git_commit": manifest["git_commit"],
             },
             "evidence_boundary": (
-                "A single year is diagnostic evidence only. Do not label it final OOS or production edge. "
-                "Synthetic QA is software validation only."
+                "Single-year results are diagnostic only. Multi-year results are not automatically final OOS. "
+                "Synthetic QA is software validation only. Live approval remains blocked until the explicit "
+                "cost/latency/ATR/drawdown/concentration policies are measured and passed."
             ),
             "production_value_targets": {
                 "MR": "candidate should support approximately 1R practical reward",
                 "BO": "candidate should support approximately 2R practical reward",
-                "average_profit_points": "ideally at least about 10% of representative ATR",
+                "average_profit_points": "ideally at least about 10% of representative ATR; ATR timeframe/reference remains unspecified",
                 "additional_requirements": [
                     "cost robust", "latency robust", "cross-period consistency", "acceptable confidence interval",
                     "no single year/month concentration", "acceptable drawdown",
@@ -265,10 +327,20 @@ def main():
         dump(args.out / "final_summary.json", final)
         con = connect(args.db)
         try:
-            finish_research_run(con, run_id, status="done", details={"outcomes": outcome_count, "automatic_event_sanity": "PASS"})
+            finish_research_run(
+                con,
+                run_id,
+                status="done",
+                details={
+                    "relaxed_terminal_outcomes": outcome_count,
+                    "strict_entry_outcomes": strict_count,
+                    "automatic_event_sanity": "PASS",
+                    "production_gate": final["production_gate"],
+                },
+            )
         finally:
             con.close()
-        heartbeat({"phase": "done", "done": outcome_count, "total": outcome_count, "message": "Diagnostic computation complete; manual replay spot-check remains before interpretation"})
+        heartbeat({"phase": "done", "done": strict_count, "total": strict_count, "message": "Diagnostic computation complete; manual replay spot-check and unresolved production gates remain before live interpretation"})
         return 0
     except Exception as exc:
         con = connect(args.db)
