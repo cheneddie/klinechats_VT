@@ -13,6 +13,18 @@ on:
       - 'reports/poc_absorption/**'
       - 'requirements-data.txt'
       - '.github/workflows/poc-absorption-research-ci.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'server/poc_absorption/**'
+      - 'server/contracts.py'
+      - 'tools/poc_absorption/**'
+      - 'tests/test_poc_absorption_*.py'
+      - 'config/poc_absorption/**'
+      - 'reports/poc_absorption/**'
+      - 'requirements-data.txt'
+      - '.github/workflows/poc-absorption-research-ci.yml'
   workflow_dispatch:
 
 permissions:
