@@ -50,17 +50,24 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-data.txt pytest
 
-      - name: Run M1-M3 causal research tests
+      - name: Run M1-M4 causal research tests
         env:
           PYTHONPATH: .
         run: |
           python -m pytest -q \
             tests/test_poc_absorption_m1.py \
             tests/test_poc_absorption_bars.py \
-            tests/test_poc_absorption_features.py
+            tests/test_poc_absorption_features.py \
+            tests/test_poc_absorption_universe.py
 
       - name: Run committed M3 QA runner self-test
         env:
           PYTHONPATH: .
         run: |
           python tools/poc_absorption/m3_feature_qa.py --self-test
+
+      - name: Run committed M4 QA runner self-test
+        env:
+          PYTHONPATH: .
+        run: |
+          python tools/poc_absorption/m4_universe_qa.py --self-test
