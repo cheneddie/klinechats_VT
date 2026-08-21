@@ -57,7 +57,7 @@ try {
 
   // Exercise research-governance endpoints too; any >=400 is captured above only
   // for browser requests, so direct fetches are explicitly checked here.
-  for (const route of ['/v4/health', '/v4/research/provenance', '/v4/sanity/latest', '/v4/management/capture']) {
+  for (const route of ['/v4/health', '/v4/research/provenance', '/v4/sanity/latest', '/v4/research/management-capture']) {
     const res = await fetch(API + route);
     if (!res.ok) add({ kind: 'api', method: 'GET', url: API + route, status: res.status, statusText: res.statusText });
   }
