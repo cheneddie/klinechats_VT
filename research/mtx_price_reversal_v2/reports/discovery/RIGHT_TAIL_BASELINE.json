@@ -1,0 +1,33 @@
+{
+  "trades": 3655,
+  "net2_total": 5104.0,
+  "net2_expectancy": 1.3964432284541723,
+  "top_1pct_n": 37,
+  "top_1pct_pnl": 12164.0,
+  "top_1pct_share_of_total": 2.383228840125392,
+  "expectancy_without_top_1pct": -1.951354339414041,
+  "top_5pct_n": 183,
+  "top_5pct_pnl": 33075.0,
+  "top_5pct_share_of_total": 6.480211598746082,
+  "expectancy_without_top_5pct": -8.056163594470046,
+  "entry_calendar_day": {
+    "best_day": "2026-03-09",
+    "best_day_pnl": 978.0,
+    "top_1_days_pnl": 978.0,
+    "top_1_days_share": 0.1916144200626959,
+    "top_3_days_pnl": 2801.0,
+    "top_3_days_share": 0.5487852664576802,
+    "top_5_days_pnl": 4343.0,
+    "top_5_days_share": 0.8509012539184952
+  },
+  "session_key_day": {
+    "best_day": "2026-06-08",
+    "best_day_pnl": 909.0,
+    "top_1_days_pnl": 909.0,
+    "top_1_days_share": 0.17809561128526646,
+    "top_3_days_pnl": 2560.0,
+    "top_3_days_share": 0.5015673981191222,
+    "top_5_days_pnl": 4111.0,
+    "top_5_days_share": 0.8054467084639498
+  }
+}
