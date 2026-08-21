@@ -1,0 +1,15 @@
+{
+  "research_role": "FINAL_HOLDOUT_SEALED",
+  "strategy_outcomes_inspected": false,
+  "source_file": "MTX_2026(4).parquet",
+  "bytes": 137413619,
+  "sha256": "304f7d4e531374c3d4776f0c4d0e93e135dbd96c8b74956e9eb629fadbc957d6",
+  "parquet_rows": 36158882,
+  "row_groups": 35,
+  "schema_observation": {
+    "volume_physical_type": "INT64",
+    "comparison_note": "2024/2025 volume physical type was DOUBLE; this schema drift must be handled explicitly before eventual holdout opening."
+  },
+  "allowed_use_now": "file hash + footer/schema metadata + exchange-calendar registration only",
+  "prohibited_use_now": "event scan, strategy outcome, edge selection, threshold selection, regime selection"
+}
