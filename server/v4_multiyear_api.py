@@ -11,6 +11,7 @@ from .v4_multiyear import (
     right_tail_summary,
     strict_trade_summary,
 )
+from .v4_stratified import stratified_edge_report
 
 
 def _years(text: str | None):
@@ -62,6 +63,14 @@ def install_multiyear(base):
         con = base.connect(base.DB)
         try:
             return multi_year_edge_map(con, _years(years))
+        finally:
+            con.close()
+
+    @app.get("/api/v4/research/stratified-edge")
+    def stratified_edge(years: str | None = None):
+        con = base.connect(base.DB)
+        try:
+            return stratified_edge_report(con, _years(years))
         finally:
             con.close()
 
