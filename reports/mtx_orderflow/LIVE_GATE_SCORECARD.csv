@@ -1,0 +1,20 @@
+item,status,evidence,decision
+Raw data row-order integrity,PASS,"original parquet order preserved; no equal-second resort",required
+Spread-contract exclusion,PASS,"expiry must match ^\\d{6}$",required
+Volume normalization,PASS,"vendor two-sided volume divided by 2",required
+Execution timing,PASS,"complete-second confirmation + latency + first real print",required
+Same-session fixed exit,PASS,"no exit across session break",required
+Second-level Aggressive Proxy,INVALIDATED,"aggregation created artificial edge",do_not_use
+Tick-level Aggressive Proxy,FAIL,"2024/2025/2026 Net@2 = -1.12/-0.58/-4.26; 0/48 local grid cross-year pass",reject
+Raw TRSV independent alpha,FAIL,"2024 Net@2 -0.93; block CI crosses zero; matched-control/shuffle unstable",reject
+TRSV night regime,FAIL,"2024 Net@2 about -3.47",reject
+TRSV high-intensity regime,FAIL,"2024 Net@2 about -1.01",reject
+Price-only 30s q0.0005 300s gross replication,PASS,"2024/2025/2026 gross +2.44/+2.97/+4.86",candidate
+Price-only Net@2 average,PASS,"2024/2025/2026 +0.44/+0.97/+2.86",candidate
+Price-only contract-month stability,PASS,"19/26 evaluated contracts gross-positive",candidate
+Price-only Net@2 block CI,FAIL,"combined 95% CI approx [-0.18,+4.30]",blocks_live
+Price-only untouched 2024 directional replication,PASS,"2024 gross +2.44 and Net@2 +0.44",candidate
+Price-only 2024 Net@2 block CI,FAIL,"approx [-1.67,+2.74]",blocks_live
+Price-only latency 0-2s,PASS,"2024 Net@2 remains positive",candidate
+Price-only latency 5-10s,FAIL,"2024 Net@2 slightly negative",execution_risk
+Final live status,PENDING,"positive paper-trading evidence but conservative live gates not all passed",PAPER_TRADING_ONLY
