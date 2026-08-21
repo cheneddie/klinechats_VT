@@ -1,0 +1,2 @@
+Trades,OverlappingTrades,OverlapPct,MaxConcurrentPositions,TradesWithPreviousSameSession,InterEntryGapLE10min,InterEntryGapLE15min,InterEntryGapLE30min,MedianSameSessionInterEntryGapSec
+3655,0,0.0,1,2955,1310,1727,2238,693.0

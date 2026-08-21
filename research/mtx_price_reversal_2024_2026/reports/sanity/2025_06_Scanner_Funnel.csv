@@ -1,0 +1,2 @@
+raw_sessions,eligible_sessions,shock_seconds_below_threshold,crossing_signals,entry_fillable,exit_same_session_valid,accepted_trades_one_position,ignored_while_holding
+42,42,0,0,0,0,0,0

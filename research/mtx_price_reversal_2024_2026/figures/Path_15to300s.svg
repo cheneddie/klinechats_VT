@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="420" viewBox="0 0 900 420">
+<rect width="100%" height="100%" fill="white"/>
+<text x="450.0" y="28" text-anchor="middle" font-family="sans-serif" font-size="18">PnL Path 15s–300s</text>
+<line x1="75" y1="360" x2="875" y2="360" stroke="black"/><line x1="75" y1="50" x2="75" y2="360" stroke="black"/>
+<line x1="75" y1="360.0" x2="875" y2="360.0" stroke="#ddd"/><text x="67" y="364.0" text-anchor="end" font-family="sans-serif" font-size="11">-2</text>
+<line x1="75" y1="282.5" x2="875" y2="282.5" stroke="#ddd"/><text x="67" y="286.5" text-anchor="end" font-family="sans-serif" font-size="11">-0</text>
+<line x1="75" y1="205.0" x2="875" y2="205.0" stroke="#ddd"/><text x="67" y="209.0" text-anchor="end" font-family="sans-serif" font-size="11">1</text>
+<line x1="75" y1="127.5" x2="875" y2="127.5" stroke="#ddd"/><text x="67" y="131.5" text-anchor="end" font-family="sans-serif" font-size="11">2</text>
+<line x1="75" y1="50.0" x2="875" y2="50.0" stroke="#ddd"/><text x="67" y="54.0" text-anchor="end" font-family="sans-serif" font-size="11">4</text>
+<polyline points="75.0,226.0 117.1,161.6 201.3,210.0 285.5,170.7 369.7,119.9 538.2,109.2 706.6,120.1 875.0,71.4" fill="none" stroke="#1f77b4" stroke-width="2"/><line x1="715" y1="64" x2="735" y2="64" stroke="#1f77b4" stroke-width="2"/><text x="741" y="68" font-family="sans-serif" font-size="12">Gross</text>
+<polyline points="75.0,338.6 117.1,274.3 201.3,322.6 285.5,283.4 369.7,232.6 538.2,221.9 706.6,232.7 875.0,184.0" fill="none" stroke="#ff7f0e" stroke-width="2"/><line x1="715" y1="82" x2="735" y2="82" stroke="#ff7f0e" stroke-width="2"/><text x="741" y="86" font-family="sans-serif" font-size="12">Net @2pt</text>
+<line x1="75.0" y1="360" x2="75.0" y2="365" stroke="black"/><text x="75.0" y="380" text-anchor="middle" font-family="sans-serif" font-size="11">15</text>
+<line x1="235.0" y1="360" x2="235.0" y2="365" stroke="black"/><text x="235.0" y="380" text-anchor="middle" font-family="sans-serif" font-size="11">72</text>
+<line x1="395.0" y1="360" x2="395.0" y2="365" stroke="black"/><text x="395.0" y="380" text-anchor="middle" font-family="sans-serif" font-size="11">129</text>
+<line x1="555.0" y1="360" x2="555.0" y2="365" stroke="black"/><text x="555.0" y="380" text-anchor="middle" font-family="sans-serif" font-size="11">186</text>
+<line x1="715.0" y1="360" x2="715.0" y2="365" stroke="black"/><text x="715.0" y="380" text-anchor="middle" font-family="sans-serif" font-size="11">243</text>
+<line x1="875.0" y1="360" x2="875.0" y2="365" stroke="black"/><text x="875.0" y="380" text-anchor="middle" font-family="sans-serif" font-size="11">300</text>
+<text x="475.0" y="408" text-anchor="middle" font-family="sans-serif" font-size="12">Seconds after entry</text><text x="15" y="205.0" transform="rotate(-90 15 205.0)" text-anchor="middle" font-family="sans-serif" font-size="12">Mean PnL (points)</text></svg>
