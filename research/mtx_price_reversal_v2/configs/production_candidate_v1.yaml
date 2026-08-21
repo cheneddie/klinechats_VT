@@ -1,0 +1,8 @@
+strategy_id: MTX_PRICE_REVERSAL_PRODUCTION_CANDIDATE_V1
+status: NOT_FROZEN
+blocked_on:
+  - structural_stop_selection
+  - catastrophic_stop_selection
+  - management_freeze
+  - forward_oos_start
+notes: "Do not populate from best historical backtest. Freeze once before any new OOS inspection."

@@ -1,0 +1,22 @@
+strategy_id: MTX_PRICE_REVERSAL_BASELINE_V1
+signal:
+  type: price
+  lookback_sec: 30
+  quantile: 0.0005
+  training_contracts: 3
+  direction: LONG
+execution:
+  complete_second_confirmation: true
+  latency_after_confirmation_sec: 1
+  max_positions: 1
+  same_session_only: true
+management:
+  fixed_holding_sec: 300
+cost:
+  base_round_trip_points: 2.0
+  adverse_round_trip_points: 3.0
+regime:
+  enabled: false
+risk:
+  structural_stop: null
+  catastrophic_stop: null

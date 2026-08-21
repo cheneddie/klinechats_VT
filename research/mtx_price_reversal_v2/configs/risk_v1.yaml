@@ -1,0 +1,8 @@
+strategy_id: MTX_PRICE_REVERSAL_RISK_V1_RESEARCH
+structural_stop:
+  family: UNFROZEN_RESEARCH
+  parameter: null
+catastrophic_stop:
+  family: UNFROZEN_RESEARCH
+  parameter: null
+validation_status: RESEARCH_ONLY

@@ -1,0 +1,9 @@
+strategy_id: MTX_PRICE_REVERSAL_TIMEVOL_V1_POSTHOC
+inherits: baseline_v1.yaml
+regime:
+  enabled: true
+  time_start: "09:00:00"
+  time_end: "10:30:00"
+  causal_vol_percentile_min: 0.80
+  causal_vol_lookback_sessions: 60
+validation_status: POST_HOC_NOT_OOS

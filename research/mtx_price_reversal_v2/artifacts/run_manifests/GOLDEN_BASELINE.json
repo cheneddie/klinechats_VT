@@ -1,0 +1,11 @@
+{
+  "baseline_commit": "2cbaf76971b8ba1a8cac0ac38e23a860d7f64e61",
+  "strategy": "30s price / q=0.0005 / prior3 contracts / long / +1s latency / 300s / same session / one position",
+  "expected": {
+    "trades": 3655,
+    "net2_total_points": 5104.0,
+    "net2_expectancy_points": 1.3964432284541723,
+    "profit_factor_net2_rounded": 1.059,
+    "max_drawdown_net2_points": -3086.0
+  }
+}
