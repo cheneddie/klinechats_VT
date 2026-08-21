@@ -2,6 +2,8 @@ name: V5 Final Watchdog
 on:
   push:
     branches: [fabio-decision-gym-v4]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 jobs:
   browser-watchdog:
