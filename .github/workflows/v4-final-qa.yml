@@ -63,6 +63,7 @@ jobs:
           timeout 60s python tests/test_v4_scan_audit.py
           timeout 60s python tests/test_v4_execution_stress.py
           timeout 60s python tests/test_v4_stratified.py
+          timeout 60s python tests/test_scan_progress.py
           echo '{"stage":"python-tests","ok":true}' > qa-artifacts/workflow-status.json
 
       - name: Seed real API QA environment
@@ -121,13 +122,13 @@ jobs:
           curl -sS http://127.0.0.1:8765/api/v4/audit/jobs > qa-artifacts/final-audit-jobs.json 2>&1 || true
           ps -ef > qa-artifacts/processes.txt || true
           tar -czf qa-artifacts/v4-diagnostic-source.tgz \
-            server/engine.py server/contracts.py server/causal_engine.py server/progress_scanner.py \
+            server/engine.py server/contracts.py server/causal_engine.py server/coverage_guard.py server/progress_scanner.py \
             server/v4_engine.py server/v4_final_engine.py server/v4_release_engine.py \
             server/v4_audit.py server/v4_audit_final.py server/v4_research_release.py \
             server/v4_multiyear.py server/v4_multiyear_api.py server/v4_execution_stress.py server/v4_stratified.py \
             server/v4_replay.py server/v4_replay_final.py server/v4_research_api.py \
             tools/run_v4_diagnostic.py config \
-            tests/test_v4_unbiased_universe.py tests/test_v4_replay_causality.py \
+            tests/test_scan_progress.py tests/test_v4_unbiased_universe.py tests/test_v4_replay_causality.py \
             tests/test_v4_research_release.py tests/test_v4_multiyear.py tests/test_v4_scan_audit.py \
             tests/test_v4_execution_stress.py tests/test_v4_stratified.py requirements-server.txt 2>/dev/null || true
           mkdir -p qa-artifacts/wheels
@@ -154,6 +155,8 @@ jobs:
           test -s qa-artifacts/final-execution-stress.json
           test -s qa-artifacts/final-production-gate.json
           test -s qa-artifacts/v4-diagnostic-source.tgz
+          tar -tzf qa-artifacts/v4-diagnostic-source.tgz | grep -qx 'server/coverage_guard.py'
+          tar -tzf qa-artifacts/v4-diagnostic-source.tgz | grep -qx 'tests/test_scan_progress.py'
           python - <<'PY'
           import json
           from pathlib import Path
