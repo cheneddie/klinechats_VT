@@ -1,0 +1,28 @@
+{
+  "campaign_id": "FABIO_REAL_EVIDENCE_V1_20260821",
+  "bundle_created_at": "2026-08-21T22:24:00+08:00",
+  "repository": "cheneddie/klinechats_VT",
+  "branch": "fabio-decision-gym-v4",
+  "methodology_tested_commit": "53dbd9450922cfd24385e9f98b116d0d912e21e5",
+  "raw_parquet_committed": false,
+  "files": [
+    {"path":"2024_validation_g1/contract_selection_audit.json.gz.b64","bytes":8053,"sha256":"b8c96d66ffd3cc4b22eafc5ecfbea926328e25bb3dad2d30f64370e1f6068e14","decoded_bytes":139001,"decoded_sha256":"efddc55fff815e34ff322a9eaf91f6119ad81ccf400a67500cb9f955255925a2","decoded_filename":"contract_selection_audit.json"},
+    {"path":"2024_validation_g1/date_counts_all.json.gz.b64","bytes":5753,"sha256":"a2ea555722b3ec0619acde0fde2fdcf17be1f847fef149ac98bad1ca282e9768","decoded_bytes":23828,"decoded_sha256":"10ad1356dfadf608eb57a75d15f8ee8fb8f7f329641eada37c70ee9b90e24f91","decoded_filename":"date_counts_all.json"},
+    {"path":"2024_validation_g1/exchange_calendar_coverage_v2.json","bytes":1078,"sha256":"e8cf6e830ce07efb686e0bd9c42da69cc217c53f5c31a6e4f00aa13a16e250b3"},
+    {"path":"2024_validation_g1/g1_raw_contract_summary.json","bytes":2545,"sha256":"0c7c679b5a0573b410fc0ff00a4d6971e55fe50d2c95d29be545094df34cc617"},
+    {"path":"2024_validation_g1/parquet_metadata.json","bytes":1322,"sha256":"8f110b23ba4580f9e8239a5d1b63a93b0365e8bf8245c6d46e88df003897db1d"},
+    {"path":"2024_validation_g1/sha256.txt","bytes":96,"sha256":"5ce61f9e7305610d0eb6ec9c6abfabc4362948e68c3ab7b086bb98dadfe5ed02"},
+    {"path":"2025_discovery_g1/contract_selection_audit.json.gz.b64","bytes":4625,"sha256":"0fd56bc6257492813a55d2a710de5311acbc67e19e8ee4cd91a2ace56cf4a086","decoded_bytes":77089,"decoded_sha256":"f3b96c658bd33f4e0b3d28d3fcf0d63ca5670ebb1766350a65fc88e0cb373047","decoded_filename":"contract_selection_audit.json"},
+    {"path":"2025_discovery_g1/date_counts_day_session_raw_volume.json","bytes":6134,"sha256":"7d257e04a2cfbe39b733342f51b4ce2c574fc20d50b4713a256feec7a5e7ce8d"},
+    {"path":"2025_discovery_g1/exchange_calendar_coverage.json","bytes":597,"sha256":"70417f06728afe942e49e3474ec86d84aeb2b0d1cabc58645cdcf5acfff0a294"},
+    {"path":"2025_discovery_g1/g1_raw_contract_summary.json","bytes":2534,"sha256":"cbfe81d866de53f29d8e42767d2449e280bd99320c219accb2788c47797697bb"},
+    {"path":"2025_discovery_g1/parquet_metadata.json","bytes":1322,"sha256":"322cb24256d300436e71db2618caa3318c65bb74c9d34979dad5bc70fdde4b63"},
+    {"path":"FULL_REPORT_20260821.md","bytes":14079,"sha256":"943e9ab72e8abfd2116f308f28fb3a402bc62daa4c89acd065a36e817da0fefe"},
+    {"path":"README.md","bytes":1308,"sha256":"7785d03a02cfaead5e82056eae42a3a2aa9da22cb7d4720456cf80baa7b0d24b"},
+    {"path":"g0/ci_status.json","bytes":563,"sha256":"15ed459b286723cf8dd41faf2f96ce5daf0868435c5f6635b8f6bcc42a6220ea"},
+    {"path":"methodology/coverage_policy_amendment_001.json","bytes":1105,"sha256":"56cfa1704a9e6996e7ea45c6c746a17b34233ebc999171f12aed33b7d2098734"},
+    {"path":"registry/2026_holdout_metadata.json","bytes":698,"sha256":"65758b1256cdd72e62a1a7e56b9c05d3fce59dda318934c1f5b80fa441cae2af"},
+    {"path":"registry/source_manifest.json","bytes":708,"sha256":"fcd0025db51e475c90fa33150412f92ed99fad20a1389e1dc9e843f6fcdb0429"},
+    {"path":"registry/source_sha256.txt","bytes":258,"sha256":"0cdb93a0ef40ed2e909ac40ea6b163add1b8cd7a2486bf28e8226a475331dc82"}
+  ]
+}
