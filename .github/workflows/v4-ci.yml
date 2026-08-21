@@ -46,13 +46,15 @@ jobs:
       - name: V4 Python syntax
         run: |
           python -m py_compile \
-            server/v4_engine.py server/v4_final_engine.py \
+            server/v4_engine.py server/v4_final_engine.py server/v4_release_engine.py \
             server/v4_replay.py server/v4_replay_final.py \
             server/v4_audit.py server/v4_audit_final.py \
-            server/v4_api.py server/v4_api_final.py server/v4_training_api.py server/fabio_api_v4.py
+            server/v4_api.py server/v4_api_final.py server/v4_training_api.py \
+            server/v4_research_release.py server/v4_research_api.py server/fabio_api_v4.py
           python -m py_compile \
             tests/test_v4_node_semantics.py tests/test_v4_replay.py tests/test_v4_reverse_audit.py \
-            tests/test_v4_unbiased_universe.py tests/test_v4_replay_causality.py tests/seed_v4_qa_env.py
+            tests/test_v4_unbiased_universe.py tests/test_v4_replay_causality.py \
+            tests/test_v4_research_release.py tests/seed_v4_qa_env.py
 
       - name: Distinct causal node semantics
         run: timeout 60s python tests/test_v4_node_semantics.py
@@ -69,6 +71,9 @@ jobs:
       - name: Trading-day / partial-candle hide-future causality
         run: timeout 60s python tests/test_v4_replay_causality.py
 
+      - name: Research governance + Event Sanity Gate
+        run: timeout 60s python tests/test_v4_research_release.py
+
       - name: V4 artifact contract
         run: |
           test -s src/v4/chart.js
@@ -77,10 +82,13 @@ jobs:
           test -s src/v4/research.js
           test -s src/v4/v4.css
           test -s server/v4_final_engine.py
+          test -s server/v4_release_engine.py
           test -s server/v4_replay_final.py
           test -s server/v4_audit_final.py
           test -s server/v4_api_final.py
           test -s server/v4_training_api.py
+          test -s server/v4_research_release.py
+          test -s server/v4_research_api.py
           test -s server/fabio_api_v4.py
           test -s scripts/qa-v4-watchdog.mjs
           grep -q 'Fabio Decision Gym V4' index.html
