@@ -64,6 +64,7 @@ try {
     '/v4/research/strict-summary',
     '/v4/research/right-tail',
     '/v4/research/multi-year-edge',
+    '/v4/research/execution-stress',
     '/v4/research/production-gate',
   ];
   for (const route of routes) {
