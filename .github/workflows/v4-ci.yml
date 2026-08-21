@@ -53,12 +53,12 @@ jobs:
             server/v4_api.py server/v4_api_final.py server/v4_training_api.py \
             server/v4_research_release.py server/v4_research_api.py \
             server/v4_multiyear.py server/v4_multiyear_api.py server/v4_execution_stress.py \
-            server/fabio_api_v4.py tools/run_v4_diagnostic.py
+            server/v4_stratified.py server/fabio_api_v4.py tools/run_v4_diagnostic.py
           python -m py_compile \
             tests/test_v4_node_semantics.py tests/test_v4_replay.py tests/test_v4_reverse_audit.py \
             tests/test_v4_unbiased_universe.py tests/test_v4_replay_causality.py \
             tests/test_v4_research_release.py tests/test_v4_multiyear.py tests/test_v4_scan_audit.py \
-            tests/test_v4_execution_stress.py tests/seed_v4_qa_env.py
+            tests/test_v4_execution_stress.py tests/test_v4_stratified.py tests/seed_v4_qa_env.py
 
       - name: Distinct causal node semantics
         run: timeout 60s python tests/test_v4_node_semantics.py
@@ -87,6 +87,9 @@ jobs:
       - name: Strict cost + concentration execution stress
         run: timeout 60s python tests/test_v4_execution_stress.py
 
+      - name: Monthly direction intraday + node consistency strata
+        run: timeout 60s python tests/test_v4_stratified.py
+
       - name: V4 artifact contract
         run: |
           test -s src/v4/chart.js
@@ -105,10 +108,13 @@ jobs:
           test -s server/v4_multiyear.py
           test -s server/v4_multiyear_api.py
           test -s server/v4_execution_stress.py
+          test -s server/v4_stratified.py
           test -s server/fabio_api_v4.py
           test -s tools/run_v4_diagnostic.py
+          test -s config/research/v4_validation_plan.json
           test -s tests/test_v4_scan_audit.py
           test -s tests/test_v4_execution_stress.py
+          test -s tests/test_v4_stratified.py
           test -s scripts/qa-v4-watchdog.mjs
           test -s scripts/qa-v4-network.mjs
           grep -q 'Fabio Decision Gym V4' index.html
