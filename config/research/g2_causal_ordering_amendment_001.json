@@ -1,0 +1,15 @@
+{
+  "amendment_id": "G2_CAUSAL_ORDERING_AMENDMENT_001",
+  "created_before_future_outcomes": true,
+  "problem": "Some legacy BO strict entries were timestamped before all required strict-chain gates, especially acceptance, had causally completed.",
+  "repair": {
+    "scope": "BO_ENTRY only",
+    "causal_eligibility_seq": "maximum resolution_seq across required EVALUATED/YES BO strict prerequisites",
+    "when_applied": "legacy BO_ENTRY observation decision seq is earlier than causal eligibility seq, or absent",
+    "recompute_at_causal_tick": ["entry_price", "risk_points", "extension_vw", "outside_old_value", "entry_quality", "stop", "target", "strict_chain_pass", "first_failure_node", "terminal_state"],
+    "allowed_regression_difference": "Only events explicitly tagged EXPECTED_BO_STRICT_ENTRY_CAUSAL_REPAIR may change BO_ENTRY answer/reason or strict strategy entry/result fields."
+  },
+  "must_not_change": ["event_identity", "MR_strategy_semantics", "relaxed_terminal_opportunity_set", "upstream_BO_gate_answers", "2024_data", "2026_data"],
+  "future_outcomes_inspected": false,
+  "pf_inspected": false
+}
