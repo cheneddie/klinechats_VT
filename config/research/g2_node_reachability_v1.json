@@ -1,0 +1,21 @@
+{
+  "policy_id": "G2_NODE_REACHABILITY_V1_20260823",
+  "gate": "G2_CAUSAL_SIGNAL_TRUTH",
+  "statuses": {
+    "EVALUATED": "Node was reached and causally answered YES or NO.",
+    "NOT_REACHED": "A strict upstream prerequisite failed first; answer is null and blocker lineage is required.",
+    "NOT_APPLICABLE": "Node does not belong to the current branch; answer is null and causal applicability resolution is required.",
+    "TERMINAL": "Decision flow terminates here; excluded from G3 node-edge attribution."
+  },
+  "trace_requirements": {
+    "all_nodes_resolution_complete": true,
+    "evaluated_decision_complete": true,
+    "evaluated_required_anchor_complete": true,
+    "not_reached_blocker_complete": true,
+    "not_reached_decision_must_be_null": true,
+    "not_applicable_decision_must_be_null": true,
+    "terminal_decision_must_be_null": true
+  },
+  "g3_universe": "EVALUATED_ONLY",
+  "forbidden_before_g2_pass": ["MFE", "MAE", "PF", "bootstrap", "FDR", "edge_classification", "2024_strategy_validation", "2026_strategy_signals_or_outcomes"]
+}
