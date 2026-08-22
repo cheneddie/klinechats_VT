@@ -50,6 +50,20 @@ from .balance_outcomes import (
     build_balance_reference_manifest,
     compute_balance_outcomes,
 )
+from .reversal_outcomes import (
+    REVERSAL_SCHEMA_VERSION,
+    REVERSAL_REFERENCE_SCHEMA_VERSION,
+    MICRO_SWING_ALGORITHM_VERSION,
+    PIVOT_RADIUS,
+    PIVOT_SEARCH_LOOKBACK_BARS,
+    REFERENCE_PARAMETERS,
+    REVERSAL_METRICS,
+    OBJECT_METRICS,
+    build_reversal_reference_store,
+    build_reversal_reference_manifest,
+    validate_reversal_reference_store,
+    compute_reversal_outcomes,
+)
 
 __all__ = [
     "BAR_RESOLUTIONS", "BarAccumulator", "CompletedBar", "DevelopingPocSnapshot",
@@ -64,4 +78,7 @@ __all__ = [
     "compute_physical_tick_outcomes", "compute_physical_tick_outcomes_with_diagnostics",
     "BALANCE_SCHEMA_VERSION", "BALANCE_REFERENCE_SCHEMA_VERSION", "BALANCE_METRICS", "BALANCE_COUNT_METRICS",
     "build_balance_reference_manifest", "compute_balance_outcomes",
+    "REVERSAL_SCHEMA_VERSION", "REVERSAL_REFERENCE_SCHEMA_VERSION", "MICRO_SWING_ALGORITHM_VERSION",
+    "PIVOT_RADIUS", "PIVOT_SEARCH_LOOKBACK_BARS", "REFERENCE_PARAMETERS", "REVERSAL_METRICS", "OBJECT_METRICS",
+    "build_reversal_reference_store", "build_reversal_reference_manifest", "validate_reversal_reference_store", "compute_reversal_outcomes",
 ]

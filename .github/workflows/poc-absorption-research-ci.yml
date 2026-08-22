@@ -47,7 +47,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-data.txt pytest
-      - name: Run M1-M4 + M5 Dev1-Dev3 research tests
+      - name: Run M1-M4 + M5 Dev1-Dev4 research tests
         env:
           PYTHONPATH: .
         run: |
@@ -58,7 +58,8 @@ jobs:
             tests/test_poc_absorption_universe.py \
             tests/test_poc_absorption_outcome_contract.py \
             tests/test_poc_absorption_physical_outcomes.py \
-            tests/test_poc_absorption_balance_outcomes.py
+            tests/test_poc_absorption_balance_outcomes.py \
+            tests/test_poc_absorption_reversal_outcomes.py
       - name: Run committed M3 QA runner self-test
         env:
           PYTHONPATH: .
@@ -79,3 +80,7 @@ jobs:
         env:
           PYTHONPATH: .
         run: python tools/poc_absorption/m5_balance_outcome_qa.py --self-test
+      - name: Run committed M5 reversal-outcome self-test
+        env:
+          PYTHONPATH: .
+        run: python tools/poc_absorption/m5_reversal_outcome_qa.py --self-test
