@@ -1,0 +1,41 @@
+{
+  "schema_version": "POC_M5_OUTCOME_CONTRACT_CONFIG_V1",
+  "outcome_contract_version": "POC_M5_OUTCOME_CONTRACT_V1",
+  "outcome_schema_version": "POC_PROBE_OUTCOME_V1",
+  "event_schema_version": "POC_PROBE_EVENT_V1",
+  "universe_version": "HIGH_PRICE_PROBE_V1",
+  "universe_schema_version": "POC_HIGH_PRICE_PROBE_UNIVERSE_V1",
+  "universe_config_hash": "d7bf39afa32582bc06e00b2df9995b9cb9cc14670a6974834d80cf3d079016fb",
+  "probe_events_policy": "READ_ONLY",
+  "join_key": "event_id",
+  "join_cardinality": "one_to_one",
+  "future_tick_rule": "physical__seq_strictly_greater_than_trigger_seq",
+  "first_touch_rule": "physical_tick_seq_only_never_bar_high_low",
+  "horizons": ["30s", "1m", "3m", "5m", "15m", "30m", "60m", "session_end"],
+  "development_1_scope": "contract_firewall_only_no_future_outcomes",
+  "forbidden_actions": [
+    "regenerate_event_membership_inside_outcome_engine",
+    "delete_events_using_future_path",
+    "rerank_or_reselect_triggers",
+    "change_trigger_seq_time_price",
+    "change_episode_membership",
+    "recompute_event_time_atr_inside_M5",
+    "use_bar_high_low_for_first_touch_order"
+  ],
+  "frozen_2024_m4_raw_trigger_counts": {
+    "15s": 264970, "30s": 132719, "1m": 66248, "3m": 22448, "5m": 13848, "15m": 5215
+  },
+  "feature_schema_version": "POC_CONTINUOUS_FEATURES_V1",
+  "atr_source": "frozen_M4_event_time_atr_never_recompute_in_M5",
+  "immutable_outcome_inputs": ["trigger_seq", "trigger_time", "trigger_price", "atr"],
+  "session_policy": {
+    "same_session_only": true,
+    "day_end_exclusive": "13:45:00",
+    "night_end_exclusive": "05:00:00 next calendar date for 15:00 session anchor",
+    "fixed_horizon_deadline": "min(trigger_time + horizon, session_end_exclusive)",
+    "future_tick_inclusion": "_seq > trigger_seq AND datetime <= deadline",
+    "truncation_metadata_required": [
+      "requested_horizon_seconds", "effective_horizon_seconds", "truncated_by_session_end", "future_tick_count"
+    ]
+  }
+}

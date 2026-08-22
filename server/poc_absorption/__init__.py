@@ -18,6 +18,23 @@ from .universe import (
     build_high_price_probe_universe,
     first_trigger_per_episode,
 )
+from .outcomes import (
+    OUTCOME_SCHEMA_VERSION,
+    OUTCOME_CONTRACT_VERSION,
+    FROZEN_EVENT_SCHEMA_VERSION,
+    FROZEN_UNIVERSE_VERSION,
+    FROZEN_UNIVERSE_SCHEMA_VERSION,
+    FROZEN_UNIVERSE_CONFIG_HASH,
+    FROZEN_FEATURE_SCHEMA_VERSION,
+    FROZEN_HORIZONS,
+    IMMUTABLE_EVENT_COLUMNS,
+    JoinIntegrityReport,
+    event_store_fingerprint,
+    build_event_manifest,
+    validate_probe_events,
+    make_probe_outcome_skeleton,
+    validate_probe_outcomes,
+)
 
 __all__ = [
     "BAR_RESOLUTIONS",
@@ -34,4 +51,19 @@ __all__ = [
     "UniverseResult",
     "build_high_price_probe_universe",
     "first_trigger_per_episode",
+    "OUTCOME_SCHEMA_VERSION",
+    "OUTCOME_CONTRACT_VERSION",
+    "FROZEN_EVENT_SCHEMA_VERSION",
+    "FROZEN_UNIVERSE_VERSION",
+    "FROZEN_UNIVERSE_SCHEMA_VERSION",
+    "FROZEN_UNIVERSE_CONFIG_HASH",
+    "FROZEN_FEATURE_SCHEMA_VERSION",
+    "FROZEN_HORIZONS",
+    "IMMUTABLE_EVENT_COLUMNS",
+    "JoinIntegrityReport",
+    "event_store_fingerprint",
+    "build_event_manifest",
+    "validate_probe_events",
+    "make_probe_outcome_skeleton",
+    "validate_probe_outcomes",
 ]
