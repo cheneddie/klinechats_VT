@@ -37,20 +37,17 @@ jobs:
     steps:
       - name: Checkout exact branch head
         uses: actions/checkout@v4
-
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
           cache: 'pip'
           cache-dependency-path: requirements-data.txt
-
       - name: Install data/test dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-data.txt pytest
-
-      - name: Run M1-M4 + M5 Dev1-Dev2 research tests
+      - name: Run M1-M4 + M5 Dev1-Dev3 research tests
         env:
           PYTHONPATH: .
         run: |
@@ -60,28 +57,25 @@ jobs:
             tests/test_poc_absorption_features.py \
             tests/test_poc_absorption_universe.py \
             tests/test_poc_absorption_outcome_contract.py \
-            tests/test_poc_absorption_physical_outcomes.py
-
+            tests/test_poc_absorption_physical_outcomes.py \
+            tests/test_poc_absorption_balance_outcomes.py
       - name: Run committed M3 QA runner self-test
         env:
           PYTHONPATH: .
-        run: |
-          python tools/poc_absorption/m3_feature_qa.py --self-test
-
+        run: python tools/poc_absorption/m3_feature_qa.py --self-test
       - name: Run committed M4 QA runner self-test
         env:
           PYTHONPATH: .
-        run: |
-          python tools/poc_absorption/m4_universe_qa.py --self-test
-
+        run: python tools/poc_absorption/m4_universe_qa.py --self-test
       - name: Run committed M5 outcome-contract self-test
         env:
           PYTHONPATH: .
-        run: |
-          python tools/poc_absorption/m5_outcome_contract_qa.py --self-test
-
+        run: python tools/poc_absorption/m5_outcome_contract_qa.py --self-test
       - name: Run committed M5 physical-outcome self-test
         env:
           PYTHONPATH: .
-        run: |
-          python tools/poc_absorption/m5_physical_outcome_qa.py --self-test
+        run: python tools/poc_absorption/m5_physical_outcome_qa.py --self-test
+      - name: Run committed M5 balance-outcome self-test
+        env:
+          PYTHONPATH: .
+        run: python tools/poc_absorption/m5_balance_outcome_qa.py --self-test

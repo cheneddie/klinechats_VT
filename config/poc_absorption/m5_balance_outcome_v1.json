@@ -1,0 +1,30 @@
+{
+  "schema_version": "POC_M5_DEV3_BALANCE_CONFIG_V1",
+  "balance_schema_version": "POC_M5_BALANCE_MEASUREMENT_V1",
+  "balance_reference_schema_version": "POC_M5_BALANCE_REFERENCE_V1",
+  "horizons": ["30s","1m","3m","5m","15m","30m","60m","session_end"],
+  "future_window_source": "M5 Dev2 exact physical outcome windows; _seq > trigger_seq; same-session deadline",
+  "raw_tick_path_efficiency": "abs(last_future_price-trigger_price) / sum(abs(changes over [trigger_price]+raw future physical prices))",
+  "one_second_path_efficiency": "abs(last_1s_close-trigger_price) / sum(abs(changes over [trigger_price]+last physical future tick in each wall-clock second))",
+  "zero_path_denominator": "efficiency_null_not_zero",
+  "no_future_observation": "all_balance_path_metrics_null",
+  "time_balance": "time-weighted last-observed physical price state from trigger_time to Dev2 deadline; trigger price is initial state",
+  "high_retest": {
+    "reference_level": "M4.rolling_high",
+    "transition": "below_to_at_or_above",
+    "canonical_scale": "1_second_close_path",
+    "raw_tick_sensitivity_column": "raw_tick_high_retest_count"
+  },
+  "range_cross": {
+    "reference_level": "M4.trigger_price",
+    "transition": "sign_change_between_nonzero_sides; exact touches are neutral and bridged",
+    "canonical_scale": "1_second_close_path",
+    "raw_tick_sensitivity_column": "raw_tick_range_cross_count"
+  },
+  "two_sided_activity": ["up_excursion_atr","down_excursion_atr","future_range_atr","two_sided_min_excursion_atr","two_sided_total_excursion_atr"],
+  "reference_manifest_hash_columns": ["event_id","trigger_price","rolling_high"],
+  "thresholds_defined": false,
+  "balance_classification_defined": false,
+  "research_edge_claimed": false,
+  "allowed_dataset_for_dev3": "2024 only"
+}
