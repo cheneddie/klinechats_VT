@@ -35,6 +35,13 @@ from .outcomes import (
     make_probe_outcome_skeleton,
     validate_probe_outcomes,
 )
+from .physical_outcomes import (
+    PHYSICAL_PATH_SCHEMA_VERSION,
+    HORIZON_SECONDS,
+    PhysicalOutcomeDiagnostics,
+    compute_physical_tick_outcomes,
+    compute_physical_tick_outcomes_with_diagnostics,
+)
 
 __all__ = [
     "BAR_RESOLUTIONS",
@@ -66,4 +73,9 @@ __all__ = [
     "validate_probe_events",
     "make_probe_outcome_skeleton",
     "validate_probe_outcomes",
+    "PHYSICAL_PATH_SCHEMA_VERSION",
+    "HORIZON_SECONDS",
+    "PhysicalOutcomeDiagnostics",
+    "compute_physical_tick_outcomes",
+    "compute_physical_tick_outcomes_with_diagnostics",
 ]

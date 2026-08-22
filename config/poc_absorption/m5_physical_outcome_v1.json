@@ -1,0 +1,44 @@
+{
+  "schema_version": "POC_M5_PHYSICAL_OUTCOME_CONFIG_V1",
+  "physical_path_schema_version": "POC_M5_PHYSICAL_PATH_V1",
+  "outcome_contract_version": "POC_M5_OUTCOME_CONTRACT_V1",
+  "event_schema_version": "POC_PROBE_EVENT_V1",
+  "universe_version": "HIGH_PRICE_PROBE_V1",
+  "universe_config_hash": "d7bf39afa32582bc06e00b2df9995b9cb9cc14670a6974834d80cf3d079016fb",
+  "feature_schema_version": "POC_CONTINUOUS_FEATURES_V1",
+  "future_tick_rule": "physical__seq_strictly_greater_than_trigger_seq",
+  "first_touch_and_extrema_order": "physical_seq_only_never_bar_high_low",
+  "equal_extrema_tie_rule": "first_physical_seq",
+  "atr_normalization_source": "frozen_M4_event_time_atr",
+  "horizons": ["30s", "1m", "3m", "5m", "15m", "30m", "60m", "session_end"],
+  "audit_sampling": {
+    "version": "M5_DEV2_AUDIT_SAMPLE_V1",
+    "rule": "per timeframe sort ascending by SHA256(event_id), take frozen N",
+    "random_seed": null,
+    "counts": {"15s": 10, "30s": 10, "1m": 10, "3m": 8, "5m": 6, "15m": 6}
+  },
+  "real_day_qa": {
+    "dataset_id": "MTX_2024",
+    "dates": ["2024-08-15", "2024-08-16"],
+    "session": "day",
+    "strict_contract": "202408",
+    "expected_raw_triggers": {"15s": 471, "30s": 237, "1m": 108, "3m": 36, "5m": 31, "15m": 16}
+  },
+  "real_night_qa": {
+    "dataset_id": "MTX_2024",
+    "trading_date": "2024-08-16",
+    "physical_window": "2024-08-15 15:00:00 <= t < 2024-08-16 05:00:00",
+    "session": "night",
+    "strict_contract": "202408",
+    "requirements": {"min_events": 6, "min_timeframes": 3, "min_cross_midnight_events": 1, "min_near_0500_events": 1}
+  },
+  "performance_benchmark": {
+    "version": "M5_DEV2_PERF_BENCH_V1",
+    "events": 10000,
+    "source": "deterministic replicated frozen events over real two-day physical tick density",
+    "purpose": "engineering scalability only; no research inference",
+    "full_year_reference_events": 505448,
+    "full_year_reference_windows": 4043584,
+    "verdict_gate": "FULL_YEAR_SCALE_FEASIBLE if conservative extrapolated engine-only runtime < 3600 seconds"
+  }
+}

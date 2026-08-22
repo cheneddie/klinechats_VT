@@ -50,7 +50,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-data.txt pytest
 
-      - name: Run M1-M4 + M5 Development-1 contract tests
+      - name: Run M1-M4 + M5 Dev1-Dev2 research tests
         env:
           PYTHONPATH: .
         run: |
@@ -59,7 +59,8 @@ jobs:
             tests/test_poc_absorption_bars.py \
             tests/test_poc_absorption_features.py \
             tests/test_poc_absorption_universe.py \
-            tests/test_poc_absorption_outcome_contract.py
+            tests/test_poc_absorption_outcome_contract.py \
+            tests/test_poc_absorption_physical_outcomes.py
 
       - name: Run committed M3 QA runner self-test
         env:
@@ -78,3 +79,9 @@ jobs:
           PYTHONPATH: .
         run: |
           python tools/poc_absorption/m5_outcome_contract_qa.py --self-test
+
+      - name: Run committed M5 physical-outcome self-test
+        env:
+          PYTHONPATH: .
+        run: |
+          python tools/poc_absorption/m5_physical_outcome_qa.py --self-test
