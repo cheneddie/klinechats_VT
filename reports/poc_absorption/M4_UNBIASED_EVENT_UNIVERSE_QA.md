@@ -10,9 +10,7 @@
 
 `REPRODUCIBLE UNBIASED EVENT UNIVERSE PASS`
 
-M4's engineering semantics, anti-selection tests, schema/config freeze, two-day six-timeframe real-data QA, and 2024 full-year universe-distribution sanity are complete. The Issue #22 checkbox must only be changed after the branch head containing the annual evidence passes the unchanged M1–M4 Research CI + M3/M4 self-tests.
-
-M4 makes **no predictive edge claim**. M5 is forbidden from changing M4 event membership.
+M4's engineering semantics, anti-selection tests, schema/config freeze, two-day six-timeframe real-data QA, and 2024 full-year universe-distribution sanity are complete. The branch head containing the annual evidence passed the unchanged M1–M4 Research CI + M3/M4 self-tests. M4 makes **no predictive edge claim**. M5 is forbidden from changing M4 event membership.
 
 ## Price-only anti-circularity rule
 
@@ -59,6 +57,7 @@ Rolling 24-bar context may continue across consecutive trading days for the same
 - Exact decision point: `trigger_seq/time/price` is the physical final tick of the completed trigger bar.
 - Real 2024-08-15 + 2024-08-16 six-timeframe QA passed on 217,670 physical ticks.
 - Timeout metadata bug was fixed without changing trigger membership: `MAX_EPISODE_SECONDS` closes at the frozen deadline rather than waiting for the next completed bar.
+- Final annual-evidence branch head `30e2eb18b74e0dcf47690161b8faa79dde5456bc` passed `POC Absorption Research CI` run **#36 / 32539980836** with M1–M4 pytest, M3 self-test, and M4 self-test all SUCCESS.
 
 ## 2024 full-year universe sanity
 
