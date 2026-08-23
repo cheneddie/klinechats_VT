@@ -1,0 +1,26 @@
+{
+  "schema_version": "POC_M5_DEV6_ATR_CONFOUND_QA_V1",
+  "population_events": 27879,
+  "selected_events": 125,
+  "population_quantiles": {
+    "atr": {"0.05":2.142857142857143,"0.25":4.285714285714286,"0.5":7.0,"0.75":11.071428571428571,"0.95":21.142857142857142},
+    "mfe_points": {"0.05":1.0,"0.25":6.0,"0.5":15.0,"0.75":31.0,"0.95":79.0},
+    "mae_points": {"0.05":1.0,"0.25":6.0,"0.5":15.0,"0.75":31.000000000000004,"0.95":78.0},
+    "reaction_points": {"0.05":8.0,"0.25":17.0,"0.5":29.0,"0.75":48.0,"0.95":105.0},
+    "mfe_30m_atr": {"0.05":0.17452800829875528,"0.25":1.0632911392405062,"0.5":2.278290864582174,"0.75":4.081718942189422,"0.95":8.346153846153847},
+    "mae_30m_atr": {"0.05":0.13592233009708737,"0.25":1.0315789473684212,"0.5":2.293951478896643,"0.75":4.127427004594635,"0.95":8.277949857188192},
+    "reaction_atr": {"0.05":1.836065573770492,"0.25":2.8518518518518516,"0.5":4.01980198019802,"0.75":5.833333333333333,"0.95":10.266666666666667}
+  },
+  "spearman": {
+    "all": {"atr_vs_mfe_atr_spearman":-0.12177643650001385,"atr_vs_mae_atr_spearman":-0.09148249654456063,"atr_vs_reaction_atr_spearman":-0.20740626979462104,"atr_vs_mfe_points_spearman":0.4641155245665896,"atr_vs_mae_points_spearman":0.4733847177176405,"atr_vs_reaction_points_spearman":0.72376361883331},
+    "day": {"atr_vs_mfe_atr_spearman":-0.02883599136569547,"atr_vs_mae_atr_spearman":-0.07322213696501713,"atr_vs_reaction_atr_spearman":-0.11223379103771627,"atr_vs_mfe_points_spearman":0.4335870335859561,"atr_vs_mae_points_spearman":0.39302977860441213,"atr_vs_reaction_points_spearman":0.6753645458239617},
+    "night": {"atr_vs_mfe_atr_spearman":-0.13027908897444007,"atr_vs_mae_atr_spearman":-0.08306919378330359,"atr_vs_reaction_atr_spearman":-0.22133229257994855,"atr_vs_mfe_points_spearman":0.43378219696905673,"atr_vs_mae_points_spearman":0.4557730338968523,"atr_vs_reaction_points_spearman":0.6885518453806057}
+  },
+  "category_summary": [
+    {"sanity_category":"high_balance","N":25,"atr_med":4.0,"atr_sess_pct_med":0.13763868029649726,"mfe_atr_med":3.0,"mfe_points_med":13.999999999999998,"mfe_points_sess_pct_med":0.40613743419229703,"mae_atr_med":3.1643835616438354,"mae_points_med":10.0,"mae_points_sess_pct_med":0.3956082017179274,"reaction_atr_med":4.89430894308943,"reaction_points_med":24.0,"reaction_points_sess_pct_med":0.3384594070379607},
+    {"sanity_category":"no_reaction","N":25,"atr_med":3.857142857142857,"atr_sess_pct_med":0.2649338694830677,"mfe_atr_med":1.1097560975609757,"mfe_points_med":4.0,"mfe_points_sess_pct_med":0.17455118874332848,"mae_atr_med":1.0980392156862746,"mae_points_med":4.0,"mae_points_sess_pct_med":0.19170305676855895,"reaction_atr_med":1.2249999999999999,"reaction_points_med":5.0,"reaction_points_sess_pct_med":0.013051916545366327},
+    {"sanity_category":"strong_mae","N":25,"atr_med":4.785714285714286,"atr_sess_pct_med":0.2743810861876847,"mfe_atr_med":1.75,"mfe_points_med":7.0,"mfe_points_sess_pct_med":0.21404657933042212,"mae_atr_med":24.11111111111111,"mae_points_med":119.00000000000001,"mae_points_sess_pct_med":0.9877389858686617,"reaction_atr_med":24.11111111111111,"reaction_points_med":119.00000000000001,"reaction_points_sess_pct_med":0.9794957051814908},
+    {"sanity_category":"strong_mfe","N":25,"atr_med":4.285714285714286,"atr_sess_pct_med":0.31628797054406277,"mfe_atr_med":26.444444444444443,"mfe_points_med":127.0,"mfe_points_sess_pct_med":0.9866999168744804,"mae_atr_med":0.4375,"mae_points_med":2.0,"mae_points_sess_pct_med":0.11034912718204488,"reaction_atr_med":26.444444444444443,"reaction_points_med":127.0,"reaction_points_sess_pct_med":0.9725861232411451},
+    {"sanity_category":"structure_reversal","N":25,"atr_med":7.714285714285714,"atr_sess_pct_med":0.6055540204476375,"mfe_atr_med":3.818181818181818,"mfe_points_med":29.0,"mfe_points_sess_pct_med":0.7782629791363416,"mae_atr_med":3.566037735849057,"mae_points_med":22.0,"mae_points_sess_pct_med":0.647962154294032,"reaction_atr_med":5.568181818181818,"reaction_points_med":42.0,"reaction_points_sess_pct_med":0.764919941775837}
+  ]
+}

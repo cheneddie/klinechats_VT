@@ -64,6 +64,16 @@ from .reversal_outcomes import (
     validate_reversal_reference_store,
     compute_reversal_outcomes,
 )
+from .event_sanity import (
+    EVENT_SANITY_SCHEMA_VERSION,
+    SANITY_SAMPLING_VERSION,
+    SANITY_CATEGORIES,
+    SanitySampleConfig,
+    select_event_sanity_sample,
+    validate_sanity_sample,
+    validate_replay_ledger,
+    validate_visual_manifest,
+)
 
 __all__ = [
     "BAR_RESOLUTIONS", "BarAccumulator", "CompletedBar", "DevelopingPocSnapshot",
@@ -81,4 +91,6 @@ __all__ = [
     "REVERSAL_SCHEMA_VERSION", "REVERSAL_REFERENCE_SCHEMA_VERSION", "MICRO_SWING_ALGORITHM_VERSION",
     "PIVOT_RADIUS", "PIVOT_SEARCH_LOOKBACK_BARS", "REFERENCE_PARAMETERS", "REVERSAL_METRICS", "OBJECT_METRICS",
     "build_reversal_reference_store", "build_reversal_reference_manifest", "validate_reversal_reference_store", "compute_reversal_outcomes",
+    "EVENT_SANITY_SCHEMA_VERSION", "SANITY_SAMPLING_VERSION", "SANITY_CATEGORIES", "SanitySampleConfig",
+    "select_event_sanity_sample", "validate_sanity_sample", "validate_replay_ledger", "validate_visual_manifest",
 ]

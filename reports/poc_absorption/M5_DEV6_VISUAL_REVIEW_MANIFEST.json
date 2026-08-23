@@ -1,0 +1,16 @@
+{
+  "schema_version": "POC_M5_DEV6_VISUAL_REVIEW_V1",
+  "sampling_version": "M5_DEV6_SANITY_SAMPLE_V5",
+  "sample_event_ids_sha256": "5da7207d36f42601301bbf94173597e2816b9cfb6c61f9c110f5667ec986328d",
+  "total_panels_reviewed": 125,
+  "total_visual_mismatches": 0,
+  "review_method": "5 path-focused contact sheets, 25 deterministic 1m first-trigger episodes per category; manual visual inspection after exact raw replay",
+  "categories": [
+    {"sanity_category":"strong_mfe","panels_reviewed":25,"raw_replay_passed":25,"visual_mismatches":0,"visual_verdict":"PASS","contact_sheet_file":"contact_v5_strong_mfe.png","contact_sheet_sha256":"b9985d9d478833903d7ba7a15beff8b90958c99021daa64dcc334e4ea0f7d97e","notes":"25 panels reviewed; favorable downside excursion marker aligns with visible raw/1s path minima; large MFE cases remain large in raw points, not ATR-only artifacts."},
+    {"sanity_category":"strong_mae","panels_reviewed":25,"raw_replay_passed":25,"visual_mismatches":0,"visual_verdict":"PASS","contact_sheet_file":"contact_v5_strong_mae.png","contact_sheet_sha256":"eaade38226b7e1546132280b5bb784612bfe0d2b0bc5ccc4995e660f96c548d9","notes":"25 panels reviewed; adverse upside excursion marker aligns with visible path maxima; large MAE cases remain large in raw points."},
+    {"sanity_category":"high_balance","panels_reviewed":25,"raw_replay_passed":25,"visual_mismatches":0,"visual_verdict":"PASS","contact_sheet_file":"contact_v5_high_balance.png","contact_sheet_sha256":"8ee42a71a4034cbdcfdc5dff27d6f7184b941b75502f22abd95b0bc2568f845d","notes":"25 panels reviewed; first 5m shows low-efficiency/two-sided behavior while later 30m path may trend; this is expected because category is defined on 5m balance only."},
+    {"sanity_category":"structure_reversal","panels_reviewed":25,"raw_replay_passed":25,"visual_mismatches":0,"visual_verdict":"PASS","contact_sheet_file":"contact_v5_structure_reversal.png","contact_sheet_sha256":"2de6317375c16f16e4f51ad3921f767903a7459784d8a5850da85f2365d0b276","notes":"25 panels reviewed; first-break markers occur at/after trigger and visibly cross an eligible frozen structure reference; corrected delay ranking used."},
+    {"sanity_category":"no_reaction","panels_reviewed":25,"raw_replay_passed":25,"visual_mismatches":0,"visual_verdict":"PASS","contact_sheet_file":"contact_v5_no_reaction.png","contact_sheet_sha256":"5b1c3f78f77542c13f00a3edac6c01a116d78d15af3ebe302322e7401d16b785","notes":"25 panels reviewed; V5 joint-low raw-point + ATR-normalized sample shows narrow 30m movement on path-focused scale; no truncated-contract windows."}
+  ],
+  "all_pass": true
+}
