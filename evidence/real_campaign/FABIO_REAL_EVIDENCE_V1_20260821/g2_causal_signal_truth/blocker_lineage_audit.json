@@ -1,0 +1,9 @@
+{
+  "blocker_ancestor_violations": 0,
+  "blocker_cycle_count": 0,
+  "blocker_not_direct_evaluated_no": 0,
+  "examples": [],
+  "parent_reachability_violations": 0,
+  "pass": true,
+  "total_violations": 0
+}
