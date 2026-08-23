@@ -8,7 +8,8 @@ Start with [`FULL_REPORT_20260821.md`](FULL_REPORT_20260821.md).
 
 - G0 Software Integrity: **PASS**
 - G1 Raw Data Truth: **completed evidence bundle for supplied 2024/2025 sources; 2024 has one missing expected day-session (2024-12-27), 2025 is a partial-year source ending 2025-12-19**
-- G2/G3: **NOT COMPLETE — no intermediate scanner performance is evidence**
+- G2 Causal Signal Truth: **PASS — 223/223 eligible 2025 Discovery sessions completed; 0 unexpected regression violations, 0 physical mismatches, 0 causal-ordering violations, 245 targeted-QA cases with 0 systematic defects**
+- G3 Statistical Edge Truth: **NOT STARTED — no MFE/MAE, PF, bootstrap/FDR, node-edge classification or outcome claim is promoted by G2**
 - 2024 strategy validation: **not opened**
 - 2026 final holdout: **sealed**
 
@@ -25,3 +26,7 @@ base64 -d 2025_discovery_g1/contract_selection_audit.json.gz.b64 | gunzip > cont
 ```
 
 The decoded bytes are the completed local evidence artifact; `MANIFEST.json` records both repository-file and decoded SHA-256 values.
+
+## G2 reproducibility note
+
+The corrected reachability-aware funnel contains **16,585 unique auction attempts** and **33,046 branch/events** (MR=16,461, BO=16,461, WAIT-only=124). Large G2 JSON artifacts are stored losslessly as `*.json.gz.b64`; decoded SHA-256 identities are recorded in `g2_causal_signal_truth/lossless_compressed_artifacts.json`.
