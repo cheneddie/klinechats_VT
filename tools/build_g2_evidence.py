@@ -1,10 +1,10 @@
 from __future__ import annotations
-import argparse,hashlib,json,platform,shutil,sys
+import argparse,hashlib,json,platform,shutil
 from pathlib import Path
 import pandas as pd,pyarrow as pa,numpy as np
 ROOT=Path(__file__).resolve().parents[1]
 def fsha(p):
- h=hashlib.sha256();
+ h=hashlib.sha256()
  with open(p,'rb') as f:
   for b in iter(lambda:f.read(1<<20),b''):h.update(b)
  return h.hexdigest()
@@ -23,7 +23,7 @@ def main():
  manifest={
   'campaign_id':'FABIO_REAL_EVIDENCE_V1_20260821','gate':'G2_CAUSAL_SIGNAL_TRUTH','status':'PASS','source_role':'2025_PARTIAL_YEAR_DISCOVERY','source_file':src.name,'source_sha256':fsha(src),'source_window':'2025-01-02 through 2025-12-19','observed_sessions':236,'eligible_scan_sessions':223,
   'baseline_methodology_commit':'53dbd9450922cfd24385e9f98b116d0d912e21e5','release_commit':'THIS_COMMIT_CONTAINING_MANIFEST','reachability_policy':'G2_NODE_REACHABILITY_V1_20260823','causal_repair_policy':'G2_CAUSAL_ORDERING_AMENDMENT_001','coverage_policy':'TAIFEX_SESSION_CALENDAR_V2','calendar_version':'TAIFEX_REGULAR_SESSION_V1_20260821',
-  'implementation_sha256':{str(p.relative_to(ROOT)):fsha(p) for p in [ROOT/'server/g2_closeout.py',ROOT/'tools/run_g2_closeout.py',ROOT/'tools/run_g2_shard.py',ROOT/'tools/audit_g2_closeout.py',ROOT/'tools/build_g2_evidence.py',ROOT/'config/research/g2_node_reachability_v1.json',ROOT/'config/research/g2_causal_ordering_amendment_001.json']},
+  'implementation_sha256':{str(p.relative_to(ROOT)):fsha(p) for p in [ROOT/'server/g2_closeout.py',ROOT/'tools/run_g2_closeout.py',ROOT/'tools/audit_g2_closeout.py',ROOT/'tools/build_g2_evidence.py',ROOT/'config/research/g2_node_reachability_v1.json',ROOT/'config/research/g2_causal_ordering_amendment_001.json']},
   'runtime':{'python':platform.python_version(),'pandas':pd.__version__,'numpy':np.__version__,'pyarrow':pa.__version__},
   'canonical_hashing':json.load(open(run/'migration_regression.json')).get('canonical_serialization'),
   'future_outcomes':{'mfe':False,'mae':False,'pf':False,'bootstrap':False,'fdr':False,'edge_classification':False},
