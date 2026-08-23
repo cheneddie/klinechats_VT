@@ -1,0 +1,21 @@
+{
+  "schema_version": "POC_M5_DEV5_FULL_OUTCOME_CUBE_CONFIG_V1",
+  "dataset": "MTX_2024",
+  "timeframes": ["15s", "30s", "1m", "3m", "5m", "15m"],
+  "horizons": ["30s", "1m", "3m", "5m", "15m", "30m", "60m", "session_end"],
+  "views": ["raw_trigger", "first_trigger_per_episode"],
+  "annual_expected_events": {"15s":264970,"30s":132719,"1m":66248,"3m":22448,"5m":13848,"15m":5215},
+  "annual_expected_episodes": {"15s":111958,"30s":56095,"1m":27879,"3m":9366,"5m":5764,"15m":2935},
+  "audit_sampling": "lowest SHA256(event_id), 5 per timeframe x session, plus deterministic zero-future session-boundary cases",
+  "audit_expected_events": 72,
+  "audit_expected_windows": 576,
+  "research_primary_clock": "1m",
+  "research_companion_clock": "30s",
+  "research_microstructure_sensitivity_clock": "15s",
+  "pnl_calculated": false,
+  "profit_factor_calculated": false,
+  "thresholds_defined": false,
+  "best_horizon_selected": false,
+  "research_edge_claimed": false,
+  "allowed_dataset_for_dev5": "2024 only"
+}

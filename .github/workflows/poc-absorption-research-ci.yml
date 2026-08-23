@@ -47,7 +47,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-data.txt pytest
-      - name: Run M1-M4 + M5 Dev1-Dev4 research tests
+      - name: Run M1-M4 + M5 Dev1-Dev5 research tests
         env:
           PYTHONPATH: .
         run: |
@@ -59,28 +59,26 @@ jobs:
             tests/test_poc_absorption_outcome_contract.py \
             tests/test_poc_absorption_physical_outcomes.py \
             tests/test_poc_absorption_balance_outcomes.py \
-            tests/test_poc_absorption_reversal_outcomes.py
+            tests/test_poc_absorption_reversal_outcomes.py \
+            tests/test_poc_absorption_full_outcome_cube.py
       - name: Run committed M3 QA runner self-test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python tools/poc_absorption/m3_feature_qa.py --self-test
       - name: Run committed M4 QA runner self-test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python tools/poc_absorption/m4_universe_qa.py --self-test
       - name: Run committed M5 outcome-contract self-test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python tools/poc_absorption/m5_outcome_contract_qa.py --self-test
       - name: Run committed M5 physical-outcome self-test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python tools/poc_absorption/m5_physical_outcome_qa.py --self-test
       - name: Run committed M5 balance-outcome self-test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python tools/poc_absorption/m5_balance_outcome_qa.py --self-test
       - name: Run committed M5 reversal-outcome self-test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python tools/poc_absorption/m5_reversal_outcome_qa.py --self-test
+      - name: Run committed M5 full-outcome-cube self-test
+        env: {PYTHONPATH: .}
+        run: python tools/poc_absorption/m5_full_outcome_cube_qa.py --self-test
