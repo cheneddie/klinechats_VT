@@ -1,0 +1,9 @@
+{
+  "anchor_after_decision": 0,
+  "attempt_after_resolution": 0,
+  "blocker_after_child_resolution": 0,
+  "parent_child_order_violation": 0,
+  "pass": true,
+  "strict_entry_before_required_decision": 0,
+  "total_violations": 0
+}

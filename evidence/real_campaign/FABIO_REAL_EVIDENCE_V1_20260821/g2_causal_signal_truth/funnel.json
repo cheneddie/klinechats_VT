@@ -1,0 +1,22 @@
+{
+  "events": 33046,
+  "nodes": [
+    {"conditional_pass_rate":1.0,"direct_no":0,"node_id":"AUC_ATTEMPT","not_reached":0,"reached":16461,"strategy":"MR","yes":16461},
+    {"conditional_pass_rate":0.05716542129882753,"direct_no":15520,"node_id":"MR_REJECTION","not_reached":0,"reached":16461,"strategy":"MR","yes":941},
+    {"conditional_pass_rate":0.1902231668437832,"direct_no":762,"node_id":"MR_CLEAR_RECLAIM","not_reached":15520,"reached":941,"strategy":"MR","yes":179},
+    {"conditional_pass_rate":1.0,"direct_no":0,"node_id":"MR_RECLAIM_LEG","not_reached":16282,"reached":179,"strategy":"MR","yes":179},
+    {"conditional_pass_rate":0.027932960893854747,"direct_no":174,"node_id":"MR_LVN","not_reached":16282,"reached":179,"strategy":"MR","yes":5},
+    {"conditional_pass_rate":0.8,"direct_no":1,"node_id":"MR_PULLBACK","not_reached":16456,"reached":5,"strategy":"MR","yes":4},
+    {"conditional_pass_rate":1.0,"direct_no":0,"node_id":"MR_ENTRY","not_reached":16457,"reached":4,"strategy":"MR","yes":4},
+    {"conditional_pass_rate":1.0,"direct_no":0,"node_id":"AUC_ATTEMPT","not_reached":0,"reached":16461,"strategy":"BO","yes":16461},
+    {"conditional_pass_rate":0.87382297551789,"direct_no":2077,"node_id":"BO_DISPLACEMENT","not_reached":0,"reached":16461,"strategy":"BO","yes":14384},
+    {"conditional_pass_rate":0.999652391546161,"direct_no":5,"node_id":"BO_ACCEPTANCE","not_reached":2077,"reached":14384,"strategy":"BO","yes":14379},
+    {"conditional_pass_rate":0.9771889561165589,"direct_no":328,"node_id":"BO_IMPULSE_LEG","not_reached":2082,"reached":14379,"strategy":"BO","yes":14051},
+    {"conditional_pass_rate":0.02754252366379617,"direct_no":13664,"node_id":"BO_LVN","not_reached":2410,"reached":14051,"strategy":"BO","yes":387},
+    {"conditional_pass_rate":0.7545219638242894,"direct_no":95,"node_id":"BO_PULLBACK","not_reached":16074,"reached":387,"strategy":"BO","yes":292},
+    {"conditional_pass_rate":0.8356164383561644,"direct_no":48,"node_id":"BO_RESPONSE","not_reached":16169,"reached":292,"strategy":"BO","yes":244},
+    {"conditional_pass_rate":0.5409836065573771,"direct_no":112,"node_id":"BO_ENTRY","not_reached":16217,"reached":244,"strategy":"BO","yes":132}
+  ],
+  "strict_entries": {"BO":132,"MR":4},
+  "unique_auction_attempts": 16585
+}

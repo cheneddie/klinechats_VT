@@ -1,0 +1,8 @@
+{
+  "evaluated_node_semantic_differences": 0,
+  "event_identity_differences": 0,
+  "expected_causal_repairs": 28,
+  "pass": true,
+  "repair_scope": "BO_ENTRY only under G2_CAUSAL_ORDERING_AMENDMENT_001",
+  "unexpected_strategy_semantic_differences": 0
+}

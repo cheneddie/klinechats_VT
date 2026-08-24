@@ -1,0 +1,19 @@
+{
+  "boundary_cases_included": 25,
+  "cases_requested_policy": "MR YES/NO, BO YES/NO, near-miss/threshold, conversion-collapse, roll-boundary, long-official-closure boundary",
+  "cases_reviewed": 245,
+  "future_outcome_extremes_included": false,
+  "reason": "G2 forbids MFE/MAE before causal truth PASS",
+  "sample_shortfalls": {
+    "MR_ENTRY_DIRECT_NO": {
+      "available": 0,
+      "requested": 20,
+      "shortfall": 20
+    },
+    "MR_ENTRY_YES": {
+      "available": 4,
+      "requested": 20,
+      "shortfall": 16
+    }
+  }
+}

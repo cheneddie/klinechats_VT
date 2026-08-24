@@ -1,0 +1,19 @@
+{
+  "contract_mismatch": 0,
+  "covered_fields": [
+    "anchor_seq",
+    "decision_seq",
+    "resolution_seq",
+    "strict_entry_seq",
+    "terminal_entry_seq"
+  ],
+  "missing_seq": 0,
+  "pass": true,
+  "price_mismatch": 0,
+  "product_mismatch": 0,
+  "requested_unique_seq": 106087,
+  "resolved_unique_seq": 106087,
+  "session_mismatch": 0,
+  "source_mismatch": 0,
+  "time_mismatch": 0
+}

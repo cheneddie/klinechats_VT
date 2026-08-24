@@ -1,0 +1,6 @@
+{
+  "parent_commit": "cf99d9b67d425a20a778132ce411a00bfb025b23",
+  "staging_tree": "e5aa000fcecca523088640d83d7b19902da75b77",
+  "gate": "G2_CAUSAL_SIGNAL_TRUTH",
+  "status": "PASS"
+}

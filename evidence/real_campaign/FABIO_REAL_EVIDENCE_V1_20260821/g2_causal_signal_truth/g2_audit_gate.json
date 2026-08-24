@@ -1,0 +1,20 @@
+{
+  "audit_version": "G2_CAUSAL_SIGNAL_TRUTH_AUDIT_V1_20260823",
+  "checks": {
+    "blocker_lineage": true,
+    "causal_ordering": true,
+    "logical_trace": true,
+    "migration_regression": true,
+    "physical_truth": true,
+    "relaxed_universe": true,
+    "session_eligibility": true,
+    "strategy_semantics": true,
+    "targeted_qa": true
+  },
+  "future_outcomes_computed": false,
+  "gate": "G2_CAUSAL_SIGNAL_TRUTH",
+  "pass": true,
+  "pf_computed": false,
+  "statistical_edge_computed": false,
+  "status": "PASS"
+}
