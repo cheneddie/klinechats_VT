@@ -1,0 +1,66 @@
+{
+  "strategy_id": "MTX_EXTREME_SELLOFF_REVERSAL_FORWARD_OOS_V1",
+  "frozen_on": "2026-08-22",
+  "source_sample_end_exchange_local": "2026-08-14 13:44:59",
+  "instrument": {
+    "product": "MTX",
+    "expiry_regex": "^\\d{6}$",
+    "position_direction": "LONG_ONLY",
+    "max_positions": 1
+  },
+  "session": {
+    "day": "08:45:00-13:45:00",
+    "night": "15:00:00-05:00:00",
+    "night_after_midnight_keyed_to_previous_date": true
+  },
+  "signal_time_gate": [
+    "09:00:00-10:30:00",
+    "20:30:00-22:30:00"
+  ],
+  "highvol": {
+    "session_range": "session_high_minus_session_low",
+    "same_session_kind_only": true,
+    "prior_completed_sessions_for_mean": 14,
+    "history_window_prior14_values": 61,
+    "history_quantile": 0.80,
+    "rule": "prior14_mean > np.quantile(previous_61_prior14_means, 0.80)",
+    "causal": true
+  },
+  "price_signal": {
+    "grid": "1_second_with_close_ffill_within_session_only",
+    "lookback_seconds": 30,
+    "value": "close_t - close_t_minus_30s",
+    "threshold_training": "concatenate_previous_3_completed_contract_signal_distributions",
+    "threshold_quantile": 0.0005,
+    "crossing": "signal_t <= threshold AND signal_t_minus_1s > threshold"
+  },
+  "execution": {
+    "signal_second_must_be_complete": true,
+    "latency_seconds_after_confirmation": 1,
+    "earliest_fill": "signal_t + 2 seconds",
+    "entry": "first_observed_tradable_print_at_or_after_earliest_fill; use_second_open",
+    "holding_seconds": 300,
+    "exit": "first_observed_tradable_print_at_or_after_entry_plus_300s; same_session_only",
+    "fixed_stop": null
+  },
+  "cost_model": {
+    "primary_round_trip_points": 2.0,
+    "stress_round_trip_points": 5.0
+  },
+  "forward_oos": {
+    "oos_start": "strictly_after_2026-08-14_13:44:59_exchange_local",
+    "minimum_calendar_months": 6,
+    "minimum_trades": 200,
+    "no_parameter_changes_during_oos": true,
+    "any_strategy_change_restarts_oos_clock": true,
+    "promotion_gates": {
+      "net_expectancy_at_2pt_cost": ">0",
+      "profit_factor_at_2pt_cost": ">=1.10",
+      "net_expectancy_at_5pt_cost": ">0",
+      "session_date_cluster_bootstrap_95pct_lower_expectancy": ">0",
+      "max_drawdown_points": "<=2470",
+      "single_day_pnl_concentration": "<25% of positive cumulative OOS PnL once total OOS PnL > 0"
+    }
+  },
+  "research_status": "FROZEN_FORWARD_OOS_CANDIDATE_NOT_LIVE_APPROVED"
+}
