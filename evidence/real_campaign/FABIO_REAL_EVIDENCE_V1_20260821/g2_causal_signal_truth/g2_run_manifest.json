@@ -1,0 +1,28 @@
+{
+  "baseline_methodology_commit": "53dbd9450922cfd24385e9f98b116d0d912e21e5",
+  "calendar_version": "TAIFEX_REGULAR_SESSION_V1_20260821",
+  "campaign_id": "FABIO_REAL_EVIDENCE_V1_20260821",
+  "causal_repair_policy": "G2_CAUSAL_ORDERING_AMENDMENT_001",
+  "coverage_policy": "TAIFEX_SESSION_CALENDAR_V2",
+  "eligible_scan_sessions": 223,
+  "future_outcomes": {
+    "bootstrap": false,
+    "edge_classification": false,
+    "fdr": false,
+    "mae": false,
+    "mfe": false,
+    "pf": false
+  },
+  "gate": "G2_CAUSAL_SIGNAL_TRUTH",
+  "observed_sessions": 236,
+  "reachability_policy": "G2_NODE_REACHABILITY_V1_20260823",
+  "source_file": "MTX_2025(5).parquet",
+  "source_role": "2025_PARTIAL_YEAR_DISCOVERY",
+  "source_sha256": "774b6f62b1e1a30ec159c7402b6967045ea3d99b59bfb16aeb0e0462a7a15156",
+  "source_window": "2025-01-02 through 2025-12-19",
+  "status": "PASS",
+  "validation_holdout_governance": {
+    "2024": "RESERVED_NOT_OPENED_FOR_STRATEGY_VALIDATION",
+    "2026": "SEALED_NO_STRATEGY_SIGNALS_OR_OUTCOMES"
+  }
+}
