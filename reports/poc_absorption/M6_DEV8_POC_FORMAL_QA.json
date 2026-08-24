@@ -1,0 +1,45 @@
+{
+  "schema_version": "POC_M6_DEV8_FORMAL_QA_V1",
+  "dataset": "MTX_2024",
+  "source_physical_rows": 50862751,
+  "strict_selected_rows": 50862621,
+  "one_minute_bars": 270621,
+  "raw_triggers": 66248,
+  "episodes": 27879,
+  "day_episodes": 7238,
+  "night_episodes": 20641,
+  "comparable_30m_episodes": 26521,
+  "continuous_features": 23,
+  "tested_directional_horizons_seconds": [300, 900, 1800],
+  "primary_test_count_global": 138,
+  "primary_30m_verdict": "POC_NO_INCREMENTAL_INFORMATION_AT_30M",
+  "five_minute_verdict": "NO_FAMILY_LEVEL_DIRECTIONAL_DOSE_RESPONSE",
+  "fifteen_minute_within_horizon": "SUGGESTIVE_POC_LOWER_COUNT_PERSISTENCE",
+  "fifteen_minute_key": {
+    "poc_lower_count_6": {
+      "probability_rank_slope_pp": 3.993012521641487,
+      "within_horizon_q": 0.059244,
+      "global_q": 0.177732,
+      "controlled_slope_pp": 5.88446013038534,
+      "controlled_ci95_pp": [2.6366969846704746, 9.132223276100204],
+      "leave_one_month_out_positive": "12/12"
+    },
+    "poc_lower_count_12": {
+      "probability_rank_slope_pp": 4.180663863438507,
+      "within_horizon_q": 0.059244,
+      "global_q": 0.177732,
+      "controlled_slope_pp": 4.413887328393529,
+      "controlled_ci95_pp": [0.8806203624293255, 7.947154294357733],
+      "leave_one_month_out_positive": "12/12"
+    }
+  },
+  "global_fdr_positive_count": 0,
+  "structure_interpretation": "apparent channel/micro-swing break gradients collapse after causal reference-distance/geometry controls",
+  "single_bar_lower_poc_directional_evidence": false,
+  "overall_verdict": "POC_WEAK_SHORT_HORIZON_SIGNAL_NOT_MULTIPLICITY_ROBUST",
+  "promotion": "DO_NOT_PROMOTE_POC_TO_CORE; retain repeated lower-count persistence as exploratory watchlist only",
+  "pnl_calculated": false,
+  "threshold_optimized": false,
+  "2025_used": false,
+  "2026_used": false
+}

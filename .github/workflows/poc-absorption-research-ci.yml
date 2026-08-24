@@ -47,7 +47,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-data.txt pytest
-      - name: Run M1-M5 + M6 Dev7 research tests
+      - name: Run M1-M5 + M6 Dev7-Dev8 research tests
         env:
           PYTHONPATH: .
         run: |
@@ -62,7 +62,8 @@ jobs:
             tests/test_poc_absorption_reversal_outcomes.py \
             tests/test_poc_absorption_full_outcome_cube.py \
             tests/test_poc_absorption_event_sanity.py \
-            tests/test_poc_absorption_universe_baseline.py
+            tests/test_poc_absorption_universe_baseline.py \
+            tests/test_poc_absorption_poc_dose_response.py
       - name: Run committed M3 QA runner self-test
         env: {PYTHONPATH: .}
         run: python tools/poc_absorption/m3_feature_qa.py --self-test
@@ -90,3 +91,6 @@ jobs:
       - name: Run committed M6 Dev7 universe-baseline self-test
         env: {PYTHONPATH: .}
         run: python tools/poc_absorption/m6_universe_baseline_qa.py --self-test
+      - name: Run committed M6 Dev8 POC dose-response self-test
+        env: {PYTHONPATH: .}
+        run: python tools/poc_absorption/m6_poc_dose_response_qa.py --self-test

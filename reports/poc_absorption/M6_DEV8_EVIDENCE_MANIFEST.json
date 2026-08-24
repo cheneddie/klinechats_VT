@@ -1,0 +1,16 @@
+{
+  "schema_version": "POC_M6_DEV8_EVIDENCE_MANIFEST_V1",
+  "bundle_file": "M6_DEV8_EVIDENCE_BUNDLE.json.gz",
+  "uncompressed_bytes": 103629,
+  "compressed_bytes": 23944,
+  "sha256": "090fb673513b90301db38a048926bc8d80dc8c65452a021f629e1076af03f7b9",
+  "tables": {
+    "M6_DEV8_POC_GLOBAL_FDR.csv": 138,
+    "M6_DEV8_POC_15M_CONFOUND.csv": 6,
+    "M6_DEV8_POC_15M_LOMO.csv": 24,
+    "M6_DEV8_POC_15M_PLATEAU.csv": 8,
+    "M6_DEV8_POC_MICRO_SWING.csv": 8,
+    "M6_DEV8_POC_BINARY_PATTERNS.csv": 30,
+    "M6_DEV8_POC_SECONDARY_SLOPES.csv": 69
+  }
+}
