@@ -1,0 +1,24 @@
+{
+  "schema_version": "POC_M5_REVERSAL_REFERENCE_V1",
+  "algorithm_version": "STRICT_CONFIRMED_PIVOT_LOW_R2_WITHIN_LAST24_V1",
+  "parameters": {
+    "pivot_radius": 2,
+    "pivot_search_lookback_bars": 24,
+    "pivot_rule": "candidate low strictly below all 2 left + 2 right completed-bar lows; entire 5-bar pivot window lies inside latest 24 completed bars including trigger",
+    "break_rule": "first physical future tick with price strictly below frozen reference",
+    "new_high_rule": "first physical future tick with price strictly above frozen channel high",
+    "no_fallback": true,
+    "no_observation_policy": "all Dev4 outcome fields NA when future_tick_count=0",
+    "simultaneous_break_policy": "record every reference sharing the first physical break seq in canonical reference order",
+    "continuity_semantics": "same contract + same session + no DATA_GAP continuity partition; completed-bar lookback may span consecutive trading days like M3/M4"
+  },
+  "event_count": 1756,
+  "channel_midline_break_eligible": 1756,
+  "channel_low_break_eligible": 1756,
+  "micro_swing_reference_available": 1579,
+  "micro_swing_reference_missing": 177,
+  "micro_swing_break_eligible": 1577,
+  "micro_swing_already_broken_at_trigger": 2,
+  "hash_columns": ["event_id","trigger_price","channel_high_reference_level","channel_midline_reference_level","channel_low_reference_level","channel_midline_break_eligible","channel_low_break_eligible","micro_swing_reference_available","micro_swing_break_eligible","micro_swing_low_reference_level","micro_swing_bar_start_seq","micro_swing_bar_end_seq","micro_swing_bar_start_time"],
+  "reversal_reference_manifest_hash": "71655faa96eb33e17986ed9f0b3d1a28d3a3eb4f5b69e696c6fa9296cb3bc183"
+}

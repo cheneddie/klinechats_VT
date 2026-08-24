@@ -1,0 +1,18 @@
+{
+  "schema_version": "POC_M3_QA_CASES_V1",
+  "product": "MTX",
+  "session": "day",
+  "primary_case": {
+    "year": 2025,
+    "date": "2025-08-21",
+    "expiry": "202509",
+    "timeframes": ["15s", "30s", "1m", "3m", "5m", "15m"]
+  },
+  "continuity_case": {
+    "year": 2025,
+    "dates": ["2025-08-21", "2025-08-22"],
+    "expiry": "202509",
+    "timeframe": "15m",
+    "purpose": "verify 24-bar lookback can carry across consecutive valid trading days for same contract/session"
+  }
+}

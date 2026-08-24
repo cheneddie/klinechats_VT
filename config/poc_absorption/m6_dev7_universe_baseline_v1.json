@@ -1,0 +1,23 @@
+{
+  "schema_version": "POC_M6_DEV7_BASELINE_CONFIG_V1",
+  "source_universe": "HIGH_PRICE_PROBE_V1",
+  "universe_config_hash": "d7bf39afa32582bc06e00b2df9995b9cb9cc14670a6974834d80cf3d079016fb",
+  "discovery_year": 2024,
+  "timeframe": "1m",
+  "event_view": "first_trigger_per_episode",
+  "expected_raw_triggers": 66248,
+  "expected_episodes": 27879,
+  "primary_30m_observation_gate": "sanity_full_30m=true / actual same-contract observation >=1740 seconds",
+  "bootstrap": {
+    "episode_resamples_session": 3000,
+    "trading_day_resamples_session": 3000,
+    "episode_resamples_pooled": 5000,
+    "trading_day_resamples_pooled": 5000,
+    "seed": 20260824
+  },
+  "predictors_used": [],
+  "pnl_calculated": false,
+  "thresholds_defined": false,
+  "best_horizon_selected": false,
+  "edge_claimed": false
+}

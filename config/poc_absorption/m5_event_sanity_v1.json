@@ -1,0 +1,53 @@
+{
+  "schema_version": "POC_M5_EVENT_SANITY_CONFIG_V1",
+  "sampling_version": "M5_DEV6_SANITY_SAMPLE_V5",
+  "source": "2024 Dev5 1m first-trigger-per-episode outcome view",
+  "source_raw_events": 66248,
+  "source_episodes": 27879,
+  "source_day_episodes": 7238,
+  "source_night_episodes": 20641,
+  "sampling": {
+    "per_category": 25,
+    "day_quota": 6,
+    "night_quota": 19,
+    "month_cap": 3,
+    "unique_trading_date_per_category": true,
+    "min_observed_span_30m_seconds": 1740,
+    "same_contract_observation_required": true
+  },
+  "categories": {
+    "strong_mfe": "descending 30m short MFE / frozen event-time ATR",
+    "strong_mae": "descending 30m short MAE / frozen event-time ATR",
+    "high_balance": "descending rank(two-sided 5m excursion) + inverse-rank(5m 1-second path efficiency)",
+    "structure_reversal": "ascending trigger-relative first structure-break delay; absolute break timestamp is forbidden as a rank",
+    "no_reaction": "ascending max(same-session percentile(max(MFE_ATR,MAE_ATR)), same-session percentile(max(MFE_points,MAE_points))) among no-break events"
+  },
+  "raw_replay_required_checks": [
+    "trigger physical seq/time/price",
+    "30m raw deadline and last physical seq",
+    "first-physical-tie future low/high",
+    "30m MFE/MAE",
+    "5m 1-second path efficiency rebuilt from raw ticks",
+    "5m two-sided excursion rebuilt from raw ticks",
+    "first structure-break seq/time/price/reference identity",
+    "trigger-relative break delay",
+    "same-contract observed span >= 1740 seconds"
+  ],
+  "manual_visual_review": {
+    "categories": 5,
+    "panels_per_category": 25,
+    "total_panels": 125,
+    "plot_semantics": "path-focused y-axis; offscreen frozen references annotated by point distance so distant channel levels cannot flatten the path visually"
+  },
+  "rejected_sampling_versions": {
+    "V1": "structure cases clustered on one date and no-reaction included horizon-truncated cases",
+    "V2": "structure ranking accidentally used absolute break Unix timestamp instead of trigger-relative delay",
+    "V3": "theoretical session remaining did not guarantee same-contract observation; weekend trading-date attribution and expiry-day contract stop were exposed",
+    "V4": "no-reaction used ATR-normalized movement only and admitted large raw-point moves in very-high-ATR regimes"
+  },
+  "thresholds_defined": false,
+  "pnl_calculated": false,
+  "profit_factor_calculated": false,
+  "best_horizon_selected": false,
+  "edge_claimed": false
+}

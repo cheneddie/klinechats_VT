@@ -1,0 +1,52 @@
+{
+  "schema_version": "POC_M5_REVERSAL_OUTCOME_CONFIG_V1",
+  "reversal_schema_version": "POC_M5_REVERSAL_MEASUREMENT_V1",
+  "reversal_reference_schema_version": "POC_M5_REVERSAL_REFERENCE_V1",
+  "outcome_contract_version": "POC_M5_OUTCOME_CONTRACT_V1",
+  "event_schema_version": "POC_PROBE_EVENT_V1",
+  "universe_version": "HIGH_PRICE_PROBE_V1",
+  "universe_config_hash": "d7bf39afa32582bc06e00b2df9995b9cb9cc14670a6974834d80cf3d079016fb",
+  "micro_swing": {
+    "algorithm_version": "STRICT_CONFIRMED_PIVOT_LOW_R2_WITHIN_LAST24_V1",
+    "pivot_radius": 2,
+    "search_lookback_completed_bars": 24,
+    "strict_neighbor_rule": true,
+    "full_pivot_window_must_be_completed_by_trigger": true,
+    "fallback": null
+  },
+  "channel_references": {
+    "high": "M4.rolling_high",
+    "low": "M4.rolling_low",
+    "midline": "(M4.rolling_high + M4.rolling_low) / 2"
+  },
+  "break_rule": "first future physical tick with price strictly below frozen reference",
+  "new_high_rule": "first future physical tick with price strictly above frozen channel high",
+  "simultaneous_break_policy": "record all frozen reference names sharing first physical break seq",
+  "ordering": "physical_seq_only_never_candle_high_low",
+  "no_observation_policy": "future_tick_count==0 => all Dev4 horizon outcomes NA",
+  "forward_slope": "OLS over 1-second close sequence against sequence index",
+  "continuity_semantics": "same contract + same session + no DATA_GAP partition; completed-bar lookback may span consecutive trading days like M3/M4",
+  "horizons": ["30s", "1m", "3m", "5m", "15m", "30m", "60m", "session_end"],
+  "real_day_qa": {
+    "dataset_id": "MTX_2024",
+    "dates": ["2024-08-15", "2024-08-16"],
+    "session": "day",
+    "strict_contract": "202408",
+    "expected_events": 899,
+    "expected_raw_triggers": {"15s":471,"30s":237,"1m":108,"3m":36,"5m":31,"15m":16},
+    "deterministic_audit_events": 50,
+    "audit_windows": 400
+  },
+  "real_night_qa": {
+    "dataset_id": "MTX_2024",
+    "trading_date": "2024-08-16",
+    "session": "night",
+    "strict_contract": "202408",
+    "boundary_audit_events": 8,
+    "audit_windows": 64
+  },
+  "thresholds_defined": false,
+  "classification_defined": false,
+  "pnl_defined": false,
+  "research_edge_claimed": false
+}

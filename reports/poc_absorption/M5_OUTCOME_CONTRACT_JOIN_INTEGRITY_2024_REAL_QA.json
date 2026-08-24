@@ -1,0 +1,62 @@
+{
+  "schema_version": "POC_M5_OUTCOME_CONTRACT_QA_V1",
+  "outcome_schema_version": "POC_PROBE_OUTCOME_V1",
+  "outcome_contract_version": "POC_M5_OUTCOME_CONTRACT_V1",
+  "source": "MTX_2024 / 2024-08-15+2024-08-16 / day / strict 202408 / six-timeframe M4 real-QA event store",
+  "future_ticks_read": false,
+  "future_outcomes_calculated": false,
+  "probe_events_policy": "READ_ONLY",
+  "join_key": "event_id",
+  "manifest": {
+    "schema_version": "POC_M5_EVENT_MANIFEST_V1",
+    "outcome_contract_version": "POC_M5_OUTCOME_CONTRACT_V1",
+    "event_schema_version": "POC_PROBE_EVENT_V1",
+    "universe_version": "HIGH_PRICE_PROBE_V1",
+    "universe_schema_version": "POC_HIGH_PRICE_PROBE_UNIVERSE_V1",
+    "universe_config_hash": "d7bf39afa32582bc06e00b2df9995b9cb9cc14670a6974834d80cf3d079016fb",
+    "event_count": 899,
+    "unique_event_ids": 899,
+    "timeframe_counts": {"15m":16,"15s":471,"1m":108,"30s":237,"3m":36,"5m":31},
+    "session_counts": {"day":899},
+    "dataset_counts": {"MTX_2024":899},
+    "first_trigger_seq": 31566150,
+    "last_trigger_seq": 31923189,
+    "event_store_fingerprint": "762519dfcb98d1deef8ca61ed00c0a20d514301a500e663cf539405763cec728"
+  },
+  "join_integrity": {
+    "event_count_before": 899,
+    "outcome_count": 899,
+    "joined_event_count": 899,
+    "unique_event_ids_before": 899,
+    "unique_event_ids_outcomes": 899,
+    "missing_event_ids": 0,
+    "extra_event_ids": 0,
+    "duplicated_event_ids": 0,
+    "immutable_field_mismatches": 0,
+    "event_order_preserved": true,
+    "event_fingerprint_before": "762519dfcb98d1deef8ca61ed00c0a20d514301a500e663cf539405763cec728",
+    "event_fingerprint_after_join": "762519dfcb98d1deef8ca61ed00c0a20d514301a500e663cf539405763cec728",
+    "all_pass": true
+  },
+  "all_pass": true,
+  "source_case": {
+    "dataset_id": "MTX_2024",
+    "dates": ["2024-08-15","2024-08-16"],
+    "session": "day",
+    "contract": "202408",
+    "physical_ticks": 217670,
+    "m4_parity": {
+      "15s":{"bars":2400,"raw_triggers":471,"episodes":212},
+      "30s":{"bars":1200,"raw_triggers":237,"episodes":113},
+      "1m":{"bars":600,"raw_triggers":108,"episodes":53},
+      "3m":{"bars":200,"raw_triggers":36,"episodes":17},
+      "5m":{"bars":120,"raw_triggers":31,"episodes":12},
+      "15m":{"bars":40,"raw_triggers":16,"episodes":8}
+    },
+    "total_raw_triggers": 899,
+    "total_unique_event_ids": 899,
+    "future_ticks_read_for_contract_qa": false,
+    "outcomes_calculated": false,
+    "atr_source": "frozen_M4_event_time_atr"
+  }
+}

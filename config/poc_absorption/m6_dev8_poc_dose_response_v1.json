@@ -1,0 +1,24 @@
+{
+  "schema_version":"POC_M6_DEV8_CONFIG_V1",
+  "dataset":"MTX_2024",
+  "primary_timeframe":"1m first-trigger-per-episode",
+  "continuous_feature_families":{
+    "migration":{"poc_delta_1_atr":-1},
+    "velocity":{"poc_velocity_atr_2":-1,"poc_velocity_atr_3":-1,"poc_velocity_atr_4":-1,"poc_velocity_atr_6":-1,"poc_accel_2_6_atr":-1},
+    "divergence":{"divergence_slope_atr_6":1,"divergence_slope_atr_8":1,"divergence_slope_atr_12":1,"divergence_slope_atr_16":1,"divergence_slope_atr_24":1},
+    "stall":{"bars_since_poc_high_3":1,"bars_since_poc_high_6":1,"bars_since_poc_high_12":1,"bars_since_poc_high_24":1,"poc_nonadvance_count_3":1,"poc_nonadvance_count_6":1,"poc_nonadvance_count_12":1,"poc_nonadvance_count_24":1,"poc_lower_count_3":1,"poc_lower_count_6":1,"poc_lower_count_12":1,"poc_lower_count_24":1}
+  },
+  "tested_directional_horizons_seconds":[300,900,1800],
+  "primary_outcomes":["MFE_short_minus_MAE_short_ATR","P(MFE_short>MAE_short)"],
+  "rank_policy":"within-session percentile, average ties",
+  "dose_policy":"10 quantiles/deciles; no best cutoff selection",
+  "primary_inference":"trading-day cluster robust",
+  "multiple_testing":"BH FDR; final sensitivity includes all 23 features x 3 tested horizons x 2 primary outcomes = 138 tests",
+  "q_limit":0.10,
+  "binary_patterns":"secondary only",
+  "structure_breaks":"secondary only and reference-distance confound diagnostic required",
+  "pnl_calculated":false,
+  "threshold_optimized":false,
+  "2025_used":false,
+  "2026_used":false
+}

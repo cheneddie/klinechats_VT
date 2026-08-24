@@ -1,0 +1,35 @@
+{
+  "schema_version": "POC_M4_UNIVERSE_CONFIG_V1",
+  "event_schema_version": "POC_PROBE_EVENT_V1",
+  "universe_version": "HIGH_PRICE_PROBE_V1",
+  "universe_schema_version": "POC_HIGH_PRICE_PROBE_UNIVERSE_V1",
+  "selection_policy": "PRICE_ONLY_CAUSAL_HIGH_PRICE_PROBE",
+  "detector": {
+    "lookback_bars": 24,
+    "upper_zone_fraction": 0.80,
+    "near_high_atr": 0.25,
+    "episode_exit_atr": 0.50,
+    "max_episode_seconds": 1800
+  },
+  "forbidden_selection_inputs": [
+    "trend_slope",
+    "poc",
+    "poc_divergence",
+    "tdp_pressure",
+    "high_zone_tdp",
+    "buying_efficiency",
+    "future_outcomes"
+  ],
+  "raw_trigger_policy": "retain_every_probe",
+  "episode_policy": "deterministic_price_only_cluster_keep_raw_triggers",
+  "rolling_context_policy": "same_contract_same_session_no_data_gap_may_cross_trading_day",
+  "episode_dependency_policy": "never_cross_trading_day_contract_or_data_gap",
+  "real_qa_case": {
+    "dataset_id": "MTX_2024",
+    "dates": ["2024-08-15", "2024-08-16"],
+    "expiry": "202408",
+    "product": "MTX",
+    "session": "day",
+    "timeframes": ["15s", "30s", "1m", "3m", "5m", "15m"]
+  }
+}

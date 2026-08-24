@@ -1,0 +1,80 @@
+{
+  "schema_version": "POC_M5_DEV6_REAL_QA_V1",
+  "evidence_verdict": "M5_DEV6_EVENT_SANITY_PASS",
+  "formalization_requires_exact_branch_head_ci": true,
+  "dataset": "MTX_2024",
+  "primary_timeframe": "1m",
+  "source_first_trigger_episodes": 27879,
+  "source_raw_triggers": 66248,
+  "sampling_version": "M5_DEV6_SANITY_SAMPLE_V5",
+  "sample_event_ids_sha256": "5da7207d36f42601301bbf94173597e2816b9cfb6c61f9c110f5667ec986328d",
+  "events": 125,
+  "categories": 5,
+  "events_per_category": 25,
+  "unique_events": 125,
+  "overall_unique_trading_dates": 102,
+  "coverage": {
+    "day_per_category": 6,
+    "night_per_category": 19,
+    "month_cap_per_category": 3,
+    "min_same_contract_observed_span_30m_seconds": 1740,
+    "theoretical_full30_episodes": 26547,
+    "sanity_full30_episodes": 26521,
+    "removed_observation_edge_cases": 26
+  },
+  "raw_replay": {
+    "events": 125,
+    "passed": 125,
+    "mismatches": 0,
+    "min_observed_span_seconds": 1760,
+    "checks": [
+      "trigger seq/time/price",
+      "window end seq",
+      "future low/high physical tie",
+      "MFE/MAE",
+      "5m raw->1s efficiency",
+      "5m two-sided excursion",
+      "first structure break seq/time/price/references",
+      "break delay"
+    ]
+  },
+  "visual_review": {
+    "panels": 125,
+    "mismatches": 0,
+    "all_pass": true,
+    "contact_sheet_sha256": {
+      "strong_mfe": "b9985d9d478833903d7ba7a15beff8b90958c99021daa64dcc334e4ea0f7d97e",
+      "strong_mae": "eaade38226b7e1546132280b5bb784612bfe0d2b0bc5ccc4995e660f96c548d9",
+      "high_balance": "8ee42a71a4034cbdcfdc5dff27d6f7184b941b75502f22abd95b0bc2568f845d",
+      "structure_reversal": "2de6317375c16f16e4f51ad3921f767903a7459784d8a5850da85f2365d0b276",
+      "no_reaction": "5b1c3f78f77542c13f00a3edac6c01a116d78d15af3ebe302322e7401d16b785"
+    }
+  },
+  "category_summary": [
+    {"sanity_category":"high_balance","N":25,"unique_dates":25,"day":6,"night":19,"atr_median":4.0,"mfe_points_median":13.999999999999998,"mfe_atr_median":3.0,"mae_points_median":10.0,"mae_atr_median":3.1643835616438354,"balance_eff_5m_median":0.0,"two_sided_5m_atr_median":1.5,"break_30m_rate":0.72,"observed_span_min":1788.0},
+    {"sanity_category":"no_reaction","N":25,"unique_dates":25,"day":6,"night":19,"atr_median":3.857142857142857,"mfe_points_median":4.0,"mfe_atr_median":1.1097560975609757,"mae_points_median":4.0,"mae_atr_median":1.0980392156862746,"balance_eff_5m_median":0.04,"two_sided_5m_atr_median":0.48275862068965514,"break_30m_rate":0.0,"observed_span_min":1760.0},
+    {"sanity_category":"strong_mae","N":25,"unique_dates":25,"day":6,"night":19,"atr_median":4.785714285714286,"mfe_points_median":7.0,"mfe_atr_median":1.75,"mae_points_median":119.00000000000001,"mae_atr_median":24.11111111111111,"balance_eff_5m_median":0.1044776119402985,"two_sided_5m_atr_median":0.358974358974359,"break_30m_rate":0.48,"observed_span_min":1795.0},
+    {"sanity_category":"strong_mfe","N":25,"unique_dates":25,"day":6,"night":19,"atr_median":4.285714285714286,"mfe_points_median":127.0,"mfe_atr_median":26.444444444444443,"mae_points_median":2.0,"mae_atr_median":0.4375,"balance_eff_5m_median":0.0967741935483871,"two_sided_5m_atr_median":0.2978723404255319,"break_30m_rate":1.0,"observed_span_min":1765.0},
+    {"sanity_category":"structure_reversal","N":25,"unique_dates":25,"day":6,"night":19,"atr_median":7.714285714285714,"mfe_points_median":29.0,"mfe_atr_median":3.818181818181818,"mae_points_median":22.0,"mae_atr_median":3.566037735849057,"balance_eff_5m_median":0.05263157894736842,"two_sided_5m_atr_median":0.368421052631579,"break_30m_rate":1.0,"observed_span_min":1798.0}
+  ],
+  "atr_confound": {
+    "population_atr_median": 7.0,
+    "atr_vs_reaction_atr_spearman": -0.20740626979462104,
+    "atr_vs_reaction_points_spearman": 0.72376361883331,
+    "interpretation": "ATR normalization has a denominator effect, but strong MFE/MAE remain raw-point extremes; V5 no-reaction jointly ranks raw points and ATR-normalized reaction."
+  },
+  "rejected_sampling_versions": {
+    "V1": "date cluster + truncated no-reaction windows",
+    "V2": "absolute break timestamp used as ranking metric",
+    "V3": "same-contract actual observation not enforced; weekend/expiry edges exposed",
+    "V4": "no-reaction ATR-only ranking admitted large raw-point movement in high-ATR regimes",
+    "V5": "accepted final sanity sampling contract"
+  },
+  "thresholds_defined": false,
+  "pnl_calculated": false,
+  "profit_factor_calculated": false,
+  "best_horizon_selected": false,
+  "edge_claimed": false,
+  "m6_started": false,
+  "all_pass": true
+}
