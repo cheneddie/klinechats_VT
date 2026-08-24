@@ -1,0 +1,16 @@
+{
+ "schema_version":"POC_M6_TREND_CONTEXT_CONFIG_V1",
+ "year":2024,
+ "universe":"HIGH_PRICE_PROBE_V1 1m first-trigger episodes",
+ "primary_lookback":24,
+ "sensitivity_lookbacks":[6,8,12,16],
+ "rising_rule":"slope_atr_24 > 0",
+ "broad_rule":"within-session channel_width_atr_24 rank >= 0.50",
+ "primary_outcomes":["asym_15m_atr","p_mfe_gt_mae_15m","asym_30m_atr","p_mfe_gt_mae_30m"],
+ "conditional_subset":"within-session impact_per_1000_positive_volume rank <= 0.50",
+ "inference_cluster":"trading_date",
+ "global_fdr_q":0.10,
+ "pnl_calculated":false,
+ "threshold_optimization_allowed":false,
+ "years_forbidden":[2025,2026]
+}

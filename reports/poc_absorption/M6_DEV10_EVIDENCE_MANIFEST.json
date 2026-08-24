@@ -1,0 +1,25 @@
+{
+  "schema_version": "POC_M6_DEV10_EVIDENCE_MANIFEST_V1",
+  "dataset": "MTX_2024",
+  "monthly_context": {
+    "path": "reports/poc_absorption/M6_DEV10_MONTHLY_CONTEXT_2024.csv",
+    "rows": 96,
+    "sha256": "288154ae6307c500ab032a0f770afe5a8d4af2177a9e5831f2654db80246ac78"
+  },
+  "test_registry": {
+    "path": "reports/poc_absorption/gz/M6_DEV10_TEST_REGISTRY_2024.csv.gz",
+    "rows": 128,
+    "sha256_gzip": "36dc21b4eddd78e45839f93bfc2de48b703656e7abe05b4329c4839d164b2eb3"
+  },
+  "current_status_plan": {
+    "path": "reports/poc_absorption/M6_CURRENT_STATUS_AND_NEXT_PLAN.md",
+    "sha256": "561015569062afd5cca0def104033a4f767d10de117790bde7dd7e6979764292"
+  },
+  "global_test_count": 128,
+  "global_q_le_0_10": 0,
+  "minimum_global_q": 0.3208515757164032,
+  "pnl_calculated": false,
+  "threshold_optimized": false,
+  "2025_used": false,
+  "2026_used": false
+}

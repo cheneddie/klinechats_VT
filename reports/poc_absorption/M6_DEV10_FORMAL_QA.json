@@ -1,0 +1,15 @@
+{
+  "schema_version": "POC_M6_DEV10_FORMAL_QA_V1",
+  "tests": 128,
+  "global_q_le_0_10": 0,
+  "min_global_q": 0.3208515757164032,
+  "rising_rate": 0.8930736396570895,
+  "rising_broad_rate": 0.48897019261809965,
+  "verdict": "M6_DEV10_TREND_BROAD_CHANNEL_NO_INCREMENTAL_SHORT_EDGE",
+  "classification": "REDUNDANT_FOR_SHORT_DIRECTION_WITH_UNADJUSTED_TREND_CONTINUATION_HINT",
+  "pnl_calculated": false,
+  "threshold_optimized": false,
+  "used_2025": false,
+  "used_2026": false,
+  "all_pass": true
+}
