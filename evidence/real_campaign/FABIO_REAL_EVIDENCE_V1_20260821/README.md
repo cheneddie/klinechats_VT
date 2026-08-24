@@ -1,32 +1,29 @@
 # FABIO_REAL_EVIDENCE_V1_20260821
 
-This directory is the repository snapshot for completed real-data evidence as of 2026-08-21.
+This directory is the auditable real-data evidence campaign for the Fabio Decision Gym research branch.
 
-Start with [`FULL_REPORT_20260821.md`](FULL_REPORT_20260821.md).
+Start with [`FULL_REPORT_20260821.md`](FULL_REPORT_20260821.md). The completed G2 closeout is under [`g2_causal_signal_truth/`](g2_causal_signal_truth/).
 
 ## Gate snapshot
 
 - G0 Software Integrity: **PASS**
-- G1 Raw Data Truth: **completed evidence bundle for supplied 2024/2025 sources; 2024 has one missing expected day-session (2024-12-27), 2025 is a partial-year source ending 2025-12-19**
-- G2 Causal Signal Truth: **PASS — 223/223 eligible 2025 Discovery sessions completed; 0 unexpected regression violations, 0 physical mismatches, 0 causal-ordering violations, 245 targeted-QA cases with 0 systematic defects**
-- G3 Statistical Edge Truth: **NOT STARTED — no MFE/MAE, PF, bootstrap/FDR, node-edge classification or outcome claim is promoted by G2**
+- G1 Raw Data Truth: **PASS for the supplied 2024/2025 sources**
+- G2 Causal Signal Truth: **PASS** — 223/223 eligible 2025 Discovery sessions completed; physical truth, reachability, lineage, causal ordering and targeted QA all passed
+- G3 Statistical Edge Truth: **NOT STARTED** — no G2 funnel count is an edge/PF claim
 - 2024 strategy validation: **not opened**
 - 2026 final holdout: **sealed**
+- Production: **blocked**
 
-Raw Parquet files are not stored in GitHub. Use `registry/source_manifest.json` and `registry/source_sha256.txt` to bind a run to exact source bytes.
+## Permanent source facts
 
-The original campaign pre-registration lives at `config/research/evidence_campaign_v1.json`. Coverage-policy amendment 001 is additive; the original pre-registration is not silently overwritten.
+- 2024 is Validation Reserved. The source is missing the expected regular session **2024-12-27**, so Previous Value must reset before 2024-12-30.
+- 2025 is **Partial-Year Discovery**, not a full calendar year: 236 observed sessions from 2025-01-02 through 2025-12-19; G2 has 223 eligible scanner sessions after the first observed session and 12 frozen roll-blackout sessions are excluded.
+- 2026 remains sealed. Only source/footer/schema/hash metadata has been inspected; no strategy event, outcome, PnL, threshold or edge has been inspected.
 
-## Restoring compressed audit artifacts
+## G2 closeout
 
-Large JSON audit files are preserved losslessly as `*.json.gz.b64`. Example:
+G2 introduced explicit node reachability semantics: `EVALUATED`, `NOT_REACHED`, `NOT_APPLICABLE`, and `TERMINAL`. G3 node comparisons are hard-restricted to `EVALUATED` instances. A preregistered causal-ordering amendment repaired BO strict entries that previously occurred before required causal gates had completed; the amendment was frozen before future-path outcomes or PF inspection.
 
-```bash
-base64 -d 2025_discovery_g1/contract_selection_audit.json.gz.b64 | gunzip > contract_selection_audit.json
-```
+The final G2 run contains **33,046 events**, **395,684 node instances**, **0 physical mismatches**, **0 causal-ordering violations**, and **245 targeted-QA cases with 0 systematic defects**. Strict entries are MR=4 and BO=132. The largest conditional conversion collapse is at `MR_LVN` (179 reached → 5 YES) and `BO_LVN` (14,051 reached → 387 YES). These are causal/funnel findings only, not statistical-edge conclusions.
 
-The decoded bytes are the completed local evidence artifact; `MANIFEST.json` records both repository-file and decoded SHA-256 values.
-
-## G2 reproducibility note
-
-The corrected reachability-aware funnel contains **16,585 unique auction attempts** and **33,046 branch/events** (MR=16,461, BO=16,461, WAIT-only=124). Large G2 JSON artifacts are stored losslessly as `*.json.gz.b64`; decoded SHA-256 identities are recorded in `g2_causal_signal_truth/lossless_compressed_artifacts.json`.
+Raw Parquet files are intentionally not committed to GitHub. Exact source identity and the deterministic G2 event identity are recorded in `MANIFEST.json` and `g2_causal_signal_truth/sha256.txt`.
