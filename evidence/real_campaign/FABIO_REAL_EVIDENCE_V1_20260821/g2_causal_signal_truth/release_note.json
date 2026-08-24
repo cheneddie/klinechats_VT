@@ -1,0 +1,9 @@
+{
+  "gate": "G2_CAUSAL_SIGNAL_TRUTH",
+  "status": "PASS",
+  "formal_parent_before_release": "cf99d9b67d425a20a778132ce411a00bfb025b23",
+  "staging_branch": "g2-closeout-staging-20260823",
+  "g3_status": "NOT_STARTED",
+  "validation_2024": "RESERVED",
+  "holdout_2026": "SEALED"
+}
