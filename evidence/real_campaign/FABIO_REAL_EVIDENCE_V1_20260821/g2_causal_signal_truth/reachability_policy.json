@@ -1,0 +1,11 @@
+{
+  "g3_universe": "EVALUATED_ONLY",
+  "gate": "G2_CAUSAL_SIGNAL_TRUTH",
+  "policy_id": "G2_NODE_REACHABILITY_V1_20260823",
+  "statuses": {
+    "EVALUATED": "Node was reached and causally answered YES or NO.",
+    "NOT_APPLICABLE": "Node does not belong to the current branch; answer is null and causal applicability resolution is required.",
+    "NOT_REACHED": "A strict upstream prerequisite failed first; answer is null and blocker lineage is required.",
+    "TERMINAL": "Decision flow terminates here; excluded from G3 node-edge attribution."
+  }
+}
