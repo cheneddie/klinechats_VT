@@ -1,0 +1,1 @@
+G2 research evidence is PASS. This staging branch is used only to assemble the release tree; the formal research branch receives a single squash/atomic commit based on `cf99d9b67d425a20a778132ce411a00bfb025b23`.
