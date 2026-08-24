@@ -1,5 +1,6 @@
 {
   "campaign_id": "FABIO_REAL_EVIDENCE_V1_20260821",
+  "bundle_updated_at": "2026-08-24T18:36:00+08:00",
   "repository": "cheneddie/klinechats_VT",
   "branch": "fabio-decision-gym-v4",
   "methodology_baseline_commit": "53dbd9450922cfd24385e9f98b116d0d912e21e5",
@@ -83,13 +84,28 @@
     "g2_causal_signal_truth/g2_audit_gate.json",
     "g2_causal_signal_truth/reachability_policy.json",
     "g2_causal_signal_truth/causal_ordering_amendment_001.json",
-    "g2_causal_signal_truth/sha256.txt"
+    "g2_causal_signal_truth/sha256.txt",
+    "g2_causal_signal_truth/release_note.json",
+    "g2_causal_signal_truth/atomic_release_manifest.json"
   ],
+  "checkpoint_artifacts": [
+    "CURRENT_STATUS_20260824.md",
+    "NEXT_PHASE_PLAN.md",
+    "RELEASE_CHECKPOINT_20260824.json"
+  ],
+  "release_checkpoint": {
+    "checkpoint_id": "FABIO_G2_PROGRESS_CHECKPOINT_20260824_1836_TPE",
+    "g2_research_evidence": "PASS",
+    "g2_github_release": "IN_PROGRESS_CHECKPOINT_COMMITTED",
+    "g3": "HARD_BLOCK_NOT_STARTED",
+    "next_gate": "VERIFY_G2_GITHUB_RELEASE_AND_REQUIRED_WORKFLOWS"
+  },
   "gate_snapshot": {
     "G0": "PASS",
     "G1": "PASS_FOR_SUPPLIED_2024_2025_SOURCES",
-    "G2": "PASS",
-    "G3": "NOT_STARTED",
+    "G2": "PASS_RESEARCH_EVIDENCE",
+    "G2_github_release": "IN_PROGRESS_CHECKPOINT_COMMITTED",
+    "G3": "HARD_BLOCK_NOT_STARTED",
     "2024_strategy_validation": "NOT_OPENED",
     "2026_final_holdout": "SEALED",
     "production": "BLOCKED"
