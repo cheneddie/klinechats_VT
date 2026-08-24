@@ -1,0 +1,17 @@
+{
+  "rows": [
+    {"count":15520,"first_failure_node":"MR_REJECTION","strategy":"MR"},
+    {"count":762,"first_failure_node":"MR_CLEAR_RECLAIM","strategy":"MR"},
+    {"count":174,"first_failure_node":"MR_LVN","strategy":"MR"},
+    {"count":1,"first_failure_node":"MR_PULLBACK","strategy":"MR"},
+    {"count":4,"first_failure_node":"STRICT_CHAIN_PASS","strategy":"MR"},
+    {"count":2077,"first_failure_node":"BO_DISPLACEMENT","strategy":"BO"},
+    {"count":5,"first_failure_node":"BO_ACCEPTANCE","strategy":"BO"},
+    {"count":328,"first_failure_node":"BO_IMPULSE_LEG","strategy":"BO"},
+    {"count":13664,"first_failure_node":"BO_LVN","strategy":"BO"},
+    {"count":95,"first_failure_node":"BO_PULLBACK","strategy":"BO"},
+    {"count":48,"first_failure_node":"BO_RESPONSE","strategy":"BO"},
+    {"count":112,"first_failure_node":"BO_ENTRY","strategy":"BO"},
+    {"count":132,"first_failure_node":"STRICT_CHAIN_PASS","strategy":"BO"}
+  ]
+}
