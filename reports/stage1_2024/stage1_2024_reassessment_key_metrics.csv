@@ -1,0 +1,6 @@
+item,status,N,gross_avgR,net1_avgR,net2_avgR,key_issue
+Naked ORB OR15 0.5OR 2R,KILL,237,0.026571,0.000197,-0.026177,friction removes edge
+Failed Breakout OR15 3m 1R,KILL,215,0.067043,0.019967,-0.027109,weak and unstable
+VWAP Z2.5 baseline,KILL_AS_STANDALONE,92,0.214904,0.123586,0.032268,top-5 winners ~99% of gross R
+Large-gap OR15 stop1OR 2R,FROZEN_OOS_CANDIDATE,108,0.302974,0.289751,0.276529,internal plateau but no true OOS
+VWAP Z2.5 drive-opposed,SECONDARY_OOS_ONLY,49,0.546147,0.482430,0.418713,post-hoc and tail-dependent
