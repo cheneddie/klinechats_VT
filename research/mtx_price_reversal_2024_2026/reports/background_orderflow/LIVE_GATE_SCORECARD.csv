@@ -1,0 +1,18 @@
+gate,raw_trsv,tick_level_aggressive,price_candidate,note
+raw_data_integrity,PASS,PASS,PASS,original parquet order preserved; outright only; volume/2
+execution_causality,PASS,PASS,PASS,complete-second confirmation + true tradable print
+same_session_exit,PASS,PASS,PASS,no cross-session forward fill execution
+2024_untouched_gross_positive,PASS,PASS,PASS,2024 supplied after freeze
+2024_untouched_net2_positive,FAIL,FAIL,PASS,price only +0.44
+2025_net2_positive,PASS,FAIL,PASS,
+2026_net2_positive,PASS,FAIL,PASS,
+top1_removed_cross_year,FAIL,FAIL,PARTIAL,price 2025 fails; 2024/2026 positive
+parameter_plateau,PARTIAL,FAIL,PARTIAL,tick aggr 0/48 net2-positive both 2025/26
+contract_block_net2_ci_gt_zero,FAIL,FAIL,FAIL,price combined lower bound about -0.18
+latency_5s_all_year_positive,PARTIAL,FAIL,FAIL,price 2024 becomes slightly negative
+independent_flow_alpha,FAIL,FAIL,N_A,flow matched controls not stable
+2024_regime_stability,FAIL,FAIL,N_A,TRSV night/intensity failed 2024
+exact_broker_all_in_cost,PENDING,PENDING,PENDING,actual commission not supplied
+new_unseen_post_refinement_holdout,PENDING,PENDING,PENDING,2024 is now inspected
+LIVE_APPROVED,NO,NO,NO,
+PAPER_TRADING_CANDIDATE,NO,NO,YES,price candidate only

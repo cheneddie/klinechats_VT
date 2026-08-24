@@ -1,0 +1,10 @@
+strategy,year,n,gross,net2,top1_removed_gross,positive_blocks,total_blocks,status
+price_30s_q0005_h300,2024,1179,2.44,0.44,0.47,6,9,UNTOUCHED_POSITIVE_BUT_CI_CROSSES_ZERO
+price_30s_q0005_h300,2025,854,2.97,0.97,-0.57,6,9,POSITIVE
+price_30s_q0005_h300,2026,1410,4.86,2.86,0.72,7,8,POSITIVE
+raw_trsv_20s_q001_h300,2024,1029,1.07,-0.93,-0.26,5,9,REJECT
+raw_trsv_20s_q001_h300,2025,1167,2.45,0.45,-0.15,7,9,REJECT
+raw_trsv_20s_q001_h300,2026,926,2.87,0.87,-0.69,7,8,REJECT
+tick_aggr_15s_q001_h240,2024,1093,0.88,-1.12,-0.30,5,9,REJECT
+tick_aggr_15s_q001_h240,2025,1459,1.42,-0.58,0.13,6,9,REJECT
+tick_aggr_15s_q001_h240,2026,969,-2.26,-4.26,-5.19,3,8,REJECT

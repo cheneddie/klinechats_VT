@@ -1,0 +1,8 @@
+item,value
+all_eligible_signals_as_independent_300s_trades,4019.0
+all_eligible_net_points,34495.0
+all_eligible_expectancy,8.582980841005226
+all_eligible_pf,1.313605163871085
+max_concurrent_if_every_signal_traded,19.0
+median_concurrent_at_signal,4.0
+p95_concurrent_at_signal,11.0
