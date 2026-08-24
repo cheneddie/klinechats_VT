@@ -1,14 +1,17 @@
 {
   "campaign_id": "FABIO_REAL_EVIDENCE_V1_20260821",
+  "bundle_updated_at": "2026-08-24T18:36:00+08:00",
   "repository": "cheneddie/klinechats_VT",
   "branch": "fabio-decision-gym-v4",
   "methodology_baseline_commit": "53dbd9450922cfd24385e9f98b116d0d912e21e5",
   "raw_parquet_committed": false,
+  "text_artifact_formatting": "Git history is authoritative for repository text bytes. Raw-source SHA-256, deterministic aggregate hashes, and g2_causal_signal_truth/sha256.txt are reproducibility identities.",
   "source_files": {
     "2024_validation": {
       "filename": "MTX_2024(4).parquet",
       "bytes": 173260633,
       "sha256": "6f76ecde2c6d9c13fe5381ffe0798fe05668a7d1e8abe85c7b0125581d5eb25c",
+      "strategy_role": "VALIDATION_RESERVED",
       "strategy_validation_opened": false,
       "coverage_fact": "missing expected regular session 2024-12-27; reset Previous Value before 2024-12-30"
     },
@@ -40,8 +43,8 @@
   },
   "g2_closeout": {
     "status": "PASS",
+    "audit_version": "G2_CAUSAL_SIGNAL_TRUTH_AUDIT_V1_20260823",
     "events": 33046,
-    "node_instances": 395684,
     "observed_sessions": 236,
     "eligible_sessions": 223,
     "completed_sessions": 223,
@@ -55,43 +58,116 @@
     "causal_ordering_violations": 0,
     "targeted_qa_cases": 245,
     "targeted_qa_systematic_defects": 0,
-    "strict_entries": {"MR": 4, "BO": 132},
-    "conversion_collapse": {
-      "MR": {"node": "MR_LVN", "reached": 179, "yes": 5, "direct_no": 174, "conditional_pass_rate": 0.027932960893854747},
-      "BO": {"node": "BO_LVN", "reached": 14051, "yes": 387, "direct_no": 13664, "conditional_pass_rate": 0.02754252366379617}
+    "strict_entries": {
+      "MR": 4,
+      "BO": 132
     },
-    "future_outcomes": {"mfe": false, "mae": false, "pf": false, "bootstrap": false, "fdr": false, "edge_classification": false}
+    "conversion_collapse": {
+      "MR": {
+        "node": "MR_LVN",
+        "reached": 179,
+        "yes": 5,
+        "direct_no": 174,
+        "conditional_pass_rate": 0.027932960893854747
+      },
+      "BO": {
+        "node": "BO_LVN",
+        "reached": 14051,
+        "yes": 387,
+        "direct_no": 13664,
+        "conditional_pass_rate": 0.02754252366379617
+      }
+    },
+    "future_outcomes": {
+      "mfe": false,
+      "mae": false,
+      "pf": false,
+      "bootstrap": false,
+      "fdr": false,
+      "edge_classification": false
+    }
   },
-  "g2_artifacts": [
+  "artifacts": [
+    "README.md",
+    "FULL_REPORT_20260821.md",
+    "MANIFEST.json",
+    "g0/ci_status.json",
+    "methodology/coverage_policy_amendment_001.json",
+    "registry/source_manifest.json",
+    "registry/source_sha256.txt",
+    "registry/2026_holdout_metadata.json",
+    "2024_validation_g1/g1_raw_contract_summary.json",
+    "2024_validation_g1/parquet_metadata.json",
+    "2024_validation_g1/contract_selection_audit.json.gz.b64",
+    "2024_validation_g1/date_counts_all.json.gz.b64",
+    "2024_validation_g1/exchange_calendar_coverage_v2.json",
+    "2024_validation_g1/sha256.txt",
+    "2025_discovery_g1/g1_raw_contract_summary.json",
+    "2025_discovery_g1/parquet_metadata.json",
+    "2025_discovery_g1/contract_selection_audit.json.gz.b64",
+    "2025_discovery_g1/date_counts_day_session_raw_volume.json",
+    "2025_discovery_g1/exchange_calendar_coverage.json",
     "g2_causal_signal_truth/G2_CLOSEOUT_REPORT.md",
     "g2_causal_signal_truth/README.md",
-    "g2_causal_signal_truth/g2_run_manifest.json",
-    "g2_causal_signal_truth/migration_regression.json",
-    "g2_causal_signal_truth/strategy_semantics_regression.json",
-    "g2_causal_signal_truth/relaxed_universe_regression.json",
-    "g2_causal_signal_truth/session_eligibility_audit.json",
-    "g2_causal_signal_truth/logical_trace_audit.json",
     "g2_causal_signal_truth/blocker_lineage_audit.json",
-    "g2_causal_signal_truth/physical_truth_audit.json",
+    "g2_causal_signal_truth/causal_ordering_amendment_001.json",
     "g2_causal_signal_truth/causal_ordering_audit.json",
-    "g2_causal_signal_truth/funnel.json",
-    "g2_causal_signal_truth/first_failure_funnel.json",
     "g2_causal_signal_truth/conditional_node_conversion.json",
     "g2_causal_signal_truth/conversion_collapse.json",
-    "g2_causal_signal_truth/targeted_qa_manifest.json",
-    "g2_causal_signal_truth/targeted_qa_results.json",
+    "g2_causal_signal_truth/first_failure_funnel.json",
+    "g2_causal_signal_truth/funnel.json",
     "g2_causal_signal_truth/g2_audit_gate.json",
+    "g2_causal_signal_truth/g2_run_manifest.json",
+    "g2_causal_signal_truth/logical_trace_audit.json",
+    "g2_causal_signal_truth/lossless_compressed_artifacts.json",
+    "g2_causal_signal_truth/migration_regression.json",
+    "g2_causal_signal_truth/physical_truth_audit.json",
     "g2_causal_signal_truth/reachability_policy.json",
-    "g2_causal_signal_truth/causal_ordering_amendment_001.json",
-    "g2_causal_signal_truth/sha256.txt"
+    "g2_causal_signal_truth/relaxed_universe_regression.json",
+    "g2_causal_signal_truth/session_eligibility_audit.json.gz.b64",
+    "g2_causal_signal_truth/sha256.txt",
+    "g2_causal_signal_truth/strategy_semantics_regression.json",
+    "g2_causal_signal_truth/targeted_qa_manifest.json.gz.b64",
+    "g2_causal_signal_truth/targeted_qa_results.json.gz.b64",
+    "CURRENT_STATUS_20260824.md",
+    "NEXT_PHASE_PLAN.md",
+    "RELEASE_CHECKPOINT_20260824.json"
   ],
   "gate_snapshot": {
     "G0": "PASS",
     "G1": "PASS_FOR_SUPPLIED_2024_2025_SOURCES",
-    "G2": "PASS",
-    "G3": "NOT_STARTED",
+    "G2": "PASS_RESEARCH_EVIDENCE",
+    "G3": "HARD_BLOCK_NOT_STARTED",
     "2024_strategy_validation": "NOT_OPENED",
     "2026_final_holdout": "SEALED",
-    "production": "BLOCKED"
+    "production": "BLOCKED",
+    "G2_github_release": "IN_PROGRESS_CHECKPOINT_COMMITTED"
+  },
+  "lossless_compressed_artifacts_g2": [
+    {
+      "repository_path": "targeted_qa_results.json.gz.b64",
+      "decoded_filename": "targeted_qa_results.json",
+      "decoded_bytes": 156699,
+      "decoded_sha256": "ce6d40142812559dc6f9cdf8c6ebd9c9f095289d34a6e18a161c03ef7bb289a4"
+    },
+    {
+      "repository_path": "targeted_qa_manifest.json.gz.b64",
+      "decoded_filename": "targeted_qa_manifest.json",
+      "decoded_bytes": 112869,
+      "decoded_sha256": "24621b1bd0e0ea5cf02d33e0e79097f170fd8ea1b52af27beba90c088c71550a"
+    },
+    {
+      "repository_path": "session_eligibility_audit.json.gz.b64",
+      "decoded_filename": "session_eligibility_audit.json",
+      "decoded_bytes": 76839,
+      "decoded_sha256": "e8edc24cb49a84f5c3713e9a46490e1bd74f49738a899bad42fa094934084050"
+    }
+  ],
+  "release_checkpoint": {
+    "checkpoint_id": "FABIO_G2_PROGRESS_CHECKPOINT_20260824_1836_TPE",
+    "g2_research_evidence": "PASS",
+    "g2_github_release": "IN_PROGRESS_CHECKPOINT_COMMITTED",
+    "g3": "HARD_BLOCK_NOT_STARTED",
+    "next_gate": "VERIFY_G2_GITHUB_RELEASE_AND_REQUIRED_WORKFLOWS"
   }
 }
