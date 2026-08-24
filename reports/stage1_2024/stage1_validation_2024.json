@@ -1,0 +1,15 @@
+{
+  "entry_physical_checks": 30,
+  "entry_physical_mismatches": 0,
+  "mismatch_examples": [],
+  "ambiguous_same_1m_both_stop_target_trades": 13,
+  "ambiguous_indices": [1169,1260,1261,1262,1263,1459,1460,1461,1462,1751,1752,1753,1754],
+  "bootstrap_note": "This raw checkpoint artifact is preserved for audit. Canonical post-physical-resolution headline metrics are in stage1_summary_2024_physical_resolved.csv and stage1_bootstrap_2024_physical_resolved.csv.",
+  "bootstrap_top": [
+    {"strategy":"VWAP_MR","param":"Z2.5_STOP_Z3.5_TARGET_VWAP","N":92,"gross_mean":0.21490350312816653,"gross_ci_lo":-0.13941901980178703,"gross_ci_hi":0.5867483216480709,"net1_mean":0.12358559224963529,"net1_ci_lo":-0.24117293572845575,"net1_ci_hi":0.5090887217964292,"net2_mean":0.032267681371104015,"net2_ci_lo":-0.3565972056061027,"net2_ci_hi":0.43249417226588305},
+    {"strategy":"VWAP_MR","param":"Z1.5_STOP_Z2.5_TARGET_VWAP","N":232,"gross_mean":0.123960485234509,"gross_ci_lo":-0.11980154391898716,"gross_ci_hi":0.4177526281484422,"net1_mean":0.012347884719447252,"net1_ci_lo":-0.23657149650267179,"net1_ci_hi":0.3094360966998224,"net2_mean":-0.09926471579561452,"net2_ci_lo":-0.3564152160073075,"net2_ci_hi":0.20138232887880902},
+    {"strategy":"ORB","param":"OR60_STOP1OR_2R","N":196,"gross_mean":0.01215374669222511,"gross_ci_lo":-0.08531078549760357,"gross_ci_hi":0.11939690955234844,"net1_mean":0.004369401019799104,"net1_ci_lo":-0.09330251647629619,"net1_ci_hi":0.11133695206708087,"net2_mean":-0.003414944652626903,"net2_ci_lo":-0.10090665860473592,"net2_ci_hi":0.1036408836996882},
+    {"strategy":"FAILED_BREAKOUT","param":"OR15_BUF10pctMin2_WIN3m_1R","N":215,"gross_mean":0.048437867042518214,"gross_ci_lo":-0.08837209302325581,"gross_ci_hi":0.1786704251820531,"net1_mean":0.0013620299713475873,"net1_ci_lo":-0.13531506713888125,"net1_ci_hi":0.13313287602504112,"net2_mean":-0.04571380709982307,"net2_ci_lo":-0.18175068699837413,"net2_ci_hi":0.08687441698704992},
+    {"strategy":"ORB","param":"OR15_STOP0.5OR_2R","N":237,"gross_mean":0.026571095776958067,"gross_ci_lo":-0.14778403404106047,"gross_ci_hi":0.20712051192828307,"net1_mean":0.00019717508222416908,"net1_ci_lo":-0.1736590964044769,"net1_ci_hi":0.18091912033239532,"net2_mean":-0.026176745612509694,"net2_ci_lo":-0.2002677812245345,"net2_ci_hi":0.1550937749408729}
+  ]
+}
