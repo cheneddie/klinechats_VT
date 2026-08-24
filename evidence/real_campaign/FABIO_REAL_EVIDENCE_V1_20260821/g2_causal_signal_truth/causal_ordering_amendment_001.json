@@ -1,0 +1,11 @@
+{
+  "amendment_id": "G2_CAUSAL_ORDERING_AMENDMENT_001",
+  "created_before_future_outcomes": true,
+  "future_outcomes_inspected": false,
+  "pf_inspected": false,
+  "problem": "Some legacy BO strict entries were timestamped before all required strict-chain gates had causally completed.",
+  "repair": {
+    "causal_eligibility_seq": "maximum resolution_seq across required EVALUATED/YES BO strict prerequisites",
+    "scope": "BO_ENTRY only"
+  }
+}
