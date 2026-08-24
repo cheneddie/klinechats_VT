@@ -1,0 +1,72 @@
+{
+  "schema_version": "POC_M6_DEV9_FORMAL_QA_V1",
+  "verdict": "M6_DEV9_ORIGINAL_BUYING_ABSORPTION_INTERACTION_NOT_SUPPORTED",
+  "hard_gates": {
+    "source_physical_rows": 50862751,
+    "strict_selected_rows": 50862621,
+    "bars_1m": 270621,
+    "raw_triggers_1m": 66248,
+    "episodes_1m": 27879,
+    "day_episodes": 7238,
+    "night_episodes": 20641,
+    "theoretical_full30": 26547,
+    "actual_in_window_29m": 26575,
+    "primary_full30": 26521
+  },
+  "dev7_control_reproduced": {
+    "mfe_30m_median_atr": 2.3013698630136985,
+    "mae_30m_median_atr": 2.3333333333333335,
+    "mean_asym_30m_atr": 0.008910304977024122,
+    "p_mfe_gt_mae_30m": 0.4925530711511632
+  },
+  "primary_D_minus_B": {
+    "balance_5m_eff": -0.012510838385906775,
+    "balance_5m_two_sided": 0.014757168977237,
+    "asym_15m_atr": 0.07815875537772567,
+    "p_mfe_gt_mae_15m": 0.005530560890291192,
+    "asym_30m_atr": 0.11007106489262374,
+    "p_mfe_gt_mae_30m": 0.0055907552842461294
+  },
+  "activity_correlations": {
+    "q80_positive_vs_total_volume": 0.8415758360309868,
+    "q80_positive_vs_tick_count": 0.8094251486404196
+  },
+  "activity_adjusted_path_efficiency": {
+    "q80_coef": -0.0008907263076208677,
+    "q80_ci95": [-0.003895391563304128, 0.0021139389480623926],
+    "q90_coef": -0.0016891655824060933,
+    "q90_ci95": [-0.004979206597685882, 0.001600875432873695]
+  },
+  "normalized_pressure_concentration_path_efficiency": {
+    "q80_coef": 0.004756803509015397,
+    "q80_ci95": [0.0027827045176603794, 0.006730902500370415],
+    "q90_coef": 0.008077650153270312,
+    "q90_ci95": [0.005861329399053374, 0.01029397090748725]
+  },
+  "directional_pressure_diagnostics": {
+    "q80_tdp_p30_coef": -0.005140161848495093,
+    "q80_tdp_p30_ci95": [-0.022499275559783233, 0.01221895186279305],
+    "q80_positive_share_p30_coef": -0.01581978150702985,
+    "q80_positive_share_p30_ci95": [-0.03277440133318395, 0.001134838319124247]
+  },
+  "structure_diagnostic": {
+    "q80_positive_share_midline_break_coef": -0.03104957987387592,
+    "ci95": [-0.048619160683800795, -0.013479999063951045]
+  },
+  "negative_control_interpretation": "positive, negative, and total activity interactions all appear; effect is not buy-side specific",
+  "classification": {
+    "buy_direction_pressure": "REDUNDANT_OR_CONTRADICTORY_FOR_SHORT_DIRECTION",
+    "raw_pressure_magnitude": "ACTIVITY_REGIME_ONLY",
+    "price_efficiency": "STATE_PERSISTENCE_NOT_DIRECTIONAL_EDGE",
+    "pressure_x_efficiency": "NOT_BUY_SIDE_SPECIFIC_ACTIVITY_X_EFFICIENCY_INTERACTION"
+  },
+  "working_run_multiple_testing_note": {
+    "prior_exploratory_p_valued_tests": 466,
+    "interpretation": "no positive buying-absorption Edge claim is based on selecting a favorable test; independent rebuild repeated decision-critical gates"
+  },
+  "pnl_calculated": false,
+  "threshold_optimized": false,
+  "used_2025": false,
+  "used_2026": false,
+  "all_pass": true
+}

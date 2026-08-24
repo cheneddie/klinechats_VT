@@ -1,0 +1,16 @@
+{
+  "schema_version": "POC_M6_PRESSURE_EFFICIENCY_CONFIG_V1",
+  "year": 2024,
+  "timeframe": "1m",
+  "universe": "HIGH_PRICE_PROBE_V1 first-trigger episodes",
+  "primary_pressure": "high_zone_positive_volume_q80",
+  "primary_efficiency": "impact_per_1000_positive_volume",
+  "split": "within-session percentile median; no optimized cutoff",
+  "primary_incremental_contrast": "D_minus_B",
+  "cells": {"A":"low pressure + high efficiency","B":"low pressure + low efficiency","C":"high pressure + high efficiency","D":"high pressure + low efficiency"},
+  "negative_controls": ["high_zone_negative_volume", "high_zone_total_volume", "full_bar_positive_volume", "full_bar_negative_volume", "full_bar_total_volume", "high_zone_tdp", "high_zone_positive_share"],
+  "inference_cluster": "trading_date",
+  "pnl_calculated": false,
+  "threshold_optimization_allowed": false,
+  "years_forbidden": [2025, 2026]
+}
