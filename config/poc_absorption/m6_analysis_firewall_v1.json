@@ -1,0 +1,43 @@
+{
+  "schema_version": "POC_M6_ANALYSIS_FIREWALL_V1",
+  "discovery_year": 2024,
+  "validation_year": 2025,
+  "final_oos_year": 2026,
+  "validation_years_untouched": true,
+  "event_view": "first_trigger_per_episode",
+  "primary": {
+    "timeframe": "1m",
+    "observation_quality": "actual same-contract observed span >=1740 sec for nominal 30m analyses",
+    "outcomes": [
+      "paired 30m short MFE-MAE ATR asymmetry",
+      "P(short MFE > short MAE) at 30m",
+      "30m frozen-reference structure-break rate"
+    ],
+    "inference": "trading-day cluster bootstrap 95% CI"
+  },
+  "secondary": {
+    "timeframe": "30s",
+    "outcomes": ["5m balance", "30m excursion asymmetry", "30m structure break"],
+    "inference": "episode and trading-day sensitivity after primary"
+  },
+  "exploratory": {
+    "timeframes": ["15s", "3m", "5m", "15m"],
+    "multiple_comparison_sensitivity": "BH-FDR required when feature/horizon screens begin"
+  },
+  "reporting_requirements": [
+    "report all tested feature×horizon combinations",
+    "effect size",
+    "sample N",
+    "episode-resample CI sensitivity",
+    "trading-day cluster CI primary",
+    "monthly and session distribution"
+  ],
+  "forbidden_during_m6": [
+    "2025 inspection",
+    "2026 inspection",
+    "P&L optimization",
+    "best single cutoff reporting without dose-response/plateau",
+    "raw-trigger IID inference",
+    "silent deletion of null/truncated outcomes"
+  ]
+}

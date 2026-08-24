@@ -74,6 +74,19 @@ from .event_sanity import (
     validate_replay_ledger,
     validate_visual_manifest,
 )
+from .universe_baseline import (
+    BASELINE_SCHEMA_VERSION,
+    BASELINE_VERDICT,
+    PRIMARY_TIMEFRAME,
+    MIN_ACTUAL_30M_OBS_SECONDS,
+    BaselineBootstrapConfig,
+    prepare_baseline,
+    primary_full30_view,
+    baseline_metrics,
+    bootstrap_ci,
+    directional_baseline_verdict,
+    monthly_baseline,
+)
 
 __all__ = [
     "BAR_RESOLUTIONS", "BarAccumulator", "CompletedBar", "DevelopingPocSnapshot",
@@ -93,4 +106,7 @@ __all__ = [
     "build_reversal_reference_store", "build_reversal_reference_manifest", "validate_reversal_reference_store", "compute_reversal_outcomes",
     "EVENT_SANITY_SCHEMA_VERSION", "SANITY_SAMPLING_VERSION", "SANITY_CATEGORIES", "SanitySampleConfig",
     "select_event_sanity_sample", "validate_sanity_sample", "validate_replay_ledger", "validate_visual_manifest",
+    "BASELINE_SCHEMA_VERSION", "BASELINE_VERDICT", "PRIMARY_TIMEFRAME", "MIN_ACTUAL_30M_OBS_SECONDS",
+    "BaselineBootstrapConfig", "prepare_baseline", "primary_full30_view", "baseline_metrics",
+    "bootstrap_ci", "directional_baseline_verdict", "monthly_baseline",
 ]

@@ -1,0 +1,11 @@
+analysis_id,tier,timeframe,event_view,session,outcome,horizon,inference,status
+D7_P1,PRIMARY,1m,first_trigger_per_episode,pooled,paired_MFE_minus_MAE_ATR,30m,trading_day_cluster_bootstrap,TESTED
+D7_P2,PRIMARY,1m,first_trigger_per_episode,pooled,P_MFE_gt_MAE,30m,trading_day_cluster_bootstrap,TESTED
+D7_P3,PRIMARY,1m,first_trigger_per_episode,pooled,structure_break_rate,30m,trading_day_cluster_bootstrap,TESTED
+D7_S1,SECONDARY,1m,first_trigger_per_episode,day,paired_MFE_minus_MAE_ATR,30m,trading_day_cluster_bootstrap,TESTED
+D7_S2,SECONDARY,1m,first_trigger_per_episode,night,paired_MFE_minus_MAE_ATR,30m,trading_day_cluster_bootstrap,TESTED
+D7_S3,SECONDARY,1m,first_trigger_per_episode,day,P_MFE_gt_MAE,30m,trading_day_cluster_bootstrap,TESTED
+D7_S4,SECONDARY,1m,first_trigger_per_episode,night,P_MFE_gt_MAE,30m,trading_day_cluster_bootstrap,TESTED
+D7_S5,SECONDARY,1m,first_trigger_per_episode,pooled,balance_1s_path_efficiency,5m,descriptive_median,TESTED
+D7_S6,SECONDARY,1m,first_trigger_per_episode,pooled,two_sided_min_excursion_ATR,5m,descriptive_median,TESTED
+D7_E1,EXPLORATORY,15s|30s|1m|3m|5m|15m,first_trigger_per_episode,pooled,marginal_MFE_vs_MAE_medians,30m,descriptive_sensitivity_only,TESTED
