@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "calendar_version": "TAIFEX_REGULAR_SESSION_V1_20260821",
+  "timezone": "Asia/Taipei",
+  "session": "regular_day_session",
+  "weekday_rule": "Monday-Friday except explicit TAIFEX closures",
+  "causal_rule": "For an observed session at t, only exchange closure facts dated before or on t are used to decide whether an earlier expected session is missing. No future market outcome is used.",
+  "years": {
+    "2024": {
+      "expected_trading_days": 242,
+      "closed_dates": [
+        "2024-01-01",
+        "2024-02-06", "2024-02-07", "2024-02-08", "2024-02-09", "2024-02-12", "2024-02-13", "2024-02-14",
+        "2024-02-28",
+        "2024-04-04", "2024-04-05",
+        "2024-05-01",
+        "2024-06-10",
+        "2024-07-24", "2024-07-25",
+        "2024-09-17",
+        "2024-10-02", "2024-10-03", "2024-10-10", "2024-10-31"
+      ],
+      "extraordinary_closures": {
+        "2024-07-24": "Typhoon GAEMI",
+        "2024-07-25": "Typhoon GAEMI",
+        "2024-10-02": "Typhoon KRATHON",
+        "2024-10-03": "Typhoon KRATHON",
+        "2024-10-31": "Typhoon KONG-REY"
+      },
+      "sources": [
+        "TAIFEX 2024 Business Report (annual total / average daily volume implies 242 trading days)",
+        "TAIFEX Lunar New Year closure notice: market closure 2024-02-06 through 2024-02-14",
+        "TAIFEX GAEMI notice: 2024-07-24 and 2024-07-25 market closure",
+        "TAIFEX KRATHON notice: 2024-10-02 and 2024-10-03 market closure",
+        "TAIFEX KONG-REY notice: 2024-10-31 market closure"
+      ]
+    },
+    "2025": {
+      "expected_trading_days": 243,
+      "closed_dates": [
+        "2025-01-01",
+        "2025-01-23", "2025-01-24", "2025-01-27", "2025-01-28", "2025-01-29", "2025-01-30", "2025-01-31",
+        "2025-02-28",
+        "2025-04-03", "2025-04-04",
+        "2025-05-01", "2025-05-30",
+        "2025-09-29",
+        "2025-10-06", "2025-10-10", "2025-10-24",
+        "2025-12-25"
+      ],
+      "extraordinary_closures": {},
+      "sources": [
+        "TAIFEX 2025 Holiday Schedule (Revised version)",
+        "TAIFEX 2025 trading calendar",
+        "TAIFEX annual MTX statistics: 243 trading days"
+      ]
+    },
+    "2026": {
+      "expected_trading_days": 245,
+      "closed_dates": [
+        "2026-01-01",
+        "2026-02-16", "2026-02-17", "2026-02-18", "2026-02-19", "2026-02-20",
+        "2026-02-27",
+        "2026-04-03", "2026-04-06",
+        "2026-05-01", "2026-06-19",
+        "2026-09-25", "2026-09-28",
+        "2026-10-09", "2026-10-26",
+        "2026-12-25"
+      ],
+      "extraordinary_closures": {},
+      "sources": [
+        "TAIFEX 2026 timetable of holidays / trading calendar"
+      ],
+      "holdout_note": "Calendar-only metadata is permitted while 2026 strategy outcomes remain sealed. Extraordinary closures, if any, must be versioned as they become official before a live/session audit uses them."
+    }
+  }
+}

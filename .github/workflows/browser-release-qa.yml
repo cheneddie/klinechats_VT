@@ -7,6 +7,7 @@ on:
       - index.html
       - src/v2/**
       - src/v3/**
+      - src/v4/**
       - scripts/qa-browser-contract.mjs
       - scripts/capture-mastery.mjs
       - scripts/perf-home.mjs
@@ -21,9 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
+      # On pull_request this must validate the PR merge ref/current commit, not
+      # silently checkout main.  Forcing ref: main made branch QA report the
+      # health of an older base revision instead of the code under review.
       - uses: actions/checkout@v4
-        with:
-          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

@@ -1,0 +1,26 @@
+{
+  "partial_files": [
+    "/mnt/data/min_00_05.parquet",
+    "/mnt/data/min_05_15.parquet",
+    "/mnt/data/min_15_25.parquet",
+    "/mnt/data/min_25_35.parquet",
+    "/mnt/data/min_35_45.parquet",
+    "/mnt/data/min_45_49.parquet"
+  ],
+  "all_outright_day_minute_contract_bars": 72156,
+  "active_front_1m_bars": 72156,
+  "trading_days": 241,
+  "front_missing_days": 0,
+  "multi_outright_days": 0,
+  "dominant_differs_from_front_days": 0,
+  "first_minute": "2024-01-02 08:45:00",
+  "last_minute": "2024-12-31 13:44:00",
+  "days_examples": [
+    {"day":"2024-01-02","front":"202401","front_present":true,"expiries":["202401"],"volumes":{"202401":265110.0},"dominant":"202401"},
+    {"day":"2024-01-03","front":"202401","front_present":true,"expiries":["202401"],"volumes":{"202401":274966.0},"dominant":"202401"},
+    {"day":"2024-01-04","front":"202401","front_present":true,"expiries":["202401"],"volumes":{"202401":162994.0},"dominant":"202401"},
+    {"day":"2024-01-05","front":"202401","front_present":true,"expiries":["202401"],"volumes":{"202401":225662.0},"dominant":"202401"},
+    {"day":"2024-01-08","front":"202401","front_present":true,"expiries":["202401"],"volumes":{"202401":279796.0},"dominant":"202401"}
+  ],
+  "roll_window_examples": []
+}

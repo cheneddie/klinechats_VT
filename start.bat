@@ -1,7 +1,7 @@
 @echo off
 rem ============================================================
-rem  Fabio Decision Gym V2 - one-click launcher
-rem  Double-click this file to start API + frontend.
+rem  Fabio Decision Gym V4 - one-click launcher
+rem  Double-click this file to start V4 API + frontend.
 rem  Optional args: -DataRoot "D:\path" -EventDb "D:\path" -SkipInstall
 rem ============================================================
 setlocal

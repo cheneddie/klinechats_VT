@@ -1,6 +1,6 @@
 {
   "name": "fabio-decision-gym",
-  "version": "3.0.0",
+  "version": "5.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,11 +8,14 @@
     "predev": "npm run vendor:pixi",
     "dev": "vite --host 0.0.0.0",
     "server": "python -m server.fabio_api",
+    "server:v4": "python -m server.fabio_api_v4",
+    "server:v5": "python -m server.fabio_api_v5",
     "prebuild": "npm run vendor:pixi",
     "build": "node scripts/build-static.mjs",
     "prepreview": "npm run vendor:pixi",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:v5": "node --test tests/v5_product.test.mjs"
   },
   "dependencies": {
     "klinecharts": "10.0.2",

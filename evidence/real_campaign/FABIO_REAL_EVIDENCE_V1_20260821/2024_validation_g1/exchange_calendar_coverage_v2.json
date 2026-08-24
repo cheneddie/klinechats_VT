@@ -1,0 +1,26 @@
+{
+  "coverage_policy_version": "TAIFEX_SESSION_CALENDAR_V2",
+  "calendar_version": "TAIFEX_REGULAR_SESSION_V1_20260821",
+  "research_role": "VALIDATION_RESERVED",
+  "selection_safe": false,
+  "expected_trading_days": 242,
+  "observed_day_sessions": 241,
+  "coverage_ratio": 0.9958677685950413,
+  "missing_expected_trading_days": ["2024-12-27"],
+  "extra_observed_nontrading_days": [],
+  "status": "SOURCE_GAP_DETECTED",
+  "profile_chain_effect": {
+    "previous_observed_day": "2024-12-26",
+    "next_observed_day": "2024-12-30",
+    "missing_expected_session": "2024-12-27",
+    "action": "RESET_PREVIOUS_VALUE_CHAIN_BEFORE_2024-12-30"
+  },
+  "known_exchange_closures_not_data_gaps": {
+    "2024-07-24": "Typhoon GAEMI",
+    "2024-07-25": "Typhoon GAEMI",
+    "2024-10-02": "Typhoon KRATHON",
+    "2024-10-03": "Typhoon KRATHON",
+    "2024-10-31": "Typhoon KONG-REY"
+  },
+  "note": "This artifact supersedes the raw >3-calendar-day review flags in g1_raw_contract_summary.json. Legitimate exchange closures do not reset Previous Value; missing expected sessions do."
+}

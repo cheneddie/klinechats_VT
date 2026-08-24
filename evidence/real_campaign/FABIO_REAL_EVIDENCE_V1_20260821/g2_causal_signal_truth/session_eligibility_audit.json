@@ -1,0 +1,10 @@
+{
+  "eligible_sessions": 223,
+  "excluded_sessions": 13,
+  "first_observed_session_exclusions": 1,
+  "identity_holds": true,
+  "observed_sessions": 236,
+  "pass": true,
+  "roll_blackout_exclusions": 12,
+  "unknown_exclusion_reason": 0
+}

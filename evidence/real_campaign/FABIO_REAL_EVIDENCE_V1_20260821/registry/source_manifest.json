@@ -1,0 +1,21 @@
+{
+  "manifest_version": 1,
+  "roles": {
+    "2024_validation": {
+      "filename": "MTX_2024(4).parquet",
+      "bytes": 173260633,
+      "sha256": "6f76ecde2c6d9c13fe5381ffe0798fe05668a7d1e8abe85c7b0125581d5eb25c"
+    },
+    "2025_discovery": {
+      "filename": "MTX_2025(5).parquet",
+      "bytes": 146569961,
+      "sha256": "774b6f62b1e1a30ec159c7402b6967045ea3d99b59bfb16aeb0e0462a7a15156"
+    },
+    "2026_final_holdout": {
+      "filename": "MTX_2026(4).parquet",
+      "bytes": 137413619,
+      "sha256": "304f7d4e531374c3d4776f0c4d0e93e135dbd96c8b74956e9eb629fadbc957d6"
+    }
+  },
+  "holdout_policy": "2026 registered by file hash + parquet footer metadata only; no strategy outcomes inspected."
+}

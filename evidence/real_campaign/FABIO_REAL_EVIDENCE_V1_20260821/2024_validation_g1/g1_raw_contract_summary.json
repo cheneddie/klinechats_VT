@@ -1,0 +1,43 @@
+{
+  "source_file": "MTX_2024(2).parquet",
+  "research_role": "VALIDATION_RESERVED",
+  "selection_safe": false,
+  "rows": 50862751,
+  "mtx_rows": 50862751,
+  "outright_rows": 50862689,
+  "spread_removed_rows": 62,
+  "day_session_rows": 27016535,
+  "raw_volume_sum": 139000866.0,
+  "normalized_volume_sum": 69500433.0,
+  "adjacent_same_timestamp": 41522864,
+  "timestamp_backwards": 0,
+  "nulls": {"datetime":0,"product":0,"expiry":0,"volume":0,"side":0},
+  "products": {"MTX":50862751},
+  "expiries": {"202401":1787726,"202402":2236855,"202403":3187454,"202404":3102222,"202405":4189721,"202401W5/202402":3,"202403W4/202404":6,"202406":4788028,"202407":4848840,"202405W5/202406":1,"202408":8348193,"202407W4/202408":13,"202409":4657479,"202410":3895201,"202411":5137376,"202408W4/202409":22,"202410W4/202411":7,"202412":3458582,"202501":1225012,"202411W4/202412":10},
+  "side_counts": {"0":24224756,"1":13303169,"-1":13334826},
+  "first_time": "2023-12-29T15:00:00",
+  "last_time": "2024-12-31T13:44:59",
+  "first_us": 1703862000000000,
+  "last_us": 1735652699000000,
+  "sha256": "6f76ecde2c6d9c13fe5381ffe0798fe05668a7d1e8abe85c7b0125581d5eb25c",
+  "bytes": 173260633,
+  "source_order_qa": "PASS",
+  "trading_days": 241,
+  "days_with_multiple_outright": 0,
+  "causal_front_vs_dominant_mismatch_days": 0,
+  "causal_front_null_days": 0,
+  "roll_switches": 12,
+  "ambiguous_volume_days_diagnostic_only": 0,
+  "coverage_calendar_gap_reviews": [
+    {"previous":"2024-02-05","next":"2024-02-15","calendar_days":10,"status":"REVIEW_MARKET_CALENDAR"},
+    {"previous":"2024-04-03","next":"2024-04-08","calendar_days":5,"status":"REVIEW_MARKET_CALENDAR"},
+    {"previous":"2024-06-07","next":"2024-06-11","calendar_days":4,"status":"REVIEW_MARKET_CALENDAR"},
+    {"previous":"2024-12-26","next":"2024-12-30","calendar_days":4,"status":"REVIEW_MARKET_CALENDAR"}
+  ],
+  "policy_notes": {
+    "physical_order": "_seq is source row number; no sorting performed",
+    "contract": "STRICT_CALENDAR_FRONT causal; dominant volume diagnostic only",
+    "volume": "vendor raw persisted; normalized research volume = raw / 2",
+    "year_role": "2024 is Validation-reserved; this G1 audit does not select strategy parameters"
+  }
+}

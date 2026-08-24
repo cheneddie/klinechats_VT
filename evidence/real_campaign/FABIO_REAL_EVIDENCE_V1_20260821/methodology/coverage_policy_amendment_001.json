@@ -1,0 +1,15 @@
+{
+  "amendment_id": "FABIO_REAL_EVIDENCE_V1_20260821_AMENDMENT_001",
+  "campaign_id": "FABIO_REAL_EVIDENCE_V1_20260821",
+  "amended_component": "coverage_policy",
+  "original_policy": "CALENDAR_GAP_V1",
+  "active_policy": "TAIFEX_SESSION_CALENDAR_V2",
+  "calendar_version": "TAIFEX_REGULAR_SESSION_V1_20260821",
+  "reason": "The original >3 calendar-day reset rule conservatively prevented silent bridging but falsely reset legitimate long exchange closures such as Lunar New Year. Before completed G2/G3 edge evidence was accepted, the run was invalidated and the coverage rule was upgraded to compare observed sessions against a frozen TAIFEX regular-session calendar.",
+  "scientific_governance": "The original pre-registration file remains immutable. This amendment is additive and must be applied to all retained campaign runs. Any run produced under CALENDAR_GAP_V1 after this issue was discovered is invalid for edge evidence.",
+  "code_commits": [
+    "e86742d92c69315d02149dce4a9a6259ff7c64d0",
+    "8a9e00ae631c9975d240ba68f804042c3692ba2a",
+    "53dbd9450922cfd24385e9f98b116d0d912e21e5"
+  ]
+}

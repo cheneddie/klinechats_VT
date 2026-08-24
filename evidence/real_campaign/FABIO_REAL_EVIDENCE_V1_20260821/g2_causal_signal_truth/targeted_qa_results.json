@@ -1,0 +1,18 @@
+{
+  "cases_reviewed": 245,
+  "known_causal_repair_days": {
+    "2025-04-25": {
+      "events": 200,
+      "expected_bo_repairs": 2,
+      "violations": 0
+    },
+    "2025-06-10": {
+      "events": 200,
+      "expected_bo_repairs": 1,
+      "violations": 0
+    }
+  },
+  "pass": true,
+  "sample_shortfalls_are_universe_limited": true,
+  "systematic_defects": 0
+}

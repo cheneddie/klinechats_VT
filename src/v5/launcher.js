@@ -1,0 +1,1 @@
+(()=>{const a=document.createElement('a');a.href='./v5.html';a.textContent='開啟 Fabio Decision Gym V5';Object.assign(a.style,{position:'fixed',right:'18px',bottom:'18px',zIndex:9999,padding:'10px 14px',borderRadius:'999px',background:'#17355b',border:'1px solid #4177ac',color:'#fff',textDecoration:'none',font:'600 13px system-ui'});document.body.appendChild(a)})();

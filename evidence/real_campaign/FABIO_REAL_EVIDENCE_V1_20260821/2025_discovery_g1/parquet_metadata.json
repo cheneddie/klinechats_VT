@@ -1,0 +1,19 @@
+{
+  "size":146569961,
+  "metadata_length":29749,
+  "version":2,
+  "num_rows":"39416621",
+  "row_groups":38,
+  "created_by":"parquet-cpp-arrow version 23.0.0",
+  "schema":[
+    {"name":"schema","type":null,"rep":0,"num_children":6,"logical":false},
+    {"name":"datetime","type":"INT64","rep":1,"converted":10,"logical":true},
+    {"name":"product","type":"BYTE_ARRAY","rep":1,"converted":0,"logical":true},
+    {"name":"expiry","type":"BYTE_ARRAY","rep":1,"converted":0,"logical":true},
+    {"name":"price","type":"DOUBLE","rep":1,"logical":false},
+    {"name":"volume","type":"DOUBLE","rep":1,"logical":false},
+    {"name":"side","type":"INT64","rep":1,"logical":false}
+  ],
+  "codecs":{"datetime":["SNAPPY"],"product":["SNAPPY"],"expiry":["SNAPPY"],"price":["SNAPPY"],"volume":["SNAPPY"],"side":["SNAPPY"]},
+  "row_group_rows":["1048576","1048576","1048576","1048576","1048576"]
+}

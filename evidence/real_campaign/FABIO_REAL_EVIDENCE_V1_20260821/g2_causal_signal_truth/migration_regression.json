@@ -1,0 +1,13 @@
+{
+  "completed_sessions": 223,
+  "deterministic_event_aggregate_hash": "872168c2acaea1e32b51b29c995dc97993fc9e3e39d52493fb187871266c87ac",
+  "eligible_sessions": 223,
+  "expected_causal_repairs": 28,
+  "failed_sessions": 0,
+  "observed_sessions": 236,
+  "outcomes_computed": false,
+  "pass": true,
+  "pf_computed": false,
+  "regression_violations": 0,
+  "statistical_edge_computed": false
+}

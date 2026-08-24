@@ -28,11 +28,16 @@ jobs:
           node --check src/v3/pixi-layer.js
           node --check src/v3/visual-ui.js
           node --check src/v3/drill.js
+          node --check src/v4/chart.js
+          node --check src/v4/practice.js
+          node --check src/v4/replay.js
+          node --check src/v4/research.js
       - name: Install scanner runtime dependencies
         run: python -m pip install -r requirements-server.txt
       - name: Python syntax / import boundary
         run: |
-          python -m py_compile server/__init__.py server/contracts.py server/engine.py server/causal_engine.py server/progress_scanner.py server/scanner.py server/fabio_api.py tests/test_contract_policy.py tests/test_scanner_e2e.py tests/test_scan_progress.py tests/test_decision_price.py
+          python -m py_compile server/__init__.py server/contracts.py server/engine.py server/causal_engine.py server/progress_scanner.py server/scanner.py server/fabio_api.py server/v4_engine.py server/v4_replay.py server/v4_audit.py server/v4_api.py server/fabio_api_v4.py
+          python -m py_compile tests/test_contract_policy.py tests/test_scanner_e2e.py tests/test_scan_progress.py tests/test_decision_price.py tests/test_v4_node_semantics.py tests/test_v4_replay.py tests/test_v4_reverse_audit.py
       - name: Causal MTX contract policy
         run: python tests/test_contract_policy.py
       - name: Parquet Replay / Event Store e2e
@@ -41,7 +46,13 @@ jobs:
         run: python tests/test_scan_progress.py
       - name: Exact node price from physical Parquet sequence
         run: python tests/test_decision_price.py
-      - name: Verify Decision Gym V3 files
+      - name: V4 causal node semantics
+        run: python tests/test_v4_node_semantics.py
+      - name: V4 trading-day replay
+        run: python tests/test_v4_replay.py
+      - name: V4 reverse node audit
+        run: python tests/test_v4_reverse_audit.py
+      - name: Verify Decision Gym V4 files
         run: |
           test -s src/v2/registry.js
           test -s src/v2/store.js
@@ -57,6 +68,11 @@ jobs:
           test -s src/v3/visual.css
           test -s src/v3/drill.js
           test -s src/v3/drill.css
+          test -s src/v4/chart.js
+          test -s src/v4/practice.js
+          test -s src/v4/replay.js
+          test -s src/v4/research.js
+          test -s src/v4/v4.css
           test -s public/vendor/pixi-8.19.0.min.js
           test -s server/contracts.py
           test -s server/engine.py
@@ -64,10 +80,17 @@ jobs:
           test -s server/progress_scanner.py
           test -s server/scanner.py
           test -s server/fabio_api.py
+          test -s server/v4_engine.py
+          test -s server/v4_replay.py
+          test -s server/v4_audit.py
+          test -s server/v4_api.py
           grep -q 'scan-monitor.js' index.html
           grep -q 'src/v3/drill.js' index.html
+          grep -q 'src/v4/practice.js' index.html
+          grep -q 'src/v4/replay.js' index.html
+          grep -q 'src/v4/research.js' index.html
           grep -q 'pixi-8.19.0.min.js' index.html
-          grep -q 'Fabio Decision Gym V3' index.html
+          grep -q 'Fabio Decision Gym V4' index.html
       - name: Verify pinned chart renderers
         run: |
           test -s public/vendor/klinecharts-10.0.2.min.js

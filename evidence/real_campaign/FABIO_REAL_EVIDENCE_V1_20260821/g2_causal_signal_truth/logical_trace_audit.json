@@ -1,0 +1,9 @@
+{
+  "evaluated_decision_completeness": 1.0,
+  "not_reached_blocker_completeness": 1.0,
+  "pass": true,
+  "required_anchor_completeness": 1.0,
+  "resolution_trace_completeness": 1.0,
+  "total_node_instances": 395684,
+  "violations": {}
+}

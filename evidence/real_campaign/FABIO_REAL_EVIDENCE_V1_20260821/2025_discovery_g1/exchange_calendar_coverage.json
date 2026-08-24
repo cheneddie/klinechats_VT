@@ -1,0 +1,11 @@
+{
+  "calendar_source": "TAIFEX 2025 Holiday Schedule (Revised) + TAIFEX annual MTX trading-days total",
+  "expected_trading_days": 243,
+  "observed_day_sessions": 236,
+  "coverage_ratio": 0.9711934156378601,
+  "missing_expected_trading_days": ["2025-12-22","2025-12-23","2025-12-24","2025-12-26","2025-12-29","2025-12-30","2025-12-31"],
+  "extra_observed_nontrading_days": [],
+  "status": "PARTIAL_YEAR_SOURCE",
+  "last_observed_day": "2025-12-19",
+  "note": "Expected calendar count is cross-checked to TAIFEX MTX annual 2025 Number of Trading Days = 243."
+}

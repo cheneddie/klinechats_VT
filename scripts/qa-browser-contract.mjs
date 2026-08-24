@@ -54,16 +54,36 @@ try{
   await page.locator('#v32Close').click({force:true})
 
   checkpoint('PRACTICE_START')
-  await hashGo('practice/MR_CLEAR_RECLAIM','#gymChart')
-  await page.waitForSelector('#gymChart .decision-pixi-canvas')
-  await page.waitForFunction(()=>FabioV3.pixi.current()?.mode==='blind')
-  const beforeChip=await page.locator('.practice-reveal-chip').textContent()
-  await realClick('#ansYes')
-  await page.waitForSelector('#practiceFeedback.correct, #practiceFeedback.wrong')
-  await page.waitForFunction(()=>FabioV3.pixi.current()?.mode==='single')
-  const afterChip=await page.locator('.practice-reveal-chip').textContent()
-  if(beforeChip!=='裸圖判斷中'||afterChip!=='已揭露 Decision Visual')throw new Error(`Practice reveal chips invalid: ${beforeChip} -> ${afterChip}`)
-  checkpoint('PRACTICE_OK',{before:'blind',after:'single',beforeChip,afterChip})
+  await page.evaluate(()=>{location.hash='#/practice/MR_CLEAR_RECLAIM'})
+  const usesV4=await page.waitForFunction(()=>Boolean(document.querySelector('.v4-practice-root')||document.querySelector('#gymChart'))).then(h=>h.jsonValue()).then(Boolean)
+  const hasV4=await page.locator('.v4-practice-root').count()>0
+  if(hasV4){
+    await page.waitForSelector('#v4PracticeChart')
+    await page.waitForSelector('#v4PracticeChart .decision-pixi-canvas')
+    await page.waitForFunction(()=>window.FabioV4?.chart?.current?.()?.opts?.visualMode==='blind')
+    const before=await page.evaluate(()=>({
+      mode:FabioV4.chart.current()?.opts?.visualMode,
+      hideFuture:FabioV4.chart.current()?.opts?.hideFuture,
+      cutoff:FabioV4.chart.current()?.payload?.cutoff_time||null,
+    }))
+    if(before.mode!=='blind'||before.hideFuture!==true||!before.cutoff)throw new Error(`V4 practice pre-answer causality invalid: ${JSON.stringify(before)}`)
+    await realClick('#v4Yes')
+    await page.waitForSelector('#v4PracticeFeedback.correct, #v4PracticeFeedback.wrong')
+    await page.waitForFunction(()=>window.FabioV4?.chart?.current?.()?.opts?.visualMode==='single'&&window.FabioV4?.chart?.current?.()?.opts?.hideFuture===false)
+    const after=await page.evaluate(()=>({mode:FabioV4.chart.current()?.opts?.visualMode,hideFuture:FabioV4.chart.current()?.opts?.hideFuture}))
+    checkpoint('PRACTICE_OK',{contract:'V4',before,after})
+  }else{
+    if(!usesV4)throw new Error('Practice route rendered neither V4 nor legacy V3 contract')
+    await page.waitForSelector('#gymChart .decision-pixi-canvas')
+    await page.waitForFunction(()=>FabioV3.pixi.current()?.mode==='blind')
+    const beforeChip=await page.locator('.practice-reveal-chip').textContent()
+    await realClick('#ansYes')
+    await page.waitForSelector('#practiceFeedback.correct, #practiceFeedback.wrong')
+    await page.waitForFunction(()=>FabioV3.pixi.current()?.mode==='single')
+    const afterChip=await page.locator('.practice-reveal-chip').textContent()
+    if(beforeChip!=='裸圖判斷中'||afterChip!=='已揭露 Decision Visual')throw new Error(`Practice reveal chips invalid: ${beforeChip} -> ${afterChip}`)
+    checkpoint('PRACTICE_OK',{contract:'V3',before:'blind',after:'single',beforeChip,afterChip})
+  }
 
   checkpoint('REPLAY_START')
   await hashGo('nodes/MR_CLEAR_RECLAIM','#patternLab')
