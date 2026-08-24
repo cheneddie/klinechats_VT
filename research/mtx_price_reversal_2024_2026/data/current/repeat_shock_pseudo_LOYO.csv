@@ -1,0 +1,4 @@
+holdout_year,train_years,chosen_rule,holdout_net,accel30_holdout_net,incremental_points
+2024,2025+2026,R5_45,1397.0,1211.0,186.0
+2025,2024+2026,R5_45,1905.0,1734.0,171.0
+2026,2024+2025,R4_30,5995.0,5943.0,52.0
