@@ -1,0 +1,12 @@
+{
+  "base": "FROZEN_FORWARD_OOS_V1 unchanged",
+  "cost": 2,
+  "discovery_sample": "2024-2026 through 2026-08-14; post-hoc; forward A/B required.",
+  "name": "MTX_RISK_INVALIDATION_R2_RESEARCH_ONLY",
+  "rules": {
+    "ACCEL_30": "At first tradable print >= entry+30s: exit if gross30 <= -0.20 * Prior14 same-kind session range mean.",
+    "FAILED_REVERSAL_180": "If ACCEL_30 did not fire: at first tradable print >= entry+180s, exit only if all sampled MTM at 15/30/60/90/120/180s <= 0; gross180 <= -0.75*abs(contract Q0.05 threshold); and gross180-gross120 <= +0.25*abs(threshold).",
+    "LOCKOUT": "After early exit, reject new signals until original entry+300s occupancy horizon."
+  },
+  "status": "POST_HOC_RESEARCH_ONLY_NOT_LIVE_APPROVED"
+}
