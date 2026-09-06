@@ -21,13 +21,23 @@ def seed(db):
         eid=f'E{i:03d}'; yes=i%2==0; day=f'2025-01-{1+(i%28):02d}'
         rows.append(('r1',eid,'fake.parquet',2025,day,'202501','MR','long','ENTRY',2,i*100,f'{day}T09:00:00',i*100+10,f'{day}T09:01:00',100.0,94.0,106.0,'{}','{}','{}'))
         chain=['AUC_ATTEMPT','MR_REJECTION','MR_CLEAR_RECLAIM','MR_RECLAIM_LEG','MR_LVN','MR_PULLBACK','MR_ENTRY']
+        parent=None
         for j,n in enumerate(chain):
             ans=True if n in {'AUC_ATTEMPT','MR_RECLAIM_LEG'} else yes
-            nodes.append(('r1',eid,n,int(ans),i*100+j,f'{day}T09:00:{j:02d}',100+j,i*100+j,f'{day}T09:00:{j:02d}',100+j,None,None,None,None,'PASS' if ans else 'HARD_FAIL','{}'))
+            seq=i*100+j;tm=f'{day}T09:00:{j:02d}';price=100+j
+            nodes.append(('r1',eid,n,'EVALUATED',int(ans),seq,tm,price,seq,tm,price,None,None,None,None,seq,tm,price,parent,None,None,None,'PASS' if ans else 'HARD_FAIL','{}'))
+            parent=n
         rr=1.2 if yes else -0.7
         outs.append(('r1',eid,'terminal',i*100+10,f'{day}T09:01:00',100.0,94.0,1.0,6.0,8.0 if yes else 1.0,5.0 if not yes else 1.0,1.33 if yes else .16,.83 if not yes else .16,int(yes),int(yes),int(yes),0,int(not yes),int(yes),rr,.75 if yes else 0,'{}','now'))
     with tx(db) as c:
-        c.executemany('INSERT INTO events VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',rows);c.executemany('INSERT INTO event_nodes VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',nodes);c.executemany('INSERT INTO opportunity_outcomes VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',outs)
+        c.executemany('INSERT INTO events VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',rows)
+        c.executemany("""INSERT INTO event_nodes(
+          research_run_id,event_id,node_id,evaluation_state,answer,
+          decision_seq,decision_time,decision_price,anchor_seq,anchor_time,anchor_price,
+          start_seq,start_time,end_seq,end_time,resolution_seq,resolution_time,resolution_price,
+          parent_node_id,blocker_node_id,blocker_reason_code,counterfactual_answer,reason_code,metrics_json
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",nodes)
+        c.executemany('INSERT INTO opportunity_outcomes VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',outs)
 
 def test_v5_full_research_training_certification_flow():
     with tempfile.TemporaryDirectory() as td:
@@ -35,7 +45,8 @@ def test_v5_full_research_training_certification_flow():
         try:create_research_run(event,'r1','DISCOVERY',[2025]);assert False
         except ValueError:pass
         sane=run_event_sanity(event,td,'r1',physical_validate=False);assert sane['status']=='PASS'
-        assert reverse_audit(event,'r1',r)['rows'];assert sequential_contribution(event,'r1')['rows'];assert any(x['variant']=='FULL' for x in ablation(event,'r1')['rows'])
+        edge=reverse_audit(event,'r1',r);assert edge['rows'];assert edge['bootstrap_unit']=='TRADING_DAY';assert edge['evaluation_universe']=='EVALUATED_ONLY'
+        assert sequential_contribution(event,'r1')['rows'];assert any(x['variant']=='FULL' for x in ablation(event,'r1')['rows'])
         ev=build_evidence(event,'r1',r);assert any(x['training_eligible'] for x in ev['items']);assert build_training_truth(event,'r1',r)['cases']>0
         with tx(event) as c:c.execute("UPDATE training_cases SET training_split='CERTIFICATION' WHERE CAST(substr(event_id,2) AS INTEGER)%5=0")
         cases=get_cases(event,'r1','MR_LVN',mode='skill',limit=20);assert cases and any(x['machine_answer'] for x in cases) and any(not x['machine_answer'] for x in cases)
