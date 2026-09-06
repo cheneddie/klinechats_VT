@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 from pathlib import Path
-from .storage import connect,migrate_event_db,tx,utcnow
+from .storage import assert_run_mutable,connect,migrate_event_db,tx,utcnow
 
 def _latest_sanity_pass(con,run_id):
     r=con.execute("SELECT status FROM event_sanity_runs WHERE research_run_id=? ORDER BY created_at DESC LIMIT 1",(run_id,)).fetchone()
@@ -23,8 +23,6 @@ def _read_path(root,e,seq,max_after_days):
     try:
         from server.v4_replay_final import read_tick_path
         path=read_tick_path(Path(root),e,int(seq),max_after_days)
-        # Outcome truth starts at entry_seq + 1. The entry row itself is the fill,
-        # not a future observation and must not participate in first-hit ordering.
         if path is not None and not getattr(path,'empty',True) and '_seq' in path.columns:
             path=path.loc[path['_seq']>int(seq)].reset_index(drop=True)
         return path
@@ -55,7 +53,7 @@ def simulate(path,entry,risk,direction,target_r):
             'realized_r':realized,'capture_ratio':(realized/(mfe/risk) if mfe>0 and realized>0 else 0.0)}
 
 def compute_outcomes(event_db:str|Path,data_root:str|Path,research_run_id:str,*,max_after_days:int=1,require_sanity=True):
-    migrate_event_db(event_db); con=connect(event_db)
+    migrate_event_db(event_db); assert_run_mutable(event_db,research_run_id); con=connect(event_db)
     try:
         if require_sanity and not _latest_sanity_pass(con,research_run_id): raise RuntimeError('EVENT_SANITY_GATE has not passed')
         events=[dict(r) for r in con.execute('SELECT * FROM events WHERE research_run_id=? ORDER BY source_file,trading_date,attempt_start_seq',(research_run_id,)).fetchall()]
