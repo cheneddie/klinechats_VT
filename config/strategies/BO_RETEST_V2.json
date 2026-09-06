@@ -1,6 +1,20 @@
 {
+  "schema_version": 1,
+  "strategy_id": "BO_RETEST",
+  "version": "V2",
   "name": "BO_RETEST_V2",
-  "description": "Breakout Retest training baseline. OOS evidence is weaker than MR and should remain separately versioned.",
+  "family": "BO",
+  "description": "Breakout Retest training baseline. OOS evidence is weaker than MR and should remain separately versioned; this file is not production edge proof.",
+  "node_chain": [
+    "AUC_ATTEMPT",
+    "BO_DISPLACEMENT",
+    "BO_ACCEPTANCE",
+    "BO_IMPULSE_LEG",
+    "BO_LVN",
+    "BO_PULLBACK",
+    "BO_RESPONSE",
+    "BO_ENTRY"
+  ],
   "value_area": 0.8,
   "auction": {"excursion_pct_value_width": 0.02, "min_points": 2},
   "acceptance": {"outside_ratio": 0.7, "displacement_pct_value_width": 0.2, "window_seconds": 20},
@@ -10,5 +24,29 @@
   "response": {"directional_progress_points": 2, "max_seconds": 30},
   "stop": {"type": "lvn_buffer", "points": 8},
   "target": {"type": "r_multiple", "r": 1.0},
+  "time_stop_seconds": 300,
+  "parameter_schema": [
+    {"path": "value_area", "kind": "float", "default": 0.8, "scope": "detector", "requires_rescan": true, "minimum": 0.7, "maximum": 0.9, "step": 0.02},
+    {"path": "auction.excursion_pct_value_width", "kind": "float", "default": 0.02, "scope": "detector", "requires_rescan": true, "minimum": 0.0, "maximum": 0.12, "step": 0.01},
+    {"path": "auction.min_points", "kind": "float", "default": 2, "scope": "detector", "requires_rescan": true, "minimum": 1, "maximum": 12, "step": 1},
+    {"path": "acceptance.outside_ratio", "kind": "float", "default": 0.7, "scope": "detector", "requires_rescan": true, "minimum": 0.5, "maximum": 0.95, "step": 0.05},
+    {"path": "acceptance.displacement_pct_value_width", "kind": "float", "default": 0.2, "scope": "detector", "requires_rescan": true, "minimum": 0.05, "maximum": 0.5, "step": 0.05},
+    {"path": "acceptance.window_seconds", "kind": "int", "default": 20, "scope": "detector", "requires_rescan": true, "minimum": 5, "maximum": 90, "step": 5},
+    {"path": "leg.turn_confirmation_points", "kind": "float", "default": 8, "scope": "detector", "requires_rescan": true, "minimum": 2, "maximum": 20, "step": 2},
+    {"path": "lvn.depth", "kind": "float", "default": 0.55, "scope": "detector", "requires_rescan": true, "minimum": 0.2, "maximum": 0.8, "step": 0.05},
+    {"path": "lvn.tolerance_points", "kind": "float", "default": 1, "scope": "detector", "requires_rescan": true, "minimum": 0, "maximum": 4, "step": 0.5},
+    {"path": "pullback.max_seconds", "kind": "int", "default": 120, "scope": "detector", "requires_rescan": true, "minimum": 30, "maximum": 300, "step": 30},
+    {"path": "response.directional_progress_points", "kind": "float", "default": 2, "scope": "detector", "requires_rescan": true, "minimum": 1, "maximum": 8, "step": 1},
+    {"path": "response.max_seconds", "kind": "int", "default": 30, "scope": "detector", "requires_rescan": true, "minimum": 5, "maximum": 90, "step": 5},
+    {"path": "stop.points", "kind": "float", "default": 8, "scope": "execution", "requires_rescan": false, "minimum": 4, "maximum": 16, "step": 1},
+    {"path": "target.r", "kind": "float", "default": 1.0, "scope": "execution", "requires_rescan": false, "minimum": 0.75, "maximum": 4.0, "step": 0.25},
+    {"path": "time_stop_seconds", "kind": "int", "default": 300, "scope": "execution", "requires_rescan": false, "minimum": 60, "maximum": 900, "step": 60}
+  ],
+  "research_governance": {
+    "baseline_is_frozen": true,
+    "production_research_target_floor_r": 2.0,
+    "parameter_ranges_are_search_space_hints_not_best_parameters": true,
+    "detector_parameter_change_requires_new_research_run": true
+  },
   "evidence": {"status": "training_baseline", "trend_holdout_sample": "limited", "side_is_aggressor": false}
 }
