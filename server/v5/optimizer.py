@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import itertools
-import json
 import math
 import random
 import uuid
 from statistics import median
-from typing import Any
+from typing import Any, Callable
+
+import pandas as pd
 
 from .backtest import PhysicalPathLoader, RescanRequired, evaluate_backtest
 from .statistics import benjamini_hochberg
@@ -28,14 +29,18 @@ def _research_role(event_db, research_run_id: str) -> dict[str, Any]:
     return dict(row)
 
 
-def normalize_search_space(strategy: StrategyDefinition, search_space: dict[str, Any]) -> dict[str, list[Any]]:
+def normalize_search_space(
+    strategy: StrategyDefinition, search_space: dict[str, Any]
+) -> dict[str, list[Any]]:
     specs = strategy.parameter_map()
     out: dict[str, list[Any]] = {}
+    rescan = []
     for path, raw in search_space.items():
         if path not in specs:
             raise ValueError(f"unknown optimization parameter: {path}")
         if specs[path].requires_rescan:
-            raise RescanRequired([path])
+            rescan.append(path)
+            continue
         if isinstance(raw, dict):
             if "values" in raw:
                 values = list(raw["values"])
@@ -62,27 +67,41 @@ def normalize_search_space(strategy: StrategyDefinition, search_space: dict[str,
         if not values:
             raise ValueError(f"empty search values for {path}")
         out[path] = [specs[path].validate(v) for v in values]
+    if rescan:
+        raise RescanRequired(sorted(rescan))
     return out
 
 
-def _grid(space: dict[str, list[Any]], max_trials: int, seed: int) -> list[dict[str, Any]]:
+def _grid(
+    space: dict[str, list[Any]], max_trials: int, seed: int
+) -> list[dict[str, Any]]:
     keys = sorted(space)
-    combos = [dict(zip(keys, values)) for values in itertools.product(*(space[k] for k in keys))]
+    combos = [
+        dict(zip(keys, values))
+        for values in itertools.product(*(space[k] for k in keys))
+    ]
     if len(combos) <= max_trials:
         return combos
     rng = random.Random(seed)
-    # Deterministic bounded sampling; first and last corners are retained.
+    # Deterministic bounded sampling with search corners retained.
     chosen = {0, len(combos) - 1}
     while len(chosen) < max_trials:
         chosen.add(rng.randrange(len(combos)))
     return [combos[i] for i in sorted(chosen)]
 
 
-def _score(summary: dict[str, Any], objective: dict[str, Any]) -> tuple[float, bool, str | None]:
+def _score(
+    summary: dict[str, Any], objective: dict[str, Any]
+) -> tuple[float, bool, str | None]:
     n = int(summary.get("trades") or 0)
     ev = float(summary.get("net_expectancy_r") or 0.0)
     pf_raw = summary.get("profit_factor")
-    pf = float(pf_raw) if isinstance(pf_raw, (int, float)) and math.isfinite(float(pf_raw)) else 0.0
+    unbounded_pf = bool(summary.get("profit_factor_unbounded"))
+    pf = (
+        float(pf_raw)
+        if isinstance(pf_raw, (int, float)) and math.isfinite(float(pf_raw))
+        else (3.0 if unbounded_pf else 0.0)
+    )
     dd = float(summary.get("max_drawdown_r") or 0.0)
     min_trades = int(objective.get("min_trades", 30))
     min_expectancy = float(objective.get("min_expectancy_r", 0.0))
@@ -93,7 +112,7 @@ def _score(summary: dict[str, Any], objective: dict[str, Any]) -> tuple[float, b
         reasons.append("MIN_TRADES")
     if ev < min_expectancy:
         reasons.append("MIN_EXPECTANCY")
-    if pf and pf < min_pf:
+    if not unbounded_pf and pf < min_pf:
         reasons.append("MIN_PF")
     if dd > max_dd:
         reasons.append("MAX_DD")
@@ -103,12 +122,24 @@ def _score(summary: dict[str, Any], objective: dict[str, Any]) -> tuple[float, b
     w_dd = float(weights.get("drawdown", 0.08))
     w_capture = float(weights.get("capture", 0.05))
     capture = float(summary.get("avg_capture_ratio") or 0.0)
-    score = w_ev * ev + w_pf * math.log(max(pf, 1e-9) + 1.0) - w_dd * dd + w_capture * capture
+    score = (
+        w_ev * ev
+        + w_pf * math.log(max(pf, 1e-9) + 1.0)
+        - w_dd * dd
+        + w_capture * capture
+    )
     return score, not reasons, ",".join(reasons) if reasons else None
 
 
-def _plateau(trials: list[dict[str, Any]], space: dict[str, list[Any]]) -> dict[str, Any] | None:
-    eligible = [x for x in trials if x.get("admissible") and (x.get("q_value") is None or x.get("q_value") <= 0.10)]
+def _plateau(
+    trials: list[dict[str, Any]], space: dict[str, list[Any]]
+) -> dict[str, Any] | None:
+    eligible = [
+        x
+        for x in trials
+        if x.get("admissible")
+        and (x.get("q_value") is None or x.get("q_value") <= 0.10)
+    ]
     if not eligible:
         eligible = [x for x in trials if x.get("admissible")]
     if not eligible:
@@ -116,15 +147,21 @@ def _plateau(trials: list[dict[str, Any]], space: dict[str, list[Any]]) -> dict[
     scores = sorted(float(x["score"]) for x in eligible)
     cutoff = scores[max(0, int(len(scores) * 0.70) - 1)]
     top = [x for x in eligible if float(x["score"]) >= cutoff]
-    center = {}
-    ranges = {}
+    center: dict[str, Any] = {}
+    ranges: dict[str, Any] = {}
     for path in sorted(space):
         vals = [x["parameters"][path] for x in top if path in x["parameters"]]
         if not vals:
             continue
-        if all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in vals):
+        if all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) for v in vals
+        ):
             center[path] = median(float(v) for v in vals)
-            ranges[path] = {"min": min(vals), "max": max(vals), "top_values": sorted(set(vals))}
+            ranges[path] = {
+                "min": min(vals),
+                "max": max(vals),
+                "top_values": sorted(set(vals)),
+            }
         else:
             freq = {v: vals.count(v) for v in set(vals)}
             center[path] = max(freq, key=freq.get)
@@ -142,6 +179,7 @@ def _plateau(trials: list[dict[str, Any]], space: dict[str, list[Any]]) -> dict[
             "median_top_score": median(float(x["score"]) for x in top),
             "max_top_score": max(float(x["score"]) for x in top),
             "selection_rule": "top 30% of admissible FDR-screened trials; median center",
+            "warning": "plateau is a robustness shortlist, not proof of market edge",
         },
     }
 
@@ -160,6 +198,7 @@ def run_optimization(
     bootstrap_reps: int = 1000,
     optimization_run_id: str | None = None,
     notes: str | None = None,
+    path_loader: Callable[[dict[str, Any], int], pd.DataFrame] | None = None,
 ) -> dict[str, Any]:
     migrate_strategy_db(event_db)
     research = _research_role(event_db, research_run_id)
@@ -168,9 +207,11 @@ def run_optimization(
     if not bool(research.get("frozen")):
         raise RuntimeError("optimization requires a frozen research run")
     space = normalize_search_space(strategy, search_space)
+    if not space:
+        raise ValueError("optimization search_space cannot be empty")
     objective = dict(objective or {})
     combos = _grid(space, max(1, int(max_trials)), seed)
-    loader = PhysicalPathLoader(data_root)
+    loader = path_loader or PhysicalPathLoader(data_root)
     trials = []
     for i, params in enumerate(combos, start=1):
         evaluated = evaluate_backtest(
@@ -186,21 +227,23 @@ def run_optimization(
         )
         summary = evaluated["report"]["summary"]
         score, admissible, reject = _score(summary, objective)
-        trials.append({
-            "trial_no": i,
-            "parameters": params,
-            "parameters_hash": content_hash(params),
-            "score": score,
-            "expectancy_r": summary.get("net_expectancy_r"),
-            "profit_factor": summary.get("profit_factor"),
-            "max_drawdown_r": summary.get("max_drawdown_r"),
-            "trades": summary.get("trades"),
-            "p_value": summary.get("expectancy_p_value"),
-            "q_value": None,
-            "admissible": bool(admissible),
-            "rejection_reason": reject,
-            "metrics": summary,
-        })
+        trials.append(
+            {
+                "trial_no": i,
+                "parameters": params,
+                "parameters_hash": content_hash(params),
+                "score": score,
+                "expectancy_r": summary.get("net_expectancy_r"),
+                "profit_factor": summary.get("profit_factor"),
+                "max_drawdown_r": summary.get("max_drawdown_r"),
+                "trades": summary.get("trades"),
+                "p_value": summary.get("expectancy_p_value"),
+                "q_value": None,
+                "admissible": bool(admissible),
+                "rejection_reason": reject,
+                "metrics": summary,
+            }
+        )
     q_values = benjamini_hochberg([x.get("p_value") for x in trials])
     for row, q in zip(trials, q_values):
         row["q_value"] = q
@@ -209,9 +252,12 @@ def run_optimization(
     optimization_run_id = optimization_run_id or ("opt-" + uuid.uuid4().hex[:16])
     with tx(event_db) as c:
         if c.execute(
-            "SELECT 1 FROM optimization_runs WHERE optimization_run_id=?", (optimization_run_id,)
+            "SELECT 1 FROM optimization_runs WHERE optimization_run_id=?",
+            (optimization_run_id,),
         ).fetchone():
-            raise ValueError(f"immutable optimization_run_id already exists: {optimization_run_id}")
+            raise ValueError(
+                f"immutable optimization_run_id already exists: {optimization_run_id}"
+            )
         c.execute(
             """INSERT INTO optimization_runs(
               optimization_run_id,research_run_id,campaign_id,strategy_key,strategy_hash,
@@ -237,12 +283,25 @@ def run_optimization(
               expectancy_r,profit_factor,max_drawdown_r,trades,p_value,q_value,
               admissible,rejection_reason,metrics_json
             ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            [(
-                optimization_run_id, x["trial_no"], canonical_json(x["parameters"]), x["parameters_hash"],
-                x["score"], x["expectancy_r"], x["profit_factor"], x["max_drawdown_r"],
-                x["trades"], x["p_value"], x["q_value"], int(x["admissible"]),
-                x["rejection_reason"], canonical_json(x["metrics"]),
-            ) for x in trials],
+            [
+                (
+                    optimization_run_id,
+                    x["trial_no"],
+                    canonical_json(x["parameters"]),
+                    x["parameters_hash"],
+                    x["score"],
+                    x["expectancy_r"],
+                    x["profit_factor"],
+                    x["max_drawdown_r"],
+                    x["trades"],
+                    x["p_value"],
+                    x["q_value"],
+                    int(x["admissible"]),
+                    x["rejection_reason"],
+                    canonical_json(x["metrics"]),
+                )
+                for x in trials
+            ],
         )
         if plateau:
             c.execute(
@@ -257,7 +316,9 @@ def run_optimization(
                 ),
             )
     digest = freeze_optimization_run(event_db, optimization_run_id)
-    ranked = sorted(trials, key=lambda x: (not x["admissible"], -(x["score"] or -1e99)))
+    ranked = sorted(
+        trials, key=lambda x: (not x["admissible"], -(x["score"] or -1e99))
+    )
     return {
         "optimization_run_id": optimization_run_id,
         "research_run_id": research_run_id,
@@ -285,35 +346,57 @@ def freeze_candidate(
     discovery_run_id: str | None = None,
     candidate_id: str | None = None,
     evidence: dict[str, Any] | None = None,
+    allow_rescan_candidate: bool = False,
 ) -> dict[str, Any]:
     migrate_strategy_db(event_db)
-    strategy.validate_overrides(parameters)
-    if strategy.rescan_parameters(parameters):
-        raise RescanRequired(strategy.rescan_parameters(parameters))
+    clean = strategy.validate_overrides(parameters)
+    rescan = strategy.rescan_parameters(clean)
+    if rescan and not allow_rescan_candidate:
+        raise RescanRequired(rescan)
+    if rescan and not discovery_run_id:
+        raise ValueError(
+            "detector-parameter candidate requires a dedicated freshly-scanned discovery_run_id"
+        )
     candidate_id = candidate_id or ("cand-" + uuid.uuid4().hex[:16])
     with tx(event_db) as c:
-        if c.execute("SELECT 1 FROM strategy_candidates WHERE candidate_id=?", (candidate_id,)).fetchone():
+        if c.execute(
+            "SELECT 1 FROM strategy_candidates WHERE candidate_id=?", (candidate_id,)
+        ).fetchone():
             raise ValueError(f"candidate already exists: {candidate_id}")
+        if discovery_run_id:
+            rr = c.execute(
+                "SELECT role,frozen,config_hash FROM research_runs WHERE research_run_id=?",
+                (discovery_run_id,),
+            ).fetchone()
+            if not rr or rr["role"] != "DISCOVERY" or not bool(rr["frozen"]):
+                raise ValueError("candidate discovery_run_id must be frozen DISCOVERY")
         c.execute(
             "INSERT INTO strategy_candidates VALUES(?,?,?,?,?,?,?,?,?,?,?)",
             (
                 candidate_id,
                 strategy.strategy_key,
                 source_optimization_run_id,
-                canonical_json(parameters),
-                content_hash(parameters),
+                canonical_json(clean),
+                content_hash(clean),
                 discovery_run_id,
                 None,
                 None,
                 "FROZEN_CANDIDATE",
                 utcnow(),
-                canonical_json(evidence or {}),
+                canonical_json(
+                    {
+                        **(evidence or {}),
+                        "requires_rescan_parameters": rescan,
+                        "strategy_definition_hash": strategy.definition_hash,
+                    }
+                ),
             ),
         )
     return {
         "candidate_id": candidate_id,
         "strategy_key": strategy.strategy_key,
-        "parameters": parameters,
-        "parameters_hash": content_hash(parameters),
+        "parameters": clean,
+        "parameters_hash": content_hash(clean),
         "status": "FROZEN_CANDIDATE",
+        "requires_rescan_parameters": rescan,
     }
