@@ -18,7 +18,10 @@ from server.v5.optimizer import run_optimization
 from server.v5.reporting import build_full_report
 from server.v5.storage import create_research_run, freeze_run, tx
 from server.v5.strategy_registry import load_strategy, normalize_strategy
-from server.v5.strategy_storage import verify_backtest_digest
+from server.v5.strategy_storage import (
+    compute_optimization_digest,
+    verify_backtest_digest,
+)
 
 
 MR_CHAIN = [
@@ -51,7 +54,9 @@ def _strategy():
 
 
 def _seed_frozen_run(db: Path, run_id: str = "r", role: str = "DISCOVERY"):
-    create_research_run(db, run_id, role, [2025], scanner_version="V4.1", strategy_version="TEST_MR_V1")
+    create_research_run(
+        db, run_id, role, [2025], scanner_version="V4.1", strategy_version="TEST_MR_V1"
+    )
     day = "2025-01-02"
     payload = {"lvn": 100.0}
     with tx(db) as c:
@@ -60,9 +65,11 @@ def _seed_frozen_run(db: Path, run_id: str = "r", role: str = "DISCOVERY"):
               research_run_id,event_id,source_file,year,trading_date,contract,strategy,direction,result,difficulty,
               attempt_start_seq,attempt_start_time,entry_seq,entry_time,entry_price,stop,target,features_json,nodes_json,payload_json
             ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (run_id, "E1", "fake.parquet", 2025, day, "202501", "MR", "long", "ENTRY", 2,
-             1, f"{day}T09:00:00", 10, f"{day}T09:00:10", 100.0, 94.0, 106.0,
-             json.dumps({"market_regime": "RANGE"}), "{}", json.dumps(payload)),
+            (
+                run_id, "E1", "fake.parquet", 2025, day, "202501", "MR", "long", "ENTRY", 2,
+                1, f"{day}T09:00:00", 10, f"{day}T09:00:10", 100.0, 94.0, 106.0,
+                json.dumps({"market_regime": "RANGE"}), "{}", json.dumps(payload),
+            ),
         )
         for i, node_id in enumerate(MR_CHAIN):
             c.execute(
@@ -71,11 +78,13 @@ def _seed_frozen_run(db: Path, run_id: str = "r", role: str = "DISCOVERY"):
                   decision_seq,decision_time,decision_price,anchor_seq,anchor_time,anchor_price,
                   resolution_seq,resolution_time,resolution_price,parent_node_id,reason_code,metrics_json
                 ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (run_id, "E1", node_id, "EVALUATED", 1,
-                 2 + i, f"{day}T09:00:{2+i:02d}", 100.0,
-                 2 + i, f"{day}T09:00:{2+i:02d}", 100.0,
-                 2 + i, f"{day}T09:00:{2+i:02d}", 100.0,
-                 MR_CHAIN[i - 1] if i else "CTX_VALUE", "PASS", "{}"),
+                (
+                    run_id, "E1", node_id, "EVALUATED", 1,
+                    2 + i, f"{day}T09:00:{2+i:02d}", 100.0,
+                    2 + i, f"{day}T09:00:{2+i:02d}", 100.0,
+                    2 + i, f"{day}T09:00:{2+i:02d}", 100.0,
+                    MR_CHAIN[i - 1] if i else "CTX_VALUE", "PASS", "{}",
+                ),
             )
     freeze_run(db, run_id)
 
@@ -94,23 +103,41 @@ def _path():
     })
 
 
+def _loader(event, start):
+    return _path().loc[_path()["_seq"] >= int(start)].reset_index(drop=True)
+
+
 def test_legacy_strategy_registry_marks_rescan_boundary():
     root = Path(__file__).resolve().parents[1]
     mr = load_strategy(root / "config/strategies/MR_BROAD_V3.json")
+    bo = load_strategy(root / "config/strategies/BO_RETEST_V2.json")
     specs = mr.parameter_map()
     assert mr.family == "MR"
+    assert bo.family == "BO"
     assert specs["target.r"].requires_rescan is False
     assert specs["stop.points"].requires_rescan is False
     assert specs["lvn.depth"].requires_rescan is True
     assert mr.rescan_parameters({"target.r": 1.25}) == []
     assert mr.rescan_parameters({"lvn.depth": 0.60}) == ["lvn.depth"]
+    assert mr.definition["research_governance"]["production_research_target_floor_r"] == 1.0
+    assert bo.definition["research_governance"]["production_research_target_floor_r"] == 2.0
 
 
 def test_execution_preserves_physical_seq_and_costs():
-    model = ExecutionModel(entry_slippage_points=0.5, exit_slippage_points=0.5, commission_points_per_side=0.1)
+    model = ExecutionModel(
+        entry_slippage_points=0.5,
+        exit_slippage_points=0.5,
+        commission_points_per_side=0.1,
+    )
     out = simulate_physical_trade(
-        _path(), direction="long", signal_seq=10, signal_price=100.0,
-        stop_price=94.0, target_price=106.0, model=model, time_stop_seconds=300,
+        _path(),
+        direction="long",
+        signal_seq=10,
+        signal_price=100.0,
+        stop_price=94.0,
+        target_price=106.0,
+        model=model,
+        time_stop_seconds=300,
     )
     assert out["entry_seq"] == 10
     assert out["exit_seq"] == 13
@@ -124,8 +151,12 @@ def test_execution_rejects_nonphysical_order():
     bad = _path().iloc[[0, 2, 1, 3, 4]].reset_index(drop=True)
     with pytest.raises(ValueError, match="strictly increasing"):
         simulate_physical_trade(
-            bad, direction="long", signal_seq=10, signal_price=100,
-            stop_price=94, target_price=106,
+            bad,
+            direction="long",
+            signal_seq=10,
+            signal_price=100,
+            stop_price=94,
+            target_price=106,
         )
 
 
@@ -140,10 +171,17 @@ def test_reporting_expectancy_pf_drawdown_and_cluster_inference():
             "strategy_family": "MR",
             "exit_reason": "TARGET" if r > 0 else "STOP",
             "post_trade_reason": "TARGET_HIT" if r > 0 else "VALID_LOSS",
-            "net_r": r, "gross_r": r, "net_points": r * 6, "gross_points": r * 6,
-            "mfe_r": max(0, r), "mae_r": max(0, -r), "mfe_points": max(0, r * 6),
-            "mae_points": max(0, -r * 6), "capture_ratio": 1 if r > 0 else 0,
-            "commission_points": 0, "slippage_points": 0,
+            "net_r": r,
+            "gross_r": r,
+            "net_points": r * 6,
+            "gross_points": r * 6,
+            "mfe_r": max(0, r),
+            "mae_r": max(0, -r),
+            "mfe_points": max(0, r * 6),
+            "mae_points": max(0, -r * 6),
+            "capture_ratio": 1 if r > 0 else 0,
+            "commission_points": 0,
+            "slippage_points": 0,
         })
     report = build_full_report(trades, bootstrap_reps=500)
     s = report["summary"]
@@ -153,6 +191,9 @@ def test_reporting_expectancy_pf_drawdown_and_cluster_inference():
     assert s["profit_factor"] == pytest.approx(2.0)
     assert s["bootstrap_unit"] == "TRADING_DAY"
     assert s["cluster_count"] == 2
+    empty = build_full_report([], bootstrap_reps=300)["summary"]
+    assert empty["trades"] == 0
+    assert empty["bootstrap_unit"] == "TRADING_DAY"
 
 
 def test_backtest_trade_ledger_is_frozen_and_digest_verifies():
@@ -160,17 +201,23 @@ def test_backtest_trade_ledger_is_frozen_and_digest_verifies():
         db = Path(td) / "events.sqlite3"
         _seed_frozen_run(db)
         evaluated = evaluate_backtest(
-            db, td, "r", _strategy(), path_loader=lambda event, start: _path(), bootstrap_reps=300,
+            db, td, "r", _strategy(), path_loader=_loader, bootstrap_reps=300
         )
         assert len(evaluated["trades"]) == 1
         assert evaluated["trades"][0]["post_trade_reason"] == "TARGET_HIT"
-        persisted = persist_backtest(db, evaluated, backtest_run_id="bt1", code_commit="abc")
+        persisted = persist_backtest(
+            db, evaluated, backtest_run_id="bt1", code_commit="abc"
+        )
         assert persisted["frozen"] is True
         verified = verify_backtest_digest(db, "bt1")
         assert verified["valid"] is True
-        with pytest.raises(sqlite3.IntegrityError, match="frozen backtest run is immutable"):
+        with pytest.raises(
+            sqlite3.IntegrityError, match="frozen backtest run is immutable"
+        ):
             with tx(db) as c:
-                c.execute("UPDATE backtest_trades SET net_r=99 WHERE backtest_run_id='bt1'")
+                c.execute(
+                    "UPDATE backtest_trades SET net_r=99 WHERE backtest_run_id='bt1'"
+                )
 
 
 def test_rescan_parameters_are_hard_blocked_from_snapshot_reuse():
@@ -179,8 +226,13 @@ def test_rescan_parameters_are_hard_blocked_from_snapshot_reuse():
         _seed_frozen_run(db)
         with pytest.raises(RescanRequired):
             evaluate_backtest(
-                db, td, "r", _strategy(), overrides={"lvn.depth": 0.6},
-                path_loader=lambda event, start: _path(), bootstrap_reps=300,
+                db,
+                td,
+                "r",
+                _strategy(),
+                overrides={"lvn.depth": 0.6},
+                path_loader=_loader,
+                bootstrap_reps=300,
             )
 
 
@@ -189,42 +241,84 @@ def test_optimizer_never_tunes_holdout_and_returns_plateau():
         db = Path(td) / "events.sqlite3"
         _seed_frozen_run(db)
         out = run_optimization(
-            db, td, "r", _strategy(),
+            db,
+            td,
+            "r",
+            _strategy(),
             {"target.r": [0.5, 1.0]},
-            objective={"min_trades": 1, "min_profit_factor": 0, "max_drawdown_r": 99},
-            max_trials=10, bootstrap_reps=300,
+            objective={
+                "min_trades": 1,
+                "min_profit_factor": 0,
+                "max_drawdown_r": 99,
+            },
+            max_trials=10,
+            bootstrap_reps=300,
             execution_model=ExecutionModel(),
+            path_loader=_loader,
         )
         assert out["hypotheses_tested"] == 2
         assert out["governance"]["holdout_used_for_tuning"] is False
         assert out["plateau"] is not None
+        assert len(out["frozen_digest"]) == 64
+        assert len(compute_optimization_digest(db, out["optimization_run_id"])) == 64
 
         holdout = Path(td) / "holdout.sqlite3"
         _seed_frozen_run(holdout, "h", role="FINAL_HOLDOUT")
         with pytest.raises(RuntimeError, match="sealed"):
             run_optimization(
-                holdout, td, "h", _strategy(), {"target.r": [0.5, 1.0]},
-                objective={"min_trades": 1}, bootstrap_reps=300,
+                holdout,
+                td,
+                "h",
+                _strategy(),
+                {"target.r": [0.5, 1.0]},
+                objective={"min_trades": 1},
+                bootstrap_reps=300,
+                path_loader=_loader,
             )
 
 
 def test_monitor_distinguishes_normal_decay_and_suspend():
-    baseline = {"net_expectancy_r": 0.5, "profit_factor": 1.8, "max_drawdown_r": 4.0}
+    baseline = {
+        "net_expectancy_r": 0.5,
+        "profit_factor": 1.8,
+        "max_drawdown_r": 4.0,
+    }
     state, reasons = classify_monitor_state(
-        {"trades": 40, "net_expectancy_r": -0.1, "profit_factor": 0.8, "max_drawdown_r": 3.0},
+        {
+            "trades": 40,
+            "net_expectancy_r": -0.1,
+            "profit_factor": 0.8,
+            "max_drawdown_r": 3.0,
+        },
         baseline,
     )
     assert state == "DEGRADED"
     assert "NEGATIVE_ROLLING_EXPECTANCY" in reasons
 
-    trades = [{
-        "trading_date": "2025-03-01", "net_r": 1.0, "gross_r": 1.0,
-        "net_points": 6, "gross_points": 6, "mfe_r": 1.2, "mae_r": 0.2,
-        "mfe_points": 7.2, "mae_points": 1.2, "capture_ratio": .8,
-        "commission_points": 0, "slippage_points": 0, "regime": {"market_regime": "RANGE"},
-    } for _ in range(25)]
+    trades = [
+        {
+            "trading_date": "2025-03-01",
+            "net_r": 1.0,
+            "gross_r": 1.0,
+            "net_points": 6,
+            "gross_points": 6,
+            "mfe_r": 1.2,
+            "mae_r": 0.2,
+            "mfe_points": 7.2,
+            "mae_points": 1.2,
+            "capture_ratio": 0.8,
+            "commission_points": 0,
+            "slippage_points": 0,
+            "regime": {"market_regime": "RANGE"},
+        }
+        for _ in range(25)
+    ]
     snap = build_monitor_snapshot(
-        trades, baseline, strategy_key="TEST_MR@V1", as_of_date="2025-03-01", window_days=60,
+        trades,
+        baseline,
+        strategy_key="TEST_MR@V1",
+        as_of_date="2025-03-01",
+        window_days=60,
     )
     assert snap["trades"] == 25
     assert snap["state"] in {"NORMAL", "WATCH"}
