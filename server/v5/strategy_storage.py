@@ -9,7 +9,7 @@ from typing import Any
 from .storage import connect, tx, utcnow
 from .strategy_registry import StrategyDefinition, canonical_json
 
-STRATEGY_DB_SCHEMA_VERSION = 1
+STRATEGY_DB_SCHEMA_VERSION = 2
 
 BACKTEST_DIGEST_TABLES = (
     "backtest_trades",
@@ -22,7 +22,11 @@ OPTIMIZATION_DIGEST_TABLES = (
 
 
 def _table_exists(con: sqlite3.Connection, name: str) -> bool:
-    return bool(con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone())
+    return bool(
+        con.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
+        ).fetchone()
+    )
 
 
 def migrate_strategy_db(path: str | Path) -> None:
@@ -31,6 +35,7 @@ def migrate_strategy_db(path: str | Path) -> None:
             """
             CREATE TABLE IF NOT EXISTS strategy_schema_meta(
               key TEXT PRIMARY KEY,value TEXT NOT NULL);
+
             CREATE TABLE IF NOT EXISTS strategy_definitions(
               strategy_key TEXT PRIMARY KEY,
               strategy_id TEXT NOT NULL,
@@ -191,6 +196,27 @@ def migrate_strategy_db(path: str | Path) -> None:
               frozen_at TEXT NOT NULL,
               evidence_json TEXT NOT NULL DEFAULT '{}');
 
+            CREATE TABLE IF NOT EXISTS candidate_evaluations(
+              evaluation_id TEXT PRIMARY KEY,
+              candidate_id TEXT NOT NULL,
+              role TEXT NOT NULL,
+              research_run_id TEXT NOT NULL,
+              backtest_run_id TEXT NOT NULL,
+              parameters_hash TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              result_json TEXT NOT NULL DEFAULT '{}',
+              CHECK(role IN ('DISCOVERY','VALIDATION','FINAL_HOLDOUT')));
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_candidate_role_evaluation
+              ON candidate_evaluations(candidate_id,role);
+
+            CREATE TABLE IF NOT EXISTS production_gates(
+              production_gate_id TEXT PRIMARY KEY,
+              candidate_id TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              status TEXT NOT NULL,
+              checklist_json TEXT NOT NULL,
+              details_json TEXT NOT NULL DEFAULT '{}');
+
             CREATE TABLE IF NOT EXISTS strategy_monitor_snapshots(
               strategy_key TEXT NOT NULL,
               as_of_date TEXT NOT NULL,
@@ -206,6 +232,19 @@ def migrate_strategy_db(path: str | Path) -> None:
               regime_json TEXT NOT NULL DEFAULT '{}',
               details_json TEXT NOT NULL DEFAULT '{}',
               PRIMARY KEY(strategy_key,as_of_date,window_days));
+
+            CREATE TABLE IF NOT EXISTS strategy_jobs(
+              job_id TEXT PRIMARY KEY,
+              job_type TEXT NOT NULL,
+              status TEXT NOT NULL,
+              progress REAL NOT NULL DEFAULT 0,
+              created_at TEXT NOT NULL,
+              started_at TEXT,
+              finished_at TEXT,
+              request_json TEXT NOT NULL DEFAULT '{}',
+              result_json TEXT,
+              error_text TEXT,
+              heartbeat_at TEXT);
             """
         )
         c.execute(
@@ -215,77 +254,105 @@ def migrate_strategy_db(path: str | Path) -> None:
         _install_immutability_triggers(c)
 
 
+def _install_child_freeze_triggers(
+    c: sqlite3.Connection,
+    parent_table: str,
+    parent_id: str,
+    child_tables: tuple[str, ...],
+    error_text: str,
+) -> None:
+    for table in child_tables:
+        for action, ref in (("INSERT", "NEW"), ("UPDATE", "OLD"), ("DELETE", "OLD")):
+            name = f"protect_frozen_{table}_{action.lower()}"
+            c.execute(f"DROP TRIGGER IF EXISTS {name}")
+            c.execute(
+                f"""
+                CREATE TRIGGER {name}
+                BEFORE {action} ON {table}
+                WHEN EXISTS(
+                  SELECT 1 FROM {parent_table}
+                  WHERE {parent_id}={ref}.{parent_id} AND frozen=1
+                )
+                BEGIN SELECT RAISE(ABORT,'{error_text}'); END
+                """
+            )
+
+
 def _install_immutability_triggers(c: sqlite3.Connection) -> None:
-    for table in ("backtest_trades", "backtest_metrics"):
-        for action, ref in (("INSERT", "NEW"), ("UPDATE", "OLD"), ("DELETE", "OLD")):
-            name = f"protect_frozen_{table}_{action.lower()}"
-            c.execute(f"DROP TRIGGER IF EXISTS {name}")
-            c.execute(
-                f"""
-                CREATE TRIGGER {name}
-                BEFORE {action} ON {table}
-                WHEN EXISTS(
-                  SELECT 1 FROM backtest_runs
-                  WHERE backtest_run_id={ref}.backtest_run_id AND frozen=1
-                )
-                BEGIN
-                  SELECT RAISE(ABORT,'frozen backtest run is immutable');
-                END
-                """
-            )
-    c.execute("DROP TRIGGER IF EXISTS protect_frozen_backtest_run_update")
-    c.execute("DROP TRIGGER IF EXISTS protect_frozen_backtest_run_delete")
-    c.execute(
-        """
-        CREATE TRIGGER protect_frozen_backtest_run_update
-        BEFORE UPDATE ON backtest_runs
-        WHEN OLD.frozen=1
-        BEGIN SELECT RAISE(ABORT,'frozen backtest run is immutable'); END
-        """
+    _install_child_freeze_triggers(
+        c,
+        "backtest_runs",
+        "backtest_run_id",
+        ("backtest_trades", "backtest_metrics"),
+        "frozen backtest run is immutable",
     )
-    c.execute(
-        """
-        CREATE TRIGGER protect_frozen_backtest_run_delete
-        BEFORE DELETE ON backtest_runs
-        WHEN OLD.frozen=1
-        BEGIN SELECT RAISE(ABORT,'frozen backtest run is immutable'); END
-        """
+    for suffix, ddl in (
+        (
+            "update",
+            """CREATE TRIGGER protect_frozen_backtest_run_update
+               BEFORE UPDATE ON backtest_runs WHEN OLD.frozen=1
+               BEGIN SELECT RAISE(ABORT,'frozen backtest run is immutable'); END""",
+        ),
+        (
+            "delete",
+            """CREATE TRIGGER protect_frozen_backtest_run_delete
+               BEFORE DELETE ON backtest_runs WHEN OLD.frozen=1
+               BEGIN SELECT RAISE(ABORT,'frozen backtest run is immutable'); END""",
+        ),
+    ):
+        c.execute(f"DROP TRIGGER IF EXISTS protect_frozen_backtest_run_{suffix}")
+        c.execute(ddl)
+
+    _install_child_freeze_triggers(
+        c,
+        "optimization_runs",
+        "optimization_run_id",
+        ("optimization_trials", "parameter_plateaus"),
+        "frozen optimization run is immutable",
     )
-    for table in ("optimization_trials", "parameter_plateaus"):
-        for action, ref in (("INSERT", "NEW"), ("UPDATE", "OLD"), ("DELETE", "OLD")):
-            name = f"protect_frozen_{table}_{action.lower()}"
-            c.execute(f"DROP TRIGGER IF EXISTS {name}")
-            c.execute(
-                f"""
-                CREATE TRIGGER {name}
-                BEFORE {action} ON {table}
-                WHEN EXISTS(
-                  SELECT 1 FROM optimization_runs
-                  WHERE optimization_run_id={ref}.optimization_run_id AND frozen=1
-                )
-                BEGIN
-                  SELECT RAISE(ABORT,'frozen optimization run is immutable');
-                END
-                """
-            )
-    c.execute("DROP TRIGGER IF EXISTS protect_frozen_optimization_run_update")
-    c.execute("DROP TRIGGER IF EXISTS protect_frozen_optimization_run_delete")
-    c.execute(
-        """
-        CREATE TRIGGER protect_frozen_optimization_run_update
-        BEFORE UPDATE ON optimization_runs
-        WHEN OLD.frozen=1
-        BEGIN SELECT RAISE(ABORT,'frozen optimization run is immutable'); END
-        """
-    )
-    c.execute(
-        """
-        CREATE TRIGGER protect_frozen_optimization_run_delete
-        BEFORE DELETE ON optimization_runs
-        WHEN OLD.frozen=1
-        BEGIN SELECT RAISE(ABORT,'frozen optimization run is immutable'); END
-        """
-    )
+    for suffix, ddl in (
+        (
+            "update",
+            """CREATE TRIGGER protect_frozen_optimization_run_update
+               BEFORE UPDATE ON optimization_runs WHEN OLD.frozen=1
+               BEGIN SELECT RAISE(ABORT,'frozen optimization run is immutable'); END""",
+        ),
+        (
+            "delete",
+            """CREATE TRIGGER protect_frozen_optimization_run_delete
+               BEFORE DELETE ON optimization_runs WHEN OLD.frozen=1
+               BEGIN SELECT RAISE(ABORT,'frozen optimization run is immutable'); END""",
+        ),
+    ):
+        c.execute(f"DROP TRIGGER IF EXISTS protect_frozen_optimization_run_{suffix}")
+        c.execute(ddl)
+
+    # Candidate parameters are immutable. Validation/Holdout evidence is append-only
+    # in candidate_evaluations instead of mutating the candidate row.
+    for action in ("UPDATE", "DELETE"):
+        name = f"protect_strategy_candidates_{action.lower()}"
+        c.execute(f"DROP TRIGGER IF EXISTS {name}")
+        c.execute(
+            f"""CREATE TRIGGER {name}
+                BEFORE {action} ON strategy_candidates
+                BEGIN SELECT RAISE(ABORT,'strategy candidate is immutable'); END"""
+        )
+    for action in ("UPDATE", "DELETE"):
+        name = f"protect_candidate_evaluations_{action.lower()}"
+        c.execute(f"DROP TRIGGER IF EXISTS {name}")
+        c.execute(
+            f"""CREATE TRIGGER {name}
+                BEFORE {action} ON candidate_evaluations
+                BEGIN SELECT RAISE(ABORT,'candidate evaluation is append-only'); END"""
+        )
+    for action in ("UPDATE", "DELETE"):
+        name = f"protect_production_gates_{action.lower()}"
+        c.execute(f"DROP TRIGGER IF EXISTS {name}")
+        c.execute(
+            f"""CREATE TRIGGER {name}
+                BEFORE {action} ON production_gates
+                BEGIN SELECT RAISE(ABORT,'production gate record is append-only'); END"""
+        )
 
 
 def register_strategy(path: str | Path, strategy: StrategyDefinition) -> dict[str, Any]:
@@ -313,7 +380,7 @@ def register_strategy(path: str | Path, strategy: StrategyDefinition) -> dict[st
                 strategy.family,
                 strategy.schema_version,
                 strategy.definition_hash,
-                canonical_json(strategy.to_dict()),
+                canonical_json(row),
                 strategy.source_path,
                 utcnow(),
             ),
@@ -363,7 +430,9 @@ def register_execution_model(
     }
 
 
-def get_execution_model(path: str | Path, execution_model_id: str, version: str) -> dict[str, Any]:
+def get_execution_model(
+    path: str | Path, execution_model_id: str, version: str
+) -> dict[str, Any]:
     migrate_strategy_db(path)
     c = connect(path)
     try:
@@ -380,10 +449,15 @@ def get_execution_model(path: str | Path, execution_model_id: str, version: str)
     return out
 
 
-def _digest_rows(con: sqlite3.Connection, table: str, id_column: str, id_value: str) -> bytes:
-    rows = [dict(r) for r in con.execute(
-        f"SELECT * FROM {table} WHERE {id_column}=? ORDER BY rowid", (id_value,)
-    ).fetchall()]
+def _digest_rows(
+    con: sqlite3.Connection, table: str, id_column: str, id_value: str
+) -> bytes:
+    rows = [
+        dict(r)
+        for r in con.execute(
+            f"SELECT * FROM {table} WHERE {id_column}=? ORDER BY rowid", (id_value,)
+        ).fetchall()
+    ]
     return canonical_json(rows).encode("utf-8")
 
 
@@ -398,8 +472,8 @@ def compute_backtest_digest(path: str | Path, backtest_run_id: str) -> str:
         if not run:
             raise KeyError(backtest_run_id)
         run_dict = dict(run)
-        for k in ("frozen", "frozen_at", "frozen_digest"):
-            run_dict.pop(k, None)
+        for key in ("frozen", "frozen_at", "frozen_digest"):
+            run_dict.pop(key, None)
         h.update(canonical_json(run_dict).encode("utf-8"))
         for table in BACKTEST_DIGEST_TABLES:
             h.update(table.encode("utf-8"))
@@ -411,21 +485,30 @@ def compute_backtest_digest(path: str | Path, backtest_run_id: str) -> str:
 
 def freeze_backtest_run(path: str | Path, backtest_run_id: str) -> str:
     migrate_strategy_db(path)
+    c = connect(path)
+    try:
+        row = c.execute(
+            "SELECT frozen,frozen_digest FROM backtest_runs WHERE backtest_run_id=?",
+            (backtest_run_id,),
+        ).fetchone()
+    finally:
+        c.close()
+    if not row:
+        raise KeyError(backtest_run_id)
+    if row["frozen"]:
+        return row["frozen_digest"]
+
+    completed = utcnow()
+    with tx(path) as c:
+        c.execute(
+            "UPDATE backtest_runs SET status='COMPLETE',completed_at=? WHERE backtest_run_id=? AND frozen=0",
+            (completed, backtest_run_id),
+        )
     digest = compute_backtest_digest(path, backtest_run_id)
     with tx(path) as c:
-        row = c.execute(
-            "SELECT frozen FROM backtest_runs WHERE backtest_run_id=?", (backtest_run_id,)
-        ).fetchone()
-        if not row:
-            raise KeyError(backtest_run_id)
-        if row["frozen"]:
-            existing = c.execute(
-                "SELECT frozen_digest FROM backtest_runs WHERE backtest_run_id=?", (backtest_run_id,)
-            ).fetchone()["frozen_digest"]
-            return existing
         c.execute(
-            "UPDATE backtest_runs SET status='COMPLETE',completed_at=?,frozen=1,frozen_at=?,frozen_digest=? WHERE backtest_run_id=?",
-            (utcnow(), utcnow(), digest, backtest_run_id),
+            "UPDATE backtest_runs SET frozen=1,frozen_at=?,frozen_digest=? WHERE backtest_run_id=? AND frozen=0",
+            (utcnow(), digest, backtest_run_id),
         )
     return digest
 
@@ -435,7 +518,8 @@ def verify_backtest_digest(path: str | Path, backtest_run_id: str) -> dict[str, 
     c = connect(path)
     try:
         row = c.execute(
-            "SELECT frozen,frozen_digest FROM backtest_runs WHERE backtest_run_id=?", (backtest_run_id,)
+            "SELECT frozen,frozen_digest FROM backtest_runs WHERE backtest_run_id=?",
+            (backtest_run_id,),
         ).fetchone()
     finally:
         c.close()
@@ -457,17 +541,20 @@ def compute_optimization_digest(path: str | Path, optimization_run_id: str) -> s
     try:
         h = hashlib.sha256()
         run = c.execute(
-            "SELECT * FROM optimization_runs WHERE optimization_run_id=?", (optimization_run_id,)
+            "SELECT * FROM optimization_runs WHERE optimization_run_id=?",
+            (optimization_run_id,),
         ).fetchone()
         if not run:
             raise KeyError(optimization_run_id)
         run_dict = dict(run)
-        for k in ("frozen", "frozen_at", "frozen_digest"):
-            run_dict.pop(k, None)
+        for key in ("frozen", "frozen_at", "frozen_digest"):
+            run_dict.pop(key, None)
         h.update(canonical_json(run_dict).encode("utf-8"))
         for table in OPTIMIZATION_DIGEST_TABLES:
             h.update(table.encode("utf-8"))
-            h.update(_digest_rows(c, table, "optimization_run_id", optimization_run_id))
+            h.update(
+                _digest_rows(c, table, "optimization_run_id", optimization_run_id)
+            )
         return h.hexdigest()
     finally:
         c.close()
@@ -475,19 +562,29 @@ def compute_optimization_digest(path: str | Path, optimization_run_id: str) -> s
 
 def freeze_optimization_run(path: str | Path, optimization_run_id: str) -> str:
     migrate_strategy_db(path)
+    c = connect(path)
+    try:
+        row = c.execute(
+            "SELECT frozen,frozen_digest FROM optimization_runs WHERE optimization_run_id=?",
+            (optimization_run_id,),
+        ).fetchone()
+    finally:
+        c.close()
+    if not row:
+        raise KeyError(optimization_run_id)
+    if row["frozen"]:
+        return row["frozen_digest"]
+
+    completed = utcnow()
+    with tx(path) as c:
+        c.execute(
+            "UPDATE optimization_runs SET status='COMPLETE',completed_at=? WHERE optimization_run_id=? AND frozen=0",
+            (completed, optimization_run_id),
+        )
     digest = compute_optimization_digest(path, optimization_run_id)
     with tx(path) as c:
-        row = c.execute(
-            "SELECT frozen FROM optimization_runs WHERE optimization_run_id=?", (optimization_run_id,)
-        ).fetchone()
-        if not row:
-            raise KeyError(optimization_run_id)
-        if row["frozen"]:
-            return c.execute(
-                "SELECT frozen_digest FROM optimization_runs WHERE optimization_run_id=?", (optimization_run_id,)
-            ).fetchone()["frozen_digest"]
         c.execute(
-            "UPDATE optimization_runs SET status='COMPLETE',completed_at=?,frozen=1,frozen_at=?,frozen_digest=? WHERE optimization_run_id=?",
-            (utcnow(), utcnow(), digest, optimization_run_id),
+            "UPDATE optimization_runs SET frozen=1,frozen_at=?,frozen_digest=? WHERE optimization_run_id=? AND frozen=0",
+            (utcnow(), digest, optimization_run_id),
         )
     return digest
