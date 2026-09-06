@@ -32,12 +32,12 @@ def _percentile(values: list[float], q: float) -> float | None:
     return xs[lo] * (1 - w) + xs[hi] * w
 
 
-def _profit_factor(values: list[float]) -> float | None:
+def _profit_factor(values: list[float]) -> tuple[float | None, bool]:
     gains = sum(x for x in values if x > 0)
     losses = abs(sum(x for x in values if x < 0))
     if losses == 0:
-        return None if gains == 0 else float("inf")
-    return gains / losses
+        return None, bool(gains > 0)
+    return gains / losses, False
 
 
 def _drawdown(values: list[float]) -> dict[str, Any]:
@@ -58,7 +58,11 @@ def _drawdown(values: list[float]) -> dict[str, Any]:
         max_duration = max(max_duration, current_duration)
         max_dd = max(max_dd, dd)
         curve.append({"trade_no": i + 1, "equity_r": equity, "drawdown_r": dd})
-    return {"max_drawdown_r": max_dd, "max_drawdown_duration_trades": max_duration, "equity_curve": curve}
+    return {
+        "max_drawdown_r": max_dd,
+        "max_drawdown_duration_trades": max_duration,
+        "equity_curve": curve,
+    }
 
 
 def _max_consecutive_losses(values: list[float]) -> int:
@@ -72,14 +76,24 @@ def _max_consecutive_losses(values: list[float]) -> int:
     return best
 
 
-def _cluster_expectancy_ci(trades: list[dict[str, Any]], reps: int = 2000, seed: int = 19) -> dict[str, Any]:
+def _cluster_expectancy_ci(
+    trades: list[dict[str, Any]], reps: int = 2000, seed: int = 19
+) -> dict[str, Any]:
     by_day: dict[str, list[float]] = defaultdict(list)
     for t in trades:
         day = str(t.get("trading_date") or "UNKNOWN")
         by_day[day].append(_f(t.get("net_r")))
     days = sorted(by_day)
     if not days:
-        return {"cluster_count": 0, "ci_low": None, "ci_high": None, "p_value": None, "bootstrap_reps": 0}
+        return {
+            "observed_expectancy_r": None,
+            "cluster_count": 0,
+            "ci_low": None,
+            "ci_high": None,
+            "p_value": None,
+            "bootstrap_reps": 0,
+            "bootstrap_unit": "TRADING_DAY",
+        }
     rng = random.Random(seed)
     boot = []
     observed_values = [x for d in days for x in by_day[d]]
@@ -91,7 +105,8 @@ def _cluster_expectancy_ci(trades: list[dict[str, Any]], reps: int = 2000, seed:
     boot.sort()
     ci_low = _percentile(boot, 0.025)
     ci_high = _percentile(boot, 0.975)
-    # One-sided bootstrap sign probability against expectancy <= 0.
+    # One-sided sign probability against expectancy <= 0. This is descriptive
+    # bootstrap evidence, not an iid-trade p-value.
     p_value = sum(1 for x in boot if x <= 0.0) / len(boot)
     return {
         "observed_expectancy_r": observed,
@@ -104,7 +119,18 @@ def _cluster_expectancy_ci(trades: list[dict[str, Any]], reps: int = 2000, seed:
     }
 
 
-def summarize_trades(trades: Iterable[dict[str, Any]], *, bootstrap_reps: int = 2000) -> dict[str, Any]:
+def _period_totals(rows: list[dict[str, Any]], key: str) -> dict[str, float]:
+    out: dict[str, float] = defaultdict(float)
+    for row in rows:
+        value = row.get(key)
+        if value is not None:
+            out[str(value)] += _f(row.get("net_r"))
+    return dict(out)
+
+
+def summarize_trades(
+    trades: Iterable[dict[str, Any]], *, bootstrap_reps: int = 2000
+) -> dict[str, Any]:
     rows = [dict(x) for x in trades]
     net_r = [_f(x.get("net_r")) for x in rows]
     gross_r = [_f(x.get("gross_r")) for x in rows]
@@ -115,24 +141,32 @@ def summarize_trades(trades: Iterable[dict[str, Any]], *, bootstrap_reps: int = 
     mfe_points = [_f(x.get("mfe_points")) for x in rows]
     mae_points = [_f(x.get("mae_points")) for x in rows]
     capture = [_f(x.get("capture_ratio")) for x in rows]
-    costs = [_f(x.get("commission_points")) + _f(x.get("slippage_points")) for x in rows]
+    costs = [
+        _f(x.get("commission_points")) + _f(x.get("slippage_points")) for x in rows
+    ]
     winners = [x for x in net_r if x > 0]
     losers = [x for x in net_r if x < 0]
     wins = len(winners)
     losses = len(losers)
     n = len(rows)
     win_rate = wins / n if n else None
+    loss_rate = losses / n if n else None
     avg_win = mean(winners) if winners else None
     avg_loss = mean(losers) if losers else None
-    loss_rate = losses / n if n else None
     expectancy_formula = None
     if n and avg_win is not None and avg_loss is not None:
         expectancy_formula = (win_rate or 0.0) * avg_win + (loss_rate or 0.0) * avg_loss
     expectancy = mean(net_r) if net_r else None
     dd = _drawdown(net_r)
-    pf = _profit_factor(net_r)
-    payoff = (avg_win / abs(avg_loss)) if avg_win is not None and avg_loss not in (None, 0) else None
+    pf, pf_unbounded = _profit_factor(net_r)
+    payoff = (
+        avg_win / abs(avg_loss)
+        if avg_win is not None and avg_loss not in (None, 0)
+        else None
+    )
     cluster = _cluster_expectancy_ci(rows, reps=bootstrap_reps)
+    daily = _period_totals(rows, "trading_date")
+    monthly = _period_totals(rows, "month")
 
     metrics = {
         "trades": n,
@@ -147,6 +181,7 @@ def summarize_trades(trades: Iterable[dict[str, Any]], *, bootstrap_reps: int = 
         "expectancy_formula_r": expectancy_formula,
         "median_r": median(net_r) if net_r else None,
         "profit_factor": pf,
+        "profit_factor_unbounded": int(pf_unbounded),
         "avg_win_r": avg_win,
         "avg_loss_r": avg_loss,
         "payoff_ratio": payoff,
@@ -160,11 +195,24 @@ def summarize_trades(trades: Iterable[dict[str, Any]], *, bootstrap_reps: int = 
         "max_consecutive_losses": _max_consecutive_losses(net_r),
         "worst_trade_r": min(net_r) if net_r else None,
         "best_trade_r": max(net_r) if net_r else None,
+        "worst_day_r": min(daily.values()) if daily else None,
+        "best_day_r": max(daily.values()) if daily else None,
+        "worst_month_r": min(monthly.values()) if monthly else None,
+        "best_month_r": max(monthly.values()) if monthly else None,
         "avg_mfe_r": mean(mfe_r) if mfe_r else None,
         "avg_mae_r": mean(mae_r) if mae_r else None,
         "avg_mfe_points": mean(mfe_points) if mfe_points else None,
         "avg_mae_points": mean(mae_points) if mae_points else None,
         "avg_capture_ratio": mean(capture) if capture else None,
+        "mfe_hit_1r_rate": sum(1 for x in mfe_r if x >= 1.0) / n if n else None,
+        "mfe_hit_2r_rate": sum(1 for x in mfe_r if x >= 2.0) / n if n else None,
+        "mfe_hit_3r_rate": sum(1 for x in mfe_r if x >= 3.0) / n if n else None,
+        "mfe_hit_5r_rate": sum(1 for x in mfe_r if x >= 5.0) / n if n else None,
+        "realized_ge_1r_rate": sum(1 for x in net_r if x >= 1.0) / n if n else None,
+        "realized_ge_2r_rate": sum(1 for x in net_r if x >= 2.0) / n if n else None,
+        "realized_ge_3r_rate": sum(1 for x in net_r if x >= 3.0) / n if n else None,
+        "realized_ge_5r_rate": sum(1 for x in net_r if x >= 5.0) / n if n else None,
+        # Backward-compatible names used by existing V5 consumers.
         "hit_1r_rate": sum(1 for x in mfe_r if x >= 1.0) / n if n else None,
         "hit_2r_rate": sum(1 for x in mfe_r if x >= 2.0) / n if n else None,
         "hit_3r_rate": sum(1 for x in mfe_r if x >= 3.0) / n if n else None,
@@ -185,7 +233,9 @@ def summarize_trades(trades: Iterable[dict[str, Any]], *, bootstrap_reps: int = 
     return {"metrics": metrics, "equity_curve": dd["equity_curve"]}
 
 
-def _slice(rows: list[dict[str, Any]], key: str, bootstrap_reps: int) -> list[dict[str, Any]]:
+def _slice(
+    rows: list[dict[str, Any]], key: str, bootstrap_reps: int
+) -> list[dict[str, Any]]:
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         value = row.get(key)
@@ -194,17 +244,32 @@ def _slice(rows: list[dict[str, Any]], key: str, bootstrap_reps: int) -> list[di
         grouped[str(value)].append(row)
     out = []
     for value, items in sorted(grouped.items()):
-        out.append({"slice_key": key, "slice_value": value, **summarize_trades(items, bootstrap_reps=bootstrap_reps)})
+        out.append(
+            {
+                "slice_key": key,
+                "slice_value": value,
+                **summarize_trades(items, bootstrap_reps=bootstrap_reps),
+            }
+        )
     return out
 
 
-def build_full_report(trades: Iterable[dict[str, Any]], *, bootstrap_reps: int = 2000) -> dict[str, Any]:
+def build_full_report(
+    trades: Iterable[dict[str, Any]], *, bootstrap_reps: int = 2000
+) -> dict[str, Any]:
     rows = [dict(x) for x in trades]
     base = summarize_trades(rows, bootstrap_reps=bootstrap_reps)
     slices = []
-    for key in ("year", "month", "direction", "strategy_family", "exit_reason", "post_trade_reason"):
+    for key in (
+        "year",
+        "month",
+        "direction",
+        "strategy_family",
+        "exit_reason",
+        "post_trade_reason",
+    ):
         slices.extend(_slice(rows, key, max(500, bootstrap_reps // 2)))
-    # Time bucket is derived without inventing a market regime.
+
     by_time: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
         tm = str(row.get("signal_time") or "")
@@ -213,10 +278,19 @@ def build_full_report(trades: Iterable[dict[str, Any]], *, bootstrap_reps: int =
             hour = int(hhmm[:2])
             minute = int(hhmm[3:])
             total = hour * 60 + minute
-            bucket = f"{(total // 30) * 30 // 60:02d}:{(total // 30) * 30 % 60:02d}"
+            bucket_total = (total // 30) * 30
+            bucket = f"{bucket_total // 60:02d}:{bucket_total % 60:02d}"
             by_time[bucket].append(row)
     for value, items in sorted(by_time.items()):
-        slices.append({"slice_key": "time_30m", "slice_value": value, **summarize_trades(items, bootstrap_reps=max(500, bootstrap_reps // 2))})
+        slices.append(
+            {
+                "slice_key": "time_30m",
+                "slice_value": value,
+                **summarize_trades(
+                    items, bootstrap_reps=max(500, bootstrap_reps // 2)
+                ),
+            }
+        )
 
     return {
         "summary": base["metrics"],
@@ -224,9 +298,10 @@ def build_full_report(trades: Iterable[dict[str, Any]], *, bootstrap_reps: int =
         "slices": slices,
         "methodology": {
             "expectancy": "mean(net_r); cross-check = win_rate*avg_win + loss_rate*avg_loss",
-            "profit_factor": "sum positive net R / absolute sum negative net R",
+            "profit_factor": "sum positive net R / absolute sum negative net R; null + profit_factor_unbounded=1 means no observed loss",
             "drawdown": "trade-sequence equity R drawdown",
             "inference": "trading-day cluster bootstrap; no iid trade assumption",
-            "right_tail": "MFE thresholds 1R/2R/3R/5R retained separately from realized R",
+            "right_tail": "MFE thresholds and realized R thresholds reported separately",
+            "empty_run": "zero-trade reports remain valid structured reports, never synthetic performance",
         },
     }
