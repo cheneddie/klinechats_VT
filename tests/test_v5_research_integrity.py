@@ -31,7 +31,20 @@ from server.v5.storage import (
 
 
 def registry():
-    nodes = {}
+    nodes = {
+        "CTX_VALUE": NodeDefinition(
+            "CTX_VALUE",
+            "SHARED",
+            "STATE",
+            None,
+            {"zh_TW": "CTX_VALUE"},
+            ("PASS",),
+            ("FAIL",),
+            {},
+            False,
+            False,
+        )
+    }
     parent = "CTX_VALUE"
     roles = {
         "AUC_ATTEMPT": "STATE",
