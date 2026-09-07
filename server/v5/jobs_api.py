@@ -25,7 +25,9 @@ def install_jobs_api(
         strategy_root
         or (Path(__file__).resolve().parents[2] / "config" / "strategies")
     )
-    supervisor = JobSupervisor(event_db, data_root, strategy_root)
+    # The research/event store is SQLite. Serialize write-heavy optimization and
+    # candidate jobs to preserve deterministic transactions and avoid lock races.
+    supervisor = JobSupervisor(event_db, data_root, strategy_root, max_concurrent=1)
 
     @app.post("/api/v5/strategy-lab/jobs")
     def job_submit(req: StrategyJobRequest):
