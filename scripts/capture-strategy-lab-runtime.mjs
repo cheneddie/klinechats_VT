@@ -46,7 +46,20 @@ async function hydrateRoute(route) {
       await page.waitForSelector('.trade-item')
       await page.locator('.trade-item').first().click()
       await page.waitForSelector('#tradeDetail h2')
-      await page.waitForTimeout(500)
+      await page.waitForSelector('#tradeChart[data-trade-review-overlay="ready"]')
+      await page.waitForSelector('#tradeChart .trade-review-svg')
+      await page.waitForSelector('#tradeChart .trade-review-banner')
+      const overlay = await page.locator('#tradeChart').evaluate(el => ({
+        ready: el.dataset.tradeReviewOverlay,
+        tradeId: el.dataset.tradeReviewId,
+        svgChildren: el.querySelector('.trade-review-svg')?.childElementCount || 0,
+        banner: el.querySelector('.trade-review-banner')?.textContent || '',
+      }))
+      if (overlay.ready !== 'ready' || !overlay.tradeId || overlay.svgChildren < 6 || !/ENTRY/i.test(overlay.banner)) {
+        throw new Error(`Trade Review execution overlay incomplete: ${JSON.stringify(overlay)}`)
+      }
+      console.log('STRATEGY_LAB_TRADE_OVERLAY', JSON.stringify(overlay))
+      await page.waitForTimeout(350)
     }
   }
   if (route === 'reports') {
