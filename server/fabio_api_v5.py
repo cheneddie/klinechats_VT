@@ -8,6 +8,7 @@ from .v5.api import EVENT_DB, install
 from .v5.candidate_api import install_candidate_api
 from .v5.jobs_api import install_jobs_api
 from .v5.parity import install_parity
+from .v5.production_evidence_api import install_production_evidence_api
 from .v5.replay_api import install_replay
 from .v5.strategy_api import install_strategy_api
 
@@ -16,6 +17,7 @@ app = install_replay(app, event_db=EVENT_DB, data_root=v4.base.ROOT)
 app = install_parity(app)
 app = install_strategy_api(app, event_db=EVENT_DB, data_root=v4.base.ROOT)
 app = install_candidate_api(app, event_db=EVENT_DB, data_root=v4.base.ROOT)
+app = install_production_evidence_api(app, event_db=EVENT_DB)
 app = install_jobs_api(app, event_db=EVENT_DB, data_root=v4.base.ROOT)
 
 
