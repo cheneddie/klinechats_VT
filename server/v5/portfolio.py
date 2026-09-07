@@ -28,6 +28,25 @@ class PortfolioPolicy:
         unknown = sorted(set(raw) - allowed)
         if unknown:
             raise ValueError(f"unknown portfolio policy fields: {unknown}")
+
+        # JSON has only one numeric type, while Python distinguishes int/float.
+        # Portfolio Policy is hashed as an immutable execution assumption, so
+        # semantically identical values such as JS `1` and Python `1.0` must
+        # canonicalize to the same typed representation before hashing.
+        if "mode" in raw:
+            raw["mode"] = str(raw["mode"]).upper()
+        if "overlap_policy" in raw:
+            raw["overlap_policy"] = str(raw["overlap_policy"]).upper()
+        if "max_open_positions" in raw:
+            raw["max_open_positions"] = int(raw["max_open_positions"])
+        if "reentry_cooldown_seconds" in raw:
+            raw["reentry_cooldown_seconds"] = int(raw["reentry_cooldown_seconds"])
+        if "fixed_quantity" in raw:
+            raw["fixed_quantity"] = float(raw["fixed_quantity"])
+        if "force_flat_time" in raw:
+            flat = str(raw["force_flat_time"] or "").strip()
+            raw["force_flat_time"] = flat or None
+
         policy = cls(**raw)
         policy.validate()
         return policy
