@@ -45,6 +45,8 @@ jobs:
             server/v5/production_evidence.py \
             server/v5/production_evidence_api.py \
             server/v5/production_gate.py \
+            server/v5/production_deployment.py \
+            server/v5/production_deployment_api.py \
             server/v5/jobs.py \
             server/v5/jobs_api.py \
             server/v5/strategy_api.py \
@@ -72,6 +74,7 @@ jobs:
             tests/test_strategy_health.py \
             tests/test_candidate_gate.py \
             tests/test_production_provenance.py \
+            tests/test_production_deployment.py \
             tests/test_strategy_jobs.py 2>&1 | tee strategy-lab-pytest.log
       - name: P0 regression
         run: python -m pytest -q tests/test_v5_research_integrity.py tests/test_v5_layer.py
@@ -128,8 +131,6 @@ jobs:
           print('SYNTHETIC_PORTFOLIO_OVERLAP PASS', x['independent']['trades'], x['single_position']['trades'])
           PY
 
-          # Same frozen research run + same execution assumptions, but a different
-          # target parameter: this is the positive comparability proof.
           python - <<'PY'
           import os
           from pathlib import Path
@@ -153,8 +154,6 @@ jobs:
           print('SYNTHETIC_COMPARABLE_CONTROL', out['backtest_run_id'])
           PY
 
-          # Strategy Health: degradation -> auto suspend -> later computed NORMAL
-          # must remain effectively SUSPEND until an explicit human RESUME action.
           python tools/synthetic_strategy_health.py \
             --event-db "$FABIO_V5_EVENT_DB" \
             --out artifacts/strategy-lab-runtime/synthetic-strategy-health.json \
@@ -214,6 +213,7 @@ jobs:
           PY
           curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/backtests > artifacts/strategy-lab-runtime/backtests-api.json
           curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/optimizations > artifacts/strategy-lab-runtime/optimizations-api.json
+          curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/deployments > artifacts/strategy-lab-runtime/deployments-api.json
           for i in {1..20}; do curl -sf http://127.0.0.1:4173/strategy-lab.html >/dev/null && break; sleep 1; done
           STRATEGY_LAB_SCREENSHOT_DIR="$GITHUB_WORKSPACE/artifacts/strategy-lab-runtime" \
             node "$RUNNER_TEMP/pw-runner/capture.mjs"
