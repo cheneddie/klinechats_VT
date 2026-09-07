@@ -49,6 +49,7 @@ jobs:
             tools/repro_manifest.py
           node --check src/v5/strategy-lab.js
           node --check src/v5/strategy-lab-evidence.js
+          node --check scripts/capture-strategy-lab-runtime.mjs
       - name: Strategy Lab tests
         run: |
           set -o pipefail
@@ -68,9 +69,32 @@ jobs:
           test ! -e dist/reports
           test ! -e dist/docs
           test ! -e dist/config
+      - name: Real Strategy Lab runtime screenshots
+        run: |
+          npm install --no-save playwright@1.57.0
+          mkdir -p "$RUNNER_TEMP/fabio-data" artifacts/strategy-lab-runtime
+          export FABIO_DATA_ROOT="$RUNNER_TEMP/fabio-data"
+          export FABIO_EVENT_DB="$RUNNER_TEMP/fabio-v4.sqlite3"
+          export FABIO_V5_EVENT_DB="$RUNNER_TEMP/fabio-v5.sqlite3"
+          export FABIO_V5_TRAINING_DB="$RUNNER_TEMP/fabio-training.sqlite3"
+          export FABIO_API_PORT=8765
+          python -m server.fabio_api_v5 > artifacts/strategy-lab-runtime/api.log 2>&1 &
+          API_PID=$!
+          python -m http.server 4173 --bind 127.0.0.1 > artifacts/strategy-lab-runtime/static.log 2>&1 &
+          WEB_PID=$!
+          trap 'kill "$API_PID" "$WEB_PID" 2>/dev/null || true' EXIT
+          for i in {1..40}; do
+            curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/health > artifacts/strategy-lab-runtime/health.json && break
+            sleep 1
+          done
+          test -s artifacts/strategy-lab-runtime/health.json || { cat artifacts/strategy-lab-runtime/api.log; exit 1; }
+          for i in {1..20}; do curl -sf http://127.0.0.1:4173/strategy-lab.html >/dev/null && break; sleep 1; done
+          node scripts/capture-strategy-lab-runtime.mjs
+          test -s artifacts/strategy-lab-runtime/01-strategy-library.png
+          test -s artifacts/strategy-lab-runtime/08-jobs-heartbeat.png
       - name: Reproducibility manifest
         run: python tools/repro_manifest.py
-      - name: Upload diagnostics
+      - name: Upload diagnostics and runtime screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -78,4 +102,5 @@ jobs:
           path: |
             strategy-lab-pytest.log
             repro-manifest.json
+            artifacts/strategy-lab-runtime/**
           if-no-files-found: ignore
