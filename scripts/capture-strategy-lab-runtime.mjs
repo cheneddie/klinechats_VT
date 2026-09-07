@@ -38,7 +38,34 @@ async function selectFirstRealOption(selector) {
   return value
 }
 
+async function assertPortfolioCard(scope) {
+  const selector = `[data-portfolio-scope="${scope}"]`
+  await page.waitForSelector(selector)
+  const state = await page.locator(selector).evaluate(el => ({
+    mode: el.querySelector('[data-pf="mode"]')?.value || '',
+    overlap: el.querySelector('[data-pf="overlap_policy"]')?.value || '',
+    cooldown: el.querySelector('[data-pf="reentry_cooldown_seconds"]')?.value || '',
+    quantity: el.querySelector('[data-pf="fixed_quantity"]')?.value || '',
+    forceFlat: el.querySelector('[data-pf="force_flat_time"]')?.value || '',
+    fingerprint: el.querySelector('[data-pf-hash]')?.textContent || '',
+  }))
+  if (state.mode !== 'SINGLE_POSITION' || state.overlap !== 'SKIP_WHILE_OPEN' || !state.fingerprint) {
+    throw new Error(`Portfolio UI state incomplete for ${scope}: ${JSON.stringify(state)}`)
+  }
+  console.log(`STRATEGY_LAB_PORTFOLIO_UI ${scope}`, JSON.stringify(state))
+  return state
+}
+
 async function hydrateRoute(route) {
+  if (route === 'backtest') {
+    await page.waitForSelector('[data-portfolio-scope="backtest"]')
+    await page.selectOption('[data-portfolio-scope="backtest"] [data-pf="mode"]', 'SINGLE_POSITION')
+    await page.fill('[data-portfolio-scope="backtest"] [data-pf="reentry_cooldown_seconds"]', '60')
+    await page.fill('[data-portfolio-scope="backtest"] [data-pf="fixed_quantity"]', '2')
+    await page.fill('[data-portfolio-scope="backtest"] [data-pf="force_flat_time"]', '13:40:00')
+    await page.locator('[data-portfolio-scope="backtest"] [data-pf="force_flat_time"]').dispatchEvent('change')
+    await assertPortfolioCard('backtest')
+  }
   if (route === 'review') {
     const value = await selectFirstRealOption('#reviewBt')
     if (value) {
@@ -70,6 +97,8 @@ async function hydrateRoute(route) {
       await page.waitForTimeout(250)
     }
   }
+  if (route === 'optimize') await assertPortfolioCard('optimize')
+  if (route === 'candidates') await assertPortfolioCard('candidate')
 }
 
 const manifest = []
