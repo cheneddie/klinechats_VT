@@ -168,6 +168,12 @@ try {
   await page.selectOption('#candEval', frozenCandidate)
   await page.selectOption('#candGate', frozenCandidate)
 
+  // The production API intentionally serializes write-heavy jobs. Wait for the
+  // earlier browser-submitted jobs to finish before starting Candidate Evaluation;
+  // capacity rejection is tested separately as an explicit API contract.
+  if (jobs.backtest) await waitJob(jobs.backtest, 240000)
+  if (jobs.optimization) await waitJob(jobs.optimization, 240000)
+
   // Exercise Candidate Evaluation background job on Discovery. The job itself must terminate;
   // evaluation status may be FAIL because the tiny synthetic N deliberately does not meet production policy.
   await page.fill('#candEvalRun', syntheticRun)
