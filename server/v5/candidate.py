@@ -10,6 +10,7 @@ import pandas as pd
 
 from .backtest import run_backtest
 from .execution import ExecutionModel
+from .production_evidence import get_paper_evidence, get_parity_evidence
 from .storage import connect, verify_run_digest, tx, utcnow
 from .strategy_registry import StrategyDefinition, content_hash
 from .strategy_storage import migrate_strategy_db, verify_backtest_digest
@@ -21,8 +22,6 @@ DEFAULT_EVALUATION_POLICY: dict[str, Any] = {
     "min_expectancy_r": 0.0,
     "min_profit_factor": 1.0,
     "max_drawdown_r": 12.0,
-    # Statistical uncertainty remains visible even when this is False. Turning it
-    # on makes a positive lower cluster-bootstrap CI a hard candidate gate.
     "require_positive_ci_low": False,
     "stress_extra_slippage_points": 1.0,
     "stress_latency_ms": 250,
@@ -154,9 +153,6 @@ def _acceptance(summary: dict[str, Any], policy: dict[str, Any], *, stress: bool
     min_ev = float(policy["stress_min_expectancy_r"] if stress else policy["min_expectancy_r"])
     check("EXPECTANCY", ev, ev is not None and float(ev) > min_ev, f"> {min_ev}")
     if not stress:
-        # Reporting deliberately serializes no-loss PF as null + an explicit
-        # unbounded flag instead of JSON Infinity. An unbounded PF therefore
-        # satisfies a finite PF floor, while MIN_TRADES remains the sample guard.
         check(
             "PROFIT_FACTOR",
             "UNBOUNDED" if pf_unbounded else pf,
@@ -187,12 +183,6 @@ def evaluate_candidate(
     code_commit: str | None = None,
     path_loader: Callable[[dict[str, Any], int], pd.DataFrame] | None = None,
 ) -> dict[str, Any]:
-    """Evaluate one *frozen* parameter candidate on exactly one governed data role.
-
-    Evaluation order is causal research governance, not convenience:
-    Discovery -> Validation -> Final Holdout. Final Holdout cannot be reached until
-    Validation has passed. The candidate parameter hash is never mutated.
-    """
     candidate = _candidate(event_db, candidate_id)
     research = _research(event_db, research_run_id)
     role = str(research.get("role"))
@@ -295,15 +285,14 @@ def production_gate(
     strategy: StrategyDefinition,
     *,
     policy: dict[str, Any] | None = None,
-    live_parity_pass: bool = False,
-    paper_trading_pass: bool = False,
+    parity_evidence_id: str | None = None,
+    paper_evidence_id: str | None = None,
     notes: str | None = None,
 ) -> dict[str, Any]:
     """Create an append-only production readiness decision.
 
-    This function never promotes a strategy merely because a backtest is profitable.
-    Missing Validation/Holdout, failed immutable digests, cost-stress decay, target-R
-    policy, live parity, or paper trading all remain explicit blockers.
+    Live/Paper gates require immutable evidence IDs. A request can no longer promote
+    a candidate by supplying naked boolean `pass` flags.
     """
     candidate = _candidate(event_db, candidate_id)
     if candidate["strategy_key"] != strategy.strategy_key:
@@ -352,9 +341,19 @@ def production_gate(
         add("HOLDOUT_COMBINED_STRESS", combined_ev is not None and float(combined_ev) > 0.0, combined_ev)
 
     if bool(merged.get("require_live_parity", True)):
-        add("LIVE_PARITY", bool(live_parity_pass), "PASS" if live_parity_pass else "MISSING_OR_FAIL")
+        try:
+            parity = get_parity_evidence(event_db, str(parity_evidence_id or "")) if parity_evidence_id else None
+            parity_ok = bool(parity and parity.get("candidate_id") == candidate_id and parity.get("status") == "PASS")
+            add("LIVE_PARITY", parity_ok, {"evidence_id": parity_evidence_id, "status": parity.get("status") if parity else "MISSING"})
+        except Exception as exc:
+            add("LIVE_PARITY", False, {"evidence_id": parity_evidence_id, "error": str(exc)})
     if bool(merged.get("require_paper_trading", True)):
-        add("PAPER_TRADING", bool(paper_trading_pass), "PASS" if paper_trading_pass else "MISSING_OR_FAIL")
+        try:
+            paper = get_paper_evidence(event_db, str(paper_evidence_id or "")) if paper_evidence_id else None
+            paper_ok = bool(paper and paper.get("candidate_id") == candidate_id and paper.get("status") == "PASS")
+            add("PAPER_TRADING", paper_ok, {"evidence_id": paper_evidence_id, "status": paper.get("status") if paper else "MISSING"})
+        except Exception as exc:
+            add("PAPER_TRADING", False, {"evidence_id": paper_evidence_id, "error": str(exc)})
 
     failed = [x for x in checklist if not x["passed"]]
     research_checks = [x for x in checklist if x["name"] not in {"LIVE_PARITY", "PAPER_TRADING"}]
@@ -365,6 +364,8 @@ def production_gate(
         "policy": merged,
         "research_pass": research_pass,
         "failed_checks": [x["name"] for x in failed],
+        "parity_evidence_id": parity_evidence_id,
+        "paper_evidence_id": paper_evidence_id,
         "notes": notes,
     }
     with tx(event_db) as c:
