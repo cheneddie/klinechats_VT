@@ -10,6 +10,7 @@ import pandas as pd
 
 from .diagnostics import causal_diagnostic, infer_regime, post_trade_diagnostic
 from .execution import ExecutionModel, simulate_physical_trade
+from .portfolio import PortfolioPolicy, arbitrate_trades
 from .reporting import build_full_report
 from .storage import connect, migrate_event_db, tx, utcnow
 from .strategy_registry import StrategyDefinition, canonical_json, content_hash
@@ -164,6 +165,7 @@ def evaluate_backtest(
     *,
     overrides: dict[str, Any] | None = None,
     execution_model: ExecutionModel | dict[str, Any] | None = None,
+    portfolio_policy: PortfolioPolicy | dict[str, Any] | None = None,
     path_loader: Callable[[dict[str, Any], int], pd.DataFrame] | None = None,
     require_frozen_research: bool = True,
     bootstrap_reps: int = 2000,
@@ -179,6 +181,9 @@ def evaluate_backtest(
         raise RescanRequired(rescan)
 
     model = execution_model if isinstance(execution_model, ExecutionModel) else ExecutionModel.from_dict(execution_model)
+    policy_explicit = portfolio_policy is not None
+    portfolio = portfolio_policy if isinstance(portfolio_policy, PortfolioPolicy) else PortfolioPolicy.from_dict(portfolio_policy)
+    portfolio.validate()
     loader = path_loader or PhysicalPathLoader(data_root)
     events, nodes_by_event = _load_candidates(event_db, research_run_id, strategy.family)
     trades: list[dict[str, Any]] = []
@@ -209,6 +214,7 @@ def evaluate_backtest(
                 target_price=target,
                 model=model,
                 time_stop_seconds=time_stop,
+                force_flat_time=portfolio.force_flat_time,
             )
         except Exception as exc:
             skipped.append({"event_id": event["event_id"], "reason": f"EXECUTION_ERROR:{exc}"})
@@ -250,15 +256,27 @@ def evaluate_backtest(
         trade["payload"]["post_trade_diagnostic"] = post
         trades.append(trade)
 
+    trades, portfolio_skips = arbitrate_trades(trades, portfolio)
+    skipped.extend(portfolio_skips)
     report = build_full_report(trades, bootstrap_reps=bootstrap_reps)
     report["summary"]["candidate_events"] = len(events)
     report["summary"]["executed_trades"] = len(trades)
     report["summary"]["skipped_events"] = len(skipped)
+    report["summary"]["portfolio_skipped_events"] = len(portfolio_skips)
+    report["summary"]["position_net_points"] = float(sum(
+        float(t.get("net_points") or 0.0) * float(t.get("quantity") or 1.0) for t in trades
+    ))
+    report["portfolio_policy"] = portfolio.to_dict()
+    report["portfolio_policy_hash"] = content_hash(portfolio.to_dict())
+    report["portfolio_skips"] = portfolio_skips
     return {
         "research_run": run,
         "strategy": strategy.to_dict(),
         "parameters": clean_overrides,
         "execution_model": model.to_dict(),
+        "portfolio_policy": portfolio.to_dict(),
+        "portfolio_policy_hash": report["portfolio_policy_hash"],
+        "portfolio_policy_explicit": policy_explicit,
         "trades": trades,
         "skipped": skipped,
         "report": report,
@@ -277,6 +295,19 @@ def _insert_report_metrics(c, backtest_run_id: str, report: dict[str, Any]) -> N
         for key, value in (item.get("metrics") or {}).items():
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 rows.append((backtest_run_id, key, sk, sv, float(value), "{}"))
+    if "portfolio_policy" in report:
+        rows.append((
+            backtest_run_id,
+            "portfolio_policy_audit",
+            "AUDIT",
+            str(report.get("portfolio_policy_hash") or "UNKNOWN"),
+            float((report.get("summary") or {}).get("portfolio_skipped_events") or 0),
+            canonical_json({
+                "policy": report.get("portfolio_policy") or {},
+                "policy_hash": report.get("portfolio_policy_hash"),
+                "skips": report.get("portfolio_skips") or [],
+            }),
+        ))
     if rows:
         c.executemany(
             "INSERT OR REPLACE INTO backtest_metrics VALUES(?,?,?,?,?,?)",
@@ -312,7 +343,17 @@ def persist_backtest(
     execution = dict(evaluated["execution_model"])
     exec_id = str(execution.get("execution_model_id") or "PHYSICAL_MARKET")
     exec_ver = str(execution.get("version") or "V1")
-    exec_row = register_execution_model(event_db, exec_id, exec_ver, execution)
+    execution_definition: dict[str, Any] = execution
+    if bool(evaluated.get("portfolio_policy_explicit")):
+        policy = dict(evaluated.get("portfolio_policy") or {})
+        policy_hash = str(evaluated.get("portfolio_policy_hash") or content_hash(policy))
+        exec_ver = f"{exec_ver}-PF-{policy_hash[:8]}"
+        execution_definition = {
+            "execution_model": execution,
+            "portfolio_policy": policy,
+            "portfolio_policy_hash": policy_hash,
+        }
+    exec_row = register_execution_model(event_db, exec_id, exec_ver, execution_definition)
     research = evaluated["research_run"]
     backtest_run_id = backtest_run_id or ("bt-" + uuid.uuid4().hex[:16])
     params = dict(evaluated.get("parameters") or {})
@@ -375,6 +416,8 @@ def persist_backtest(
         "digest": digest,
         "trades": len(evaluated.get("trades") or []),
         "skipped": len(evaluated.get("skipped") or []),
+        "portfolio_policy": evaluated.get("portfolio_policy") or {},
+        "portfolio_policy_hash": evaluated.get("portfolio_policy_hash"),
         "report": evaluated["report"],
     }
 
