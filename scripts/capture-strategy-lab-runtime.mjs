@@ -98,6 +98,19 @@ async function hydrateRoute(route) {
     }
   }
   if (route === 'optimize') await assertPortfolioCard('optimize')
+  if (route === 'compare') {
+    await page.fill('#cmpIds', 'bt-synthetic-mtx-overlap-independent-v1, bt-synthetic-mtx-overlap-single-v1')
+    await page.click('#cmpRun')
+    await page.waitForSelector('#cmpBody [data-compare-status="BLOCKED"]')
+    const gate = await page.locator('#cmpBody [data-compare-status="BLOCKED"]').textContent()
+    if (!/PORTFOLIO_POLICY_HASH/.test(gate || '') || !/EXECUTION_HASH/.test(gate || '')) {
+      throw new Error(`Compare Lab did not expose blocked execution mismatch: ${gate}`)
+    }
+    if (await page.locator('#cmpBody table').count()) {
+      throw new Error('Compare Lab exposed performance table despite BLOCKED comparability gate')
+    }
+    console.log('STRATEGY_LAB_COMPARE_GATE BLOCKED', gate?.replace(/\s+/g, ' ').trim())
+  }
   if (route === 'candidates') await assertPortfolioCard('candidate')
 }
 
