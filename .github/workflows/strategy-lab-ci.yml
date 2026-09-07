@@ -8,16 +8,24 @@ on:
 jobs:
   strategy-lab:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install runtime
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pinned Python runtime
         run: |
           python -m pip install -r requirements-server.txt
-          python -m pip install pytest
+          python -m pip install pytest==9.1.1
+      - name: Install pinned frontend runtime
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.1 --activate
+          pnpm install --frozen-lockfile
       - name: Compile Strategy Lab
         run: |
           python -m py_compile \
@@ -28,13 +36,28 @@ jobs:
             server/v5/reporting.py \
             server/v5/backtest.py \
             server/v5/optimizer.py \
-            server/v5/monitor.py
+            server/v5/monitor.py \
+            server/v5/candidate.py \
+            server/v5/candidate_api.py \
+            server/v5/jobs.py \
+            server/v5/jobs_api.py \
+            server/v5/strategy_api.py \
+            server/fabio_api_v5.py
+          node --check src/v5/strategy-lab.js
       - name: Strategy Lab tests
         run: |
           set -o pipefail
-          python -m pytest -q tests/test_strategy_lab.py 2>&1 | tee strategy-lab-pytest.log
+          python -m pytest -q tests/test_strategy_lab.py tests/test_candidate_gate.py 2>&1 | tee strategy-lab-pytest.log
       - name: P0 regression
-        run: python -m pytest -q tests/test_v5_research_integrity.py
+        run: python -m pytest -q tests/test_v5_research_integrity.py tests/test_v5_layer.py
+      - name: Public static build
+        run: |
+          pnpm build
+          test -s dist/strategy-lab.html
+          test -s dist/src/v5/strategy-lab.js
+          test ! -e dist/reports
+          test ! -e dist/docs
+          test ! -e dist/config
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
