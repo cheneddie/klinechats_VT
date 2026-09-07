@@ -82,6 +82,7 @@ jobs:
             npm init -y >/dev/null
             npm install --no-save playwright@1.57.0 >/dev/null
           )
+          export PYTHONPATH="$GITHUB_WORKSPACE"
           export FABIO_DATA_ROOT="$RUNNER_TEMP/fabio-data"
           export FABIO_EVENT_DB="$RUNNER_TEMP/fabio-v4.sqlite3"
           export FABIO_V5_EVENT_DB="$RUNNER_TEMP/fabio-v5.sqlite3"
