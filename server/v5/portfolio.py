@@ -127,6 +127,18 @@ def _cooldown_satisfied(candidate: dict[str, Any], previous: dict[str, Any], sec
     return float((entry_ts - exit_ts).total_seconds()) >= float(seconds)
 
 
+def _stamp_position(trade: dict[str, Any], policy: PortfolioPolicy) -> dict[str, Any]:
+    trade["position_id"] = f"pos:{trade.get('trade_id')}"
+    trade["quantity"] = float(policy.fixed_quantity)
+    payload = trade.setdefault("payload", {})
+    payload["portfolio_policy"] = policy.to_dict()
+    payload["position_id"] = trade["position_id"]
+    payload["quantity"] = trade["quantity"]
+    payload["position_gross_points"] = float(trade.get("gross_points") or 0.0) * trade["quantity"]
+    payload["position_net_points"] = float(trade.get("net_points") or 0.0) * trade["quantity"]
+    return trade
+
+
 def arbitrate_trades(
     trades: list[dict[str, Any]],
     policy: PortfolioPolicy | dict[str, Any] | None = None,
@@ -140,14 +152,7 @@ def arbitrate_trades(
     policy.validate()
 
     if policy.mode == "INDEPENDENT_EVENT":
-        accepted = []
-        for trade in trades:
-            row = dict(trade)
-            row["position_id"] = f"pos:{row.get('trade_id')}"
-            row["quantity"] = float(policy.fixed_quantity)
-            row.setdefault("payload", {})["portfolio_policy"] = policy.to_dict()
-            accepted.append(row)
-        return accepted, []
+        return [_stamp_position(dict(trade), policy) for trade in trades], []
 
     ordered = sorted((dict(t) for t in trades), key=_candidate_key)
     accepted: list[dict[str, Any]] = []
@@ -187,9 +192,7 @@ def arbitrate_trades(
                 })
                 continue
 
-        trade["position_id"] = f"pos:{trade.get('trade_id')}"
-        trade["quantity"] = float(policy.fixed_quantity)
-        trade.setdefault("payload", {})["portfolio_policy"] = policy.to_dict()
+        trade = _stamp_position(trade, policy)
         accepted.append(trade)
         previous = trade
 
