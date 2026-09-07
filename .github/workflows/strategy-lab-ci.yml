@@ -46,7 +46,8 @@ jobs:
             server/v5/jobs_api.py \
             server/v5/strategy_api.py \
             server/fabio_api_v5.py \
-            tools/repro_manifest.py
+            tools/repro_manifest.py \
+            tools/synthetic_mtx_demo.py
           node --check src/v5/strategy-lab.js
           node --check src/v5/strategy-lab-evidence.js
           node --check scripts/capture-strategy-lab-runtime.mjs
@@ -69,7 +70,7 @@ jobs:
           test ! -e dist/reports
           test ! -e dist/docs
           test ! -e dist/config
-      - name: Real Strategy Lab runtime screenshots
+      - name: Synthetic MTX Parquet end-to-end demo and runtime screenshots
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends fonts-noto-cjk >/dev/null
@@ -86,6 +87,17 @@ jobs:
           export FABIO_V5_EVENT_DB="$RUNNER_TEMP/fabio-v5.sqlite3"
           export FABIO_V5_TRAINING_DB="$RUNNER_TEMP/fabio-training.sqlite3"
           export FABIO_API_PORT=8765
+
+          python tools/synthetic_mtx_demo.py \
+            --data-root "$FABIO_DATA_ROOT" \
+            --event-db "$FABIO_V5_EVENT_DB" \
+            --out-dir artifacts/strategy-lab-runtime \
+            --code-commit "$GITHUB_SHA" \
+            | tee artifacts/strategy-lab-runtime/synthetic-demo.log
+          cp "$FABIO_DATA_ROOT/MTX_2025_SYNTHETIC.parquet" artifacts/strategy-lab-runtime/
+          test -s artifacts/strategy-lab-runtime/MTX_2025_SYNTHETIC.parquet
+          test -s artifacts/strategy-lab-runtime/synthetic-demo-summary.json
+
           python -m server.fabio_api_v5 > artifacts/strategy-lab-runtime/api.log 2>&1 &
           API_PID=$!
           python -m http.server 4173 --bind 127.0.0.1 > artifacts/strategy-lab-runtime/static.log 2>&1 &
@@ -96,10 +108,22 @@ jobs:
             sleep 1
           done
           test -s artifacts/strategy-lab-runtime/health.json || { cat artifacts/strategy-lab-runtime/api.log; exit 1; }
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          h = json.loads(Path('artifacts/strategy-lab-runtime/health.json').read_text())
+          assert h['counts']['backtests'] >= 1, h
+          assert h['counts']['optimizations'] >= 1, h
+          print('SYNTHETIC_RUNTIME_COUNTS', h['counts'])
+          PY
+          curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/backtests > artifacts/strategy-lab-runtime/backtests-api.json
+          curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/optimizations > artifacts/strategy-lab-runtime/optimizations-api.json
           for i in {1..20}; do curl -sf http://127.0.0.1:4173/strategy-lab.html >/dev/null && break; sleep 1; done
           STRATEGY_LAB_SCREENSHOT_DIR="$GITHUB_WORKSPACE/artifacts/strategy-lab-runtime" \
             node "$RUNNER_TEMP/pw-runner/capture.mjs"
           test -s artifacts/strategy-lab-runtime/01-strategy-library.png
+          test -s artifacts/strategy-lab-runtime/03-trade-review.png
+          test -s artifacts/strategy-lab-runtime/05-optimization-lab.png
           test -s artifacts/strategy-lab-runtime/08-jobs-heartbeat.png
       - name: Reproducibility manifest
         run: python tools/repro_manifest.py
