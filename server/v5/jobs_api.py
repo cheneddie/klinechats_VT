@@ -31,8 +31,15 @@ def install_jobs_api(
 
     @app.post("/api/v5/strategy-lab/jobs")
     def job_submit(req: StrategyJobRequest):
+        job_type = req.job_type.strip().upper()
+        if job_type == "PRODUCTION_GATE":
+            raise ValueError(
+                "PRODUCTION_GATE is not a background job; use the evidence-governed candidate production-gate endpoint"
+            )
+        if job_type not in {"BACKTEST", "OPTIMIZATION", "CANDIDATE_EVALUATION"}:
+            raise ValueError(f"unsupported strategy job type: {job_type}")
         job_id = supervisor.submit(
-            req.job_type,
+            job_type,
             req.payload,
             timeout_seconds=req.timeout_seconds,
         )
