@@ -68,11 +68,14 @@ def main():
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Positive baseline with a realistic non-zero drawdown. This deliberately
+    # leaves room for a degraded-but-not-yet-suspended phase before a later DD breach.
+    baseline_pattern = [0.80, -0.60, -0.50, 1.00]
     baseline = trades(
         date(2026, 1, 1),
         days=20,
         per_day=2,
-        r_pattern=[0.55, -0.20, 0.40, -0.10],
+        r_pattern=baseline_pattern,
         slippage=0.20,
         regimes=["RANGE", "TREND"],
     )
@@ -143,7 +146,7 @@ def main():
         date(2026, 4, 21),
         days=10,
         per_day=2,
-        r_pattern=[0.55, -0.20, 0.40, -0.10],
+        r_pattern=baseline_pattern,
         slippage=0.20,
         regimes=["RANGE", "TREND"],
     )
