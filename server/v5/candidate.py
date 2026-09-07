@@ -147,16 +147,20 @@ def _acceptance(summary: dict[str, Any], policy: dict[str, Any], *, stress: bool
     n = int(summary.get("trades") or 0)
     ev = summary.get("net_expectancy_r")
     pf = summary.get("profit_factor")
+    pf_unbounded = bool(summary.get("profit_factor_unbounded"))
     dd = float(summary.get("max_drawdown_r") or 0.0)
     ci_low = summary.get("expectancy_ci_low")
     check("MIN_TRADES", n, n >= int(policy["min_trades"]), policy["min_trades"])
     min_ev = float(policy["stress_min_expectancy_r"] if stress else policy["min_expectancy_r"])
     check("EXPECTANCY", ev, ev is not None and float(ev) > min_ev, f"> {min_ev}")
     if not stress:
+        # Reporting deliberately serializes no-loss PF as null + an explicit
+        # unbounded flag instead of JSON Infinity. An unbounded PF therefore
+        # satisfies a finite PF floor, while MIN_TRADES remains the sample guard.
         check(
             "PROFIT_FACTOR",
-            pf,
-            pf is not None and float(pf) >= float(policy["min_profit_factor"]),
+            "UNBOUNDED" if pf_unbounded else pf,
+            pf_unbounded or (pf is not None and float(pf) >= float(policy["min_profit_factor"])),
             policy["min_profit_factor"],
         )
         check("MAX_DRAWDOWN_R", dd, dd <= float(policy["max_drawdown_r"]), policy["max_drawdown_r"])
@@ -282,8 +286,7 @@ def evaluate_candidate(
 
 
 def list_candidate_evaluations(event_db: str | Path, candidate_id: str) -> list[dict[str, Any]]:
-    rows = list(_existing_evaluations(event_db, candidate_id).values())
-    return [rows_by_role for rows_by_role in rows]
+    return list(_existing_evaluations(event_db, candidate_id).values())
 
 
 def production_gate(
