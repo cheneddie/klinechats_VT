@@ -92,11 +92,11 @@ def _normalize_execution(payload: dict[str, Any]) -> ExecutionModel:
     return ExecutionModel.from_dict(raw)
 
 
-def _json(value):
+def _json(value, default=None):
     try:
         return json.loads(value) if isinstance(value, str) else value
     except Exception:
-        return value
+        return default
 
 
 def _load_backtest(event_db: Path, run_id: str, *, trade_limit: int = 5000) -> dict[str, Any]:
@@ -308,7 +308,7 @@ def install_strategy_api(
         try:
             rows = [dict(r) for r in c.execute(
                 "SELECT * FROM optimization_runs ORDER BY created_at DESC LIMIT ?",
-                (min(max(limit, 1), 1000),),
+                (min(max(int(limit), 1), 1000),),
             ).fetchall()]
         finally:
             c.close()
