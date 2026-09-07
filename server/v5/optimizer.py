@@ -10,6 +10,7 @@ from typing import Any, Callable
 import pandas as pd
 
 from .backtest import PhysicalPathLoader, RescanRequired, evaluate_backtest
+from .portfolio import PortfolioPolicy
 from .statistics import benjamini_hochberg
 from .storage import connect, tx, utcnow
 from .strategy_registry import StrategyDefinition, canonical_json, content_hash
@@ -192,6 +193,7 @@ def run_optimization(
     search_space: dict[str, Any],
     *,
     execution_model=None,
+    portfolio_policy: PortfolioPolicy | dict[str, Any] | None = None,
     objective: dict[str, Any] | None = None,
     max_trials: int = 200,
     seed: int = 23,
@@ -210,6 +212,14 @@ def run_optimization(
     if not space:
         raise ValueError("optimization search_space cannot be empty")
     objective = dict(objective or {})
+    portfolio = portfolio_policy if isinstance(portfolio_policy, PortfolioPolicy) else PortfolioPolicy.from_dict(portfolio_policy)
+    portfolio.validate()
+    portfolio_hash = content_hash(portfolio.to_dict())
+    persisted_objective = {
+        **objective,
+        "_portfolio_policy": portfolio.to_dict(),
+        "_portfolio_policy_hash": portfolio_hash,
+    }
     combos = _grid(space, max(1, int(max_trials)), seed)
     loader = path_loader or PhysicalPathLoader(data_root)
     trials = []
@@ -221,6 +231,7 @@ def run_optimization(
             strategy,
             overrides=params,
             execution_model=execution_model,
+            portfolio_policy=portfolio,
             path_loader=loader,
             require_frozen_research=True,
             bootstrap_reps=bootstrap_reps,
@@ -270,7 +281,7 @@ def run_optimization(
                 strategy.strategy_key,
                 strategy.definition_hash,
                 canonical_json(space),
-                canonical_json(objective),
+                canonical_json(persisted_objective),
                 len(combos),
                 len(trials),
                 utcnow(),
@@ -327,12 +338,15 @@ def run_optimization(
         "trials": trials,
         "top_trials": ranked[:20],
         "plateau": plateau,
+        "portfolio_policy": portfolio.to_dict(),
+        "portfolio_policy_hash": portfolio_hash,
         "frozen_digest": digest,
         "governance": {
             "holdout_used_for_tuning": False,
             "fdr_method": "BENJAMINI_HOCHBERG",
             "bootstrap_unit": "TRADING_DAY",
             "rescan_parameters_forbidden": True,
+            "portfolio_policy_pinned": True,
         },
     }
 
@@ -346,6 +360,7 @@ def freeze_candidate(
     discovery_run_id: str | None = None,
     candidate_id: str | None = None,
     evidence: dict[str, Any] | None = None,
+    portfolio_policy: PortfolioPolicy | dict[str, Any] | None = None,
     allow_rescan_candidate: bool = False,
 ) -> dict[str, Any]:
     migrate_strategy_db(event_db)
@@ -357,6 +372,27 @@ def freeze_candidate(
         raise ValueError(
             "detector-parameter candidate requires a dedicated freshly-scanned discovery_run_id"
         )
+    portfolio = portfolio_policy if isinstance(portfolio_policy, PortfolioPolicy) else PortfolioPolicy.from_dict(portfolio_policy)
+    portfolio.validate()
+    portfolio_hash = content_hash(portfolio.to_dict())
+    if source_optimization_run_id:
+        c = connect(event_db)
+        try:
+            opt = c.execute(
+                "SELECT objective_json FROM optimization_runs WHERE optimization_run_id=?",
+                (source_optimization_run_id,),
+            ).fetchone()
+        finally:
+            c.close()
+        if not opt:
+            raise ValueError("source_optimization_run_id not found")
+        try:
+            opt_objective = __import__("json").loads(opt["objective_json"] or "{}")
+        except Exception:
+            opt_objective = {}
+        pinned_hash = opt_objective.get("_portfolio_policy_hash")
+        if pinned_hash and str(pinned_hash) != portfolio_hash:
+            raise ValueError("candidate portfolio policy does not match source optimization run")
     candidate_id = candidate_id or ("cand-" + uuid.uuid4().hex[:16])
     with tx(event_db) as c:
         if c.execute(
@@ -388,6 +424,8 @@ def freeze_candidate(
                         **(evidence or {}),
                         "requires_rescan_parameters": rescan,
                         "strategy_definition_hash": strategy.definition_hash,
+                        "portfolio_policy": portfolio.to_dict(),
+                        "portfolio_policy_hash": portfolio_hash,
                     }
                 ),
             ),
@@ -397,6 +435,8 @@ def freeze_candidate(
         "strategy_key": strategy.strategy_key,
         "parameters": clean,
         "parameters_hash": content_hash(clean),
+        "portfolio_policy": portfolio.to_dict(),
+        "portfolio_policy_hash": portfolio_hash,
         "status": "FROZEN_CANDIDATE",
         "requires_rescan_parameters": rescan,
     }
