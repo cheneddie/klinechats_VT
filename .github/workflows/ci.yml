@@ -13,13 +13,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: npm install --ignore-scripts
-      - run: npm test
-      - run: npm run build
+      - name: Install pinned frontend runtime
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.1 --activate
+          pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm build
       - name: Browser module syntax
         run: |
           node --check src/v2/scan-monitor.js
@@ -32,6 +36,8 @@ jobs:
           node --check src/v4/practice.js
           node --check src/v4/replay.js
           node --check src/v4/research.js
+          if [ -f src/v5/strategy-lab.js ]; then node --check src/v5/strategy-lab.js; fi
+          if [ -f src/v5/strategy-lab-evidence.js ]; then node --check src/v5/strategy-lab-evidence.js; fi
       - name: Install scanner runtime dependencies
         run: python -m pip install -r requirements-server.txt
       - name: Python syntax / import boundary
@@ -97,3 +103,4 @@ jobs:
           test -s public/vendor/pixi-8.19.0.min.js
           grep -q '"klinecharts": "10.0.2"' package.json
           grep -q '"pixi.js": "8.19.0"' package.json
+          grep -q '"packageManager": "pnpm@10.15.1"' package.json
