@@ -32,6 +32,8 @@ const required=[
   'dist/src/v5/strategy-lab-evidence.js',
   'dist/src/v5/portfolio-controls.js',
   'dist/src/v5/trade-review-overlay.js',
+  'dist/src/v5/strategy-health.js',
+  'dist/src/v5/production-deployments.js',
   'dist/src/v5/strategy-lab.css',
 ]
 for(const file of required)if(!fs.existsSync(path.join(root,file)))throw new Error(`missing build artifact: ${file}`)
