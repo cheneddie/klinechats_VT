@@ -28,6 +28,7 @@ const routes = [
   ['candidates', '07-candidate-production-gate.png', '#gateRun'],
   ['jobs', '08-jobs-heartbeat.png', '#jobsBody'],
   ['monitor', '09-strategy-health.png', '[data-strategy-health-page]'],
+  ['deployments', '10-production-deployment-governance.png', '[data-production-deployments-page]'],
 ]
 
 async function selectFirstRealOption(selector) {
@@ -134,6 +135,33 @@ async function hydrateRoute(route) {
       computed: health.computed,
       lifecycle: health.lifecycle,
       timelineRows: health.timelineRows,
+    }))
+  }
+  if (route === 'deployments') {
+    await page.waitForSelector('[data-production-deployments-page][data-deployment-id="deploy-synthetic-ui-v1"][data-production-eligible="NO"][data-deployment-lifecycle="SUSPENDED"][data-deployment-computed="NORMAL"][data-deployment-effective="SUSPEND"]')
+    const deployment = await page.locator('[data-production-deployments-page]').evaluate(el => ({
+      deploymentId: el.dataset.deploymentId,
+      eligible: el.dataset.productionEligible,
+      lifecycle: el.dataset.deploymentLifecycle,
+      computed: el.dataset.deploymentComputed,
+      effective: el.dataset.deploymentEffective,
+      text: el.textContent || '',
+      identityRows: el.querySelectorAll('[data-deployment-identity] .check').length,
+      resumeDisabled: el.querySelector('#deployResume')?.disabled ?? true,
+    }))
+    if (deployment.identityRows < 10 || deployment.resumeDisabled) {
+      throw new Error(`Production deployment exact identity UI incomplete: ${JSON.stringify(deployment)}`)
+    }
+    for (const token of ['Strategy hash','Parameters hash','Execution hash','Portfolio policy hash','Deployment identity hash','Production Eligible']) {
+      if (!deployment.text.includes(token)) throw new Error(`Production deployment identity field missing: ${token}`)
+    }
+    console.log('STRATEGY_LAB_DEPLOYMENT_LATCH', JSON.stringify({
+      deploymentId: deployment.deploymentId,
+      eligible: deployment.eligible,
+      lifecycle: deployment.lifecycle,
+      computed: deployment.computed,
+      effective: deployment.effective,
+      identityRows: deployment.identityRows,
     }))
   }
 }
