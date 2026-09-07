@@ -39,6 +39,7 @@ jobs:
             server/v5/backtest.py \
             server/v5/optimizer.py \
             server/v5/monitor.py \
+            server/v5/monitor_api.py \
             server/v5/candidate.py \
             server/v5/candidate_api.py \
             server/v5/production_evidence.py \
@@ -50,12 +51,14 @@ jobs:
             server/fabio_api_v5.py \
             tools/repro_manifest.py \
             tools/synthetic_mtx_demo.py \
-            tools/synthetic_mtx_demo_run.py
+            tools/synthetic_mtx_demo_run.py \
+            tools/synthetic_strategy_health.py
           node --check src/v5/strategy-lab.js
           node --check src/v5/strategy-lab-evidence.js
           node --check src/v5/portfolio-controls.js
           node --check src/v5/compare-guard.js
           node --check src/v5/trade-review-overlay.js
+          node --check src/v5/strategy-health.js
           node --check scripts/capture-strategy-lab-runtime.mjs
           node --check scripts/qa-strategy-lab-contract.mjs
       - name: Strategy Lab tests
@@ -66,6 +69,7 @@ jobs:
             tests/test_portfolio_policy.py \
             tests/test_strategy_api_portfolio.py \
             tests/test_compare_guard.py \
+            tests/test_strategy_health.py \
             tests/test_candidate_gate.py \
             tests/test_production_provenance.py \
             tests/test_strategy_jobs.py 2>&1 | tee strategy-lab-pytest.log
@@ -80,6 +84,7 @@ jobs:
           test -s dist/src/v5/portfolio-controls.js
           test -s dist/src/v5/compare-guard.js
           test -s dist/src/v5/trade-review-overlay.js
+          test -s dist/src/v5/strategy-health.js
           test ! -e dist/reports
           test ! -e dist/docs
           test ! -e dist/config
@@ -148,6 +153,25 @@ jobs:
           print('SYNTHETIC_COMPARABLE_CONTROL', out['backtest_run_id'])
           PY
 
+          # Strategy Health: degradation -> auto suspend -> later computed NORMAL
+          # must remain effectively SUSPEND until an explicit human RESUME action.
+          python tools/synthetic_strategy_health.py \
+            --event-db "$FABIO_V5_EVENT_DB" \
+            --out artifacts/strategy-lab-runtime/synthetic-strategy-health.json \
+            | tee artifacts/strategy-lab-runtime/synthetic-strategy-health.log
+          test -s artifacts/strategy-lab-runtime/synthetic-strategy-health.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path('artifacts/strategy-lab-runtime/synthetic-strategy-health.json').read_text())
+          assert x['degraded']['state'] == 'DEGRADED', x
+          assert x['suspended']['state'] == 'SUSPEND', x
+          assert x['latched_recovery']['details']['computed_state'] == 'NORMAL', x
+          assert x['latched_recovery']['state'] == 'SUSPEND', x
+          assert x['control']['lifecycle_state'] == 'SUSPENDED', x
+          print('SYNTHETIC_STRATEGY_HEALTH PASS DEGRADED SUSPEND NORMAL->SUSPEND_LATCHED')
+          PY
+
           python -m server.fabio_api_v5 > artifacts/strategy-lab-runtime/api.log 2>&1 &
           API_PID=$!
           python -m http.server 4173 --bind 127.0.0.1 > artifacts/strategy-lab-runtime/static.log 2>&1 &
@@ -169,16 +193,24 @@ jobs:
           PY
           curl -sf 'http://127.0.0.1:8765/api/v5/strategy-lab/compare-governed?backtest_run_ids=bt-synthetic-mtx-mr-v1,bt-synthetic-mtx-mr-compare-v1' > artifacts/strategy-lab-runtime/compare-comparable.json
           curl -sf 'http://127.0.0.1:8765/api/v5/strategy-lab/compare-governed?backtest_run_ids=bt-synthetic-mtx-overlap-independent-v1,bt-synthetic-mtx-overlap-single-v1' > artifacts/strategy-lab-runtime/compare-blocked.json
+          curl -sf 'http://127.0.0.1:8765/api/v5/strategy-lab/monitor-health?strategy_key=MR_BROAD%40V3&limit=20' > artifacts/strategy-lab-runtime/monitor-health-api.json
           python - <<'PY'
           import json
           from pathlib import Path
           ok=json.loads(Path('artifacts/strategy-lab-runtime/compare-comparable.json').read_text())
           bad=json.loads(Path('artifacts/strategy-lab-runtime/compare-blocked.json').read_text())
+          mon=json.loads(Path('artifacts/strategy-lab-runtime/monitor-health-api.json').read_text())
           assert ok['comparability']['status'] == 'COMPARABLE', ok
           assert bad['comparability']['status'] == 'BLOCKED', bad
           failed=set(bad['comparability']['failed'])
           assert {'EXECUTION_HASH','PORTFOLIO_POLICY_HASH'} <= failed, bad
+          assert len(mon['items']) >= 3, mon
+          latest=mon['items'][0]
+          assert latest['state'] == 'SUSPEND', latest
+          assert latest['details']['computed_state'] == 'NORMAL', latest
+          assert mon['controls']['MR_BROAD@V3']['lifecycle_state'] == 'SUSPENDED', mon
           print('SYNTHETIC_COMPARE_GATE PASS', ok['comparability']['status'], bad['comparability']['status'])
+          print('SYNTHETIC_MONITOR_API PASS', latest['details']['computed_state'], '->', latest['state'])
           PY
           curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/backtests > artifacts/strategy-lab-runtime/backtests-api.json
           curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/optimizations > artifacts/strategy-lab-runtime/optimizations-api.json
@@ -190,6 +222,7 @@ jobs:
           test -s artifacts/strategy-lab-runtime/05-optimization-lab.png
           test -s artifacts/strategy-lab-runtime/06-compare-lab.png
           test -s artifacts/strategy-lab-runtime/08-jobs-heartbeat.png
+          test -s artifacts/strategy-lab-runtime/09-strategy-health.png
       - name: Reproducibility manifest
         run: python tools/repro_manifest.py
       - name: Upload diagnostics and runtime screenshots
