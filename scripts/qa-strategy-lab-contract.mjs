@@ -5,6 +5,7 @@ const browser=await chromium.launch(launchOptions)
 const page=await browser.newPage({viewport:{width:1600,height:1000},deviceScaleFactor:1})
 page.setDefaultTimeout(7000)
 const errors=[]
+const postBodies=[]
 page.on('console',msg=>{if(msg.type()==='error'&&!msg.text().includes('ERR_CONNECTION_REFUSED'))errors.push(`console:${msg.text()}`)})
 page.on('pageerror',err=>errors.push(`pageerror:${err.message}`))
 
@@ -18,6 +19,9 @@ const strategy={
 const response=(body,status=200)=>({status,contentType:'application/json',body:JSON.stringify(body)})
 await page.route('**/api/v5/strategy-lab/**',async route=>{
   const u=new URL(route.request().url()),p=u.pathname,method=route.request().method()
+  if(method==='POST'){
+    try{postBodies.push({path:p,body:JSON.parse(route.request().postData()||'{}')})}catch{}
+  }
   if(p.endsWith('/health'))return route.fulfill(response({engine:'STRATEGY_LAB_V1'}))
   if(p.endsWith('/strategies'))return route.fulfill(response({items:[strategy]}))
   if(p.includes('/backtests')&&!p.includes('/trades'))return route.fulfill(response({items:[]}))
@@ -41,13 +45,33 @@ try{
   await page.waitForSelector('#btParams')
   const disabled=await page.locator('[data-param][disabled]').count()
   if(disabled<1)throw new Error('rescan parameter is not hard locked in Backtest Studio')
+  await page.waitForSelector('[data-portfolio-scope="backtest"]')
+  await page.selectOption('[data-portfolio-scope="backtest"] [data-pf="mode"]','SINGLE_POSITION')
+  await page.waitForSelector('[data-portfolio-scope="backtest"] [data-pf="overlap_policy"]')
+  await page.fill('[data-portfolio-scope="backtest"] [data-pf="reentry_cooldown_seconds"]','120')
+  await page.fill('[data-portfolio-scope="backtest"] [data-pf="fixed_quantity"]','2')
+  await page.fill('[data-portfolio-scope="backtest"] [data-pf="force_flat_time"]','13:40:00')
+  await page.locator('[data-portfolio-scope="backtest"] [data-pf="force_flat_time"]').dispatchEvent('change')
+  await page.fill('#btResearch','qa-research')
+  await page.click('#btRun')
+  await page.waitForFunction(()=>document.querySelector('#btResult')?.textContent?.includes('job-qa'))
+  const backtestPost=postBodies.filter(x=>x.path.endsWith('/jobs')&&x.body?.job_type==='BACKTEST').at(-1)?.body
+  if(!backtestPost)throw new Error('Backtest POST was not captured')
+  const pf=backtestPost.payload?.portfolio_policy
+  if(pf?.mode!=='SINGLE_POSITION')throw new Error(`portfolio mode missing from Backtest request: ${JSON.stringify(pf)}`)
+  if(pf?.overlap_policy!=='SKIP_WHILE_OPEN'||pf?.max_open_positions!==1)throw new Error(`single-position arbitration contract invalid: ${JSON.stringify(pf)}`)
+  if(pf?.reentry_cooldown_seconds!==120||pf?.fixed_quantity!==2||pf?.force_flat_time!=='13:40:00')throw new Error(`portfolio controls not propagated: ${JSON.stringify(pf)}`)
 
   await page.evaluate(()=>location.hash='#/optimize')
   await page.waitForSelector('#optParams')
   if(await page.locator('#optParams input[disabled]').count()<1)throw new Error('rescan parameter is not hard locked in Optimization Lab')
+  await page.waitForSelector('[data-portfolio-scope="optimize"]')
+  if(await page.locator('[data-portfolio-scope="optimize"] [data-pf="mode"]').inputValue()!=='SINGLE_POSITION')throw new Error('Optimization Lab did not reuse pinned portfolio policy')
 
   await page.evaluate(()=>location.hash='#/candidates')
   await page.waitForSelector('#productionEvidenceCard')
+  await page.waitForSelector('[data-portfolio-scope="candidate"]')
+  if(await page.locator('[data-portfolio-scope="candidate"] [data-pf="mode"]').inputValue()!=='SINGLE_POSITION')throw new Error('Candidate Lab did not reuse pinned portfolio policy')
   await page.waitForSelector('#gateParityEvidence')
   await page.waitForSelector('#gatePaperEvidence')
   if(await page.locator('#gateLive').count())throw new Error('unsafe naked live-parity pass control remains')
@@ -72,6 +96,7 @@ try{
   await page.waitForSelector('#jobsBody')
 
   if(errors.length)throw new Error(`Browser console errors: ${errors.join(' | ')}`)
+  console.log('STRATEGY_LAB_PORTFOLIO_REQUEST',JSON.stringify(pf))
   console.log('STRATEGY_LAB_BROWSER_QA PASS')
 }catch(err){
   console.error('STRATEGY_LAB_BROWSER_QA FAIL',err.message,errors)
