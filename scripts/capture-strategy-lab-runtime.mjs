@@ -138,30 +138,47 @@ async function hydrateRoute(route) {
     }))
   }
   if (route === 'deployments') {
-    await page.waitForSelector('[data-production-deployments-page][data-deployment-id="deploy-synthetic-ui-v1"][data-production-eligible="NO"][data-deployment-lifecycle="SUSPENDED"][data-deployment-computed="NORMAL"][data-deployment-effective="SUSPEND"]')
+    await page.waitForSelector('[data-production-deployments-page][data-deployment-id="deploy-synthetic-ui-v1"][data-production-eligible="NO"][data-deployment-lifecycle="SUSPENDED"][data-deployment-computed="NORMAL"][data-deployment-effective="SUSPEND"][data-health-evidence-kind="EXECUTION_OBSERVATIONS"][data-health-source-type="LIVE"][data-health-authoritative="YES"]')
     const deployment = await page.locator('[data-production-deployments-page]').evaluate(el => ({
       deploymentId: el.dataset.deploymentId,
       eligible: el.dataset.productionEligible,
       lifecycle: el.dataset.deploymentLifecycle,
       computed: el.dataset.deploymentComputed,
       effective: el.dataset.deploymentEffective,
+      liveObservations: Number(el.dataset.liveObservations || 0),
+      paperObservations: Number(el.dataset.paperObservations || 0),
+      evidenceKind: el.dataset.healthEvidenceKind,
+      healthSource: el.dataset.healthSourceType,
+      authoritative: el.dataset.healthAuthoritative,
+      observationDigest: el.dataset.healthObservationDigest,
       text: el.textContent || '',
       identityRows: el.querySelectorAll('[data-deployment-identity] .check').length,
+      observationRows: el.querySelectorAll('[data-execution-observation-evidence] .metric').length,
       resumeDisabled: el.querySelector('#deployResume')?.disabled ?? true,
     }))
     if (deployment.identityRows < 10 || deployment.resumeDisabled) {
       throw new Error(`Production deployment exact identity UI incomplete: ${JSON.stringify(deployment)}`)
     }
-    for (const token of ['Strategy hash','Parameters hash','Execution hash','Portfolio policy hash','Deployment identity hash','Production Eligible']) {
-      if (!deployment.text.includes(token)) throw new Error(`Production deployment identity field missing: ${token}`)
+    if (deployment.liveObservations < 1 || deployment.paperObservations < 1 || deployment.observationRows < 6) {
+      throw new Error(`Production execution observation UI incomplete: ${JSON.stringify(deployment)}`)
     }
-    console.log('STRATEGY_LAB_DEPLOYMENT_LATCH', JSON.stringify({
+    if (deployment.evidenceKind !== 'EXECUTION_OBSERVATIONS' || deployment.healthSource !== 'LIVE' || deployment.authoritative !== 'YES' || !/^[0-9a-f]{64}$/.test(deployment.observationDigest || '')) {
+      throw new Error(`Production health is not backed by authoritative LIVE observation evidence: ${JSON.stringify(deployment)}`)
+    }
+    for (const token of ['Strategy hash','Parameters hash','Execution hash','Portfolio policy hash','Deployment identity hash','Production Eligible','LIVE observations','PAPER observations','Observation digest']) {
+      if (!deployment.text.includes(token)) throw new Error(`Production deployment evidence field missing: ${token}`)
+    }
+    console.log('STRATEGY_LAB_DEPLOYMENT_LIVE_EVIDENCE', JSON.stringify({
       deploymentId: deployment.deploymentId,
       eligible: deployment.eligible,
       lifecycle: deployment.lifecycle,
       computed: deployment.computed,
       effective: deployment.effective,
-      identityRows: deployment.identityRows,
+      liveObservations: deployment.liveObservations,
+      paperObservations: deployment.paperObservations,
+      evidenceKind: deployment.evidenceKind,
+      healthSource: deployment.healthSource,
+      observationDigest: deployment.observationDigest,
     }))
   }
 }
