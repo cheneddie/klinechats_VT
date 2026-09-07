@@ -54,13 +54,15 @@ jobs:
             tools/repro_manifest.py \
             tools/synthetic_mtx_demo.py \
             tools/synthetic_mtx_demo_run.py \
-            tools/synthetic_strategy_health.py
+            tools/synthetic_strategy_health.py \
+            tools/synthetic_production_deployment.py
           node --check src/v5/strategy-lab.js
           node --check src/v5/strategy-lab-evidence.js
           node --check src/v5/portfolio-controls.js
           node --check src/v5/compare-guard.js
           node --check src/v5/trade-review-overlay.js
           node --check src/v5/strategy-health.js
+          node --check src/v5/production-deployments.js
           node --check scripts/capture-strategy-lab-runtime.mjs
           node --check scripts/qa-strategy-lab-contract.mjs
       - name: Strategy Lab tests
@@ -88,6 +90,7 @@ jobs:
           test -s dist/src/v5/compare-guard.js
           test -s dist/src/v5/trade-review-overlay.js
           test -s dist/src/v5/strategy-health.js
+          test -s dist/src/v5/production-deployments.js
           test ! -e dist/reports
           test ! -e dist/docs
           test ! -e dist/config
@@ -171,6 +174,25 @@ jobs:
           print('SYNTHETIC_STRATEGY_HEALTH PASS DEGRADED SUSPEND NORMAL->SUSPEND_LATCHED')
           PY
 
+          python tools/synthetic_production_deployment.py \
+            --event-db "$FABIO_V5_EVENT_DB" \
+            --out artifacts/strategy-lab-runtime/synthetic-production-deployment.json \
+            | tee artifacts/strategy-lab-runtime/synthetic-production-deployment.log
+          test -s artifacts/strategy-lab-runtime/synthetic-production-deployment.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path('artifacts/strategy-lab-runtime/synthetic-production-deployment.json').read_text())
+          assert x['synthetic'] is True, x
+          assert x['status']['deployment_id'] == 'deploy-synthetic-ui-v1', x
+          assert x['status']['identity_verification']['valid'] is True, x
+          assert x['status']['control']['lifecycle_state'] == 'SUSPENDED', x
+          assert x['status']['latest_health']['details']['computed_state'] == 'NORMAL', x
+          assert x['status']['latest_health']['state'] == 'SUSPEND', x
+          assert x['status']['production_eligible'] is False, x
+          print('SYNTHETIC_DEPLOYMENT_GOVERNANCE PASS exact_identity NORMAL->SUSPEND_LATCHED eligible=false')
+          PY
+
           python -m server.fabio_api_v5 > artifacts/strategy-lab-runtime/api.log 2>&1 &
           API_PID=$!
           python -m http.server 4173 --bind 127.0.0.1 > artifacts/strategy-lab-runtime/static.log 2>&1 &
@@ -193,12 +215,14 @@ jobs:
           curl -sf 'http://127.0.0.1:8765/api/v5/strategy-lab/compare-governed?backtest_run_ids=bt-synthetic-mtx-mr-v1,bt-synthetic-mtx-mr-compare-v1' > artifacts/strategy-lab-runtime/compare-comparable.json
           curl -sf 'http://127.0.0.1:8765/api/v5/strategy-lab/compare-governed?backtest_run_ids=bt-synthetic-mtx-overlap-independent-v1,bt-synthetic-mtx-overlap-single-v1' > artifacts/strategy-lab-runtime/compare-blocked.json
           curl -sf 'http://127.0.0.1:8765/api/v5/strategy-lab/monitor-health?strategy_key=MR_BROAD%40V3&limit=20' > artifacts/strategy-lab-runtime/monitor-health-api.json
+          curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/deployments > artifacts/strategy-lab-runtime/deployments-api.json
           python - <<'PY'
           import json
           from pathlib import Path
           ok=json.loads(Path('artifacts/strategy-lab-runtime/compare-comparable.json').read_text())
           bad=json.loads(Path('artifacts/strategy-lab-runtime/compare-blocked.json').read_text())
           mon=json.loads(Path('artifacts/strategy-lab-runtime/monitor-health-api.json').read_text())
+          dep=json.loads(Path('artifacts/strategy-lab-runtime/deployments-api.json').read_text())
           assert ok['comparability']['status'] == 'COMPARABLE', ok
           assert bad['comparability']['status'] == 'BLOCKED', bad
           failed=set(bad['comparability']['failed'])
@@ -208,12 +232,17 @@ jobs:
           assert latest['state'] == 'SUSPEND', latest
           assert latest['details']['computed_state'] == 'NORMAL', latest
           assert mon['controls']['MR_BROAD@V3']['lifecycle_state'] == 'SUSPENDED', mon
+          assert len(dep['items']) >= 1, dep
+          deployment=dep['items'][0]
+          assert deployment['deployment_id'] == 'deploy-synthetic-ui-v1', deployment
+          assert deployment['production_eligible'] is False, deployment
+          assert deployment['identity_verification']['valid'] is True, deployment
           print('SYNTHETIC_COMPARE_GATE PASS', ok['comparability']['status'], bad['comparability']['status'])
           print('SYNTHETIC_MONITOR_API PASS', latest['details']['computed_state'], '->', latest['state'])
+          print('SYNTHETIC_DEPLOYMENT_API PASS', deployment['deployment_id'], 'eligible=', deployment['production_eligible'])
           PY
           curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/backtests > artifacts/strategy-lab-runtime/backtests-api.json
           curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/optimizations > artifacts/strategy-lab-runtime/optimizations-api.json
-          curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/deployments > artifacts/strategy-lab-runtime/deployments-api.json
           for i in {1..20}; do curl -sf http://127.0.0.1:4173/strategy-lab.html >/dev/null && break; sleep 1; done
           STRATEGY_LAB_SCREENSHOT_DIR="$GITHUB_WORKSPACE/artifacts/strategy-lab-runtime" \
             node "$RUNNER_TEMP/pw-runner/capture.mjs"
@@ -223,6 +252,7 @@ jobs:
           test -s artifacts/strategy-lab-runtime/06-compare-lab.png
           test -s artifacts/strategy-lab-runtime/08-jobs-heartbeat.png
           test -s artifacts/strategy-lab-runtime/09-strategy-health.png
+          test -s artifacts/strategy-lab-runtime/10-production-deployment-governance.png
       - name: Reproducibility manifest
         run: python tools/repro_manifest.py
       - name: Upload diagnostics and runtime screenshots
