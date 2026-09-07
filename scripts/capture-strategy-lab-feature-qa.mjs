@@ -234,7 +234,7 @@ try {
     text: el.textContent || '',
     live: Number(el.dataset.liveObservations || 0),
     paper: Number(el.dataset.paperObservations || 0),
-    authoritative: el.dataset.authoritativeHealth,
+    authoritative: el.dataset.healthAuthoritative,
   }))
   for (const token of ['EXECUTION_OBSERVATIONS', 'LIVE', 'Observation digest', 'Deployment identity hash']) {
     if (!deployment.text.includes(token)) throw new Error(`Deployment QA missing ${token}`)
