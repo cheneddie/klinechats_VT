@@ -221,11 +221,12 @@ def _record_fixture_observations(event_db: Path, identity_hash: str) -> dict:
 
 def _build_live_health(event_db: Path, *, as_of_date: str, window_days: int) -> dict:
     baseline = _load_backtest(event_db, BACKTEST_ID)
+    deployment = deployment_status(event_db, DEPLOYMENT_ID)
     live_trades = execution_observations_as_trades(event_db, DEPLOYMENT_ID, source_type="LIVE")
     snapshot = build_monitor_snapshot(
         live_trades,
         baseline["summary"],
-        strategy_key=baseline["strategy_key"],
+        strategy_key=deployment["strategy_key"],
         as_of_date=as_of_date,
         window_days=window_days,
         policy=MONITOR_POLICY,
