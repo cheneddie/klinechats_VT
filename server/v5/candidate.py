@@ -10,6 +10,7 @@ import pandas as pd
 
 from .backtest import run_backtest
 from .execution import ExecutionModel
+from .portfolio import PortfolioPolicy
 from .production_evidence import get_paper_evidence, get_parity_evidence
 from .storage import connect, verify_run_digest, tx, utcnow
 from .strategy_registry import StrategyDefinition, content_hash
@@ -195,6 +196,15 @@ def evaluate_candidate(
         raise RuntimeError("candidate parameter digest mismatch")
     strategy.validate_overrides(params)
 
+    candidate_evidence = dict(candidate.get("evidence") or {})
+    raw_portfolio = candidate_evidence.get("portfolio_policy")
+    if raw_portfolio is None:
+        raise RuntimeError("candidate is missing frozen portfolio policy")
+    portfolio = PortfolioPolicy.from_dict(raw_portfolio)
+    portfolio_hash = content_hash(portfolio.to_dict())
+    if portfolio_hash != str(candidate_evidence.get("portfolio_policy_hash") or ""):
+        raise RuntimeError("candidate portfolio policy digest mismatch")
+
     existing = _existing_evaluations(event_db, candidate_id)
     if role in existing:
         raise ValueError(f"candidate already has immutable {role} evaluation")
@@ -224,10 +234,11 @@ def evaluate_candidate(
             strategy,
             overrides=params,
             execution_model=scenario_model,
+            portfolio_policy=portfolio,
             bootstrap_reps=bootstrap_reps,
             backtest_run_id=run_id,
             code_commit=code_commit,
-            notes=f"candidate={candidate_id}; role={role}; scenario={scenario}",
+            notes=f"candidate={candidate_id}; role={role}; scenario={scenario}; portfolio={portfolio_hash}",
             path_loader=path_loader,
         )
         summary = result["report"]["summary"]
@@ -235,6 +246,7 @@ def evaluate_candidate(
             "backtest_run_id": result["backtest_run_id"],
             "digest": result["digest"],
             "summary": summary,
+            "portfolio_policy_hash": result.get("portfolio_policy_hash"),
             "acceptance": _acceptance(summary, merged_policy, stress=scenario != "BASE"),
         }
         if scenario == "BASE":
@@ -253,6 +265,8 @@ def evaluate_candidate(
         "policy": merged_policy,
         "scenarios": scenario_results,
         "parameter_hash": candidate["parameters_hash"],
+        "portfolio_policy": portfolio.to_dict(),
+        "portfolio_policy_hash": portfolio_hash,
         "research_digest": research.get("frozen_digest"),
     }
     with tx(event_db) as c:
@@ -305,6 +319,22 @@ def production_gate(
     def add(name: str, passed: bool, details: Any = None):
         checklist.append({"name": name, "passed": bool(passed), "details": details})
 
+    candidate_evidence = dict(candidate.get("evidence") or {})
+    expected_portfolio_hash = str(candidate_evidence.get("portfolio_policy_hash") or "")
+    try:
+        expected_policy = PortfolioPolicy.from_dict(candidate_evidence.get("portfolio_policy"))
+        computed_policy_hash = content_hash(expected_policy.to_dict())
+    except Exception as exc:
+        expected_policy = None
+        computed_policy_hash = ""
+        add("CANDIDATE_PORTFOLIO_POLICY", False, str(exc))
+    else:
+        add(
+            "CANDIDATE_PORTFOLIO_POLICY",
+            bool(expected_portfolio_hash) and expected_portfolio_hash == computed_policy_hash,
+            {"expected": expected_portfolio_hash, "computed": computed_policy_hash, "policy": expected_policy.to_dict()},
+        )
+
     for role in ROLES:
         row = evaluations.get(role)
         status = (row.get("result") or {}).get("status") if row else None
@@ -315,8 +345,19 @@ def production_gate(
                 row.get("parameters_hash") == candidate["parameters_hash"],
                 row.get("parameters_hash"),
             )
+            evaluation_portfolio_hash = str((row.get("result") or {}).get("portfolio_policy_hash") or "")
+            add(
+                f"{role}_PORTFOLIO_POLICY_HASH",
+                bool(expected_portfolio_hash) and evaluation_portfolio_hash == expected_portfolio_hash,
+                evaluation_portfolio_hash or "MISSING",
+            )
             scenario_map = (row.get("result") or {}).get("scenarios") or {}
             for scenario, item in scenario_map.items():
+                add(
+                    f"{role}_{scenario}_PORTFOLIO_POLICY_HASH",
+                    str(item.get("portfolio_policy_hash") or "") == expected_portfolio_hash,
+                    item.get("portfolio_policy_hash") or "MISSING",
+                )
                 bt = item.get("backtest_run_id")
                 try:
                     integrity = verify_backtest_digest(event_db, bt)
@@ -364,6 +405,8 @@ def production_gate(
         "policy": merged,
         "research_pass": research_pass,
         "failed_checks": [x["name"] for x in failed],
+        "portfolio_policy": expected_policy.to_dict() if expected_policy else None,
+        "portfolio_policy_hash": expected_portfolio_hash or None,
         "parity_evidence_id": parity_evidence_id,
         "paper_evidence_id": paper_evidence_id,
         "notes": notes,
