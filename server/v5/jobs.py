@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import json
 import multiprocessing as mp
-import os
 import threading
-import time
 import traceback
 import uuid
 from pathlib import Path
@@ -192,7 +190,6 @@ def _dispatch_job(
     if job_type == "CANDIDATE_EVALUATION":
         from .candidate import evaluate_candidate
         from .execution import ExecutionModel
-        from .storage import connect
         c = connect(event_db)
         try:
             row = c.execute(
@@ -223,7 +220,6 @@ def _dispatch_job(
         }
     if job_type == "PRODUCTION_GATE":
         from .candidate import production_gate
-        from .storage import connect
         c = connect(event_db)
         try:
             row = c.execute(
@@ -240,8 +236,8 @@ def _dispatch_job(
             payload["candidate_id"],
             strategy,
             policy=payload.get("policy") or {},
-            live_parity_pass=bool(payload.get("live_parity_pass")),
-            paper_trading_pass=bool(payload.get("paper_trading_pass")),
+            parity_evidence_id=payload.get("parity_evidence_id"),
+            paper_evidence_id=payload.get("paper_evidence_id"),
             notes=payload.get("notes"),
         )
     raise ValueError(f"unsupported strategy job type: {job_type}")
