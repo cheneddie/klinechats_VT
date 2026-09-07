@@ -29,6 +29,36 @@ const routes = [
   ['jobs', '08-jobs-heartbeat.png', '#jobsBody'],
 ]
 
+async function selectFirstRealOption(selector) {
+  const value = await page.locator(`${selector} option`).evaluateAll(options => {
+    const hit = options.find(o => o.value)
+    return hit?.value || ''
+  })
+  if (value) await page.selectOption(selector, value)
+  return value
+}
+
+async function hydrateRoute(route) {
+  if (route === 'review') {
+    const value = await selectFirstRealOption('#reviewBt')
+    if (value) {
+      await page.click('#reviewLoad')
+      await page.waitForSelector('.trade-item')
+      await page.locator('.trade-item').first().click()
+      await page.waitForSelector('#tradeDetail h2')
+      await page.waitForTimeout(500)
+    }
+  }
+  if (route === 'reports') {
+    const value = await selectFirstRealOption('#reportBt')
+    if (value) {
+      await page.click('#reportLoad')
+      await page.waitForSelector('#reportBody .metric-grid')
+      await page.waitForTimeout(250)
+    }
+  }
+}
+
 const manifest = []
 try {
   await page.goto(`${base}#/library`, { waitUntil: 'domcontentloaded' })
@@ -42,6 +72,7 @@ try {
     await page.evaluate(r => { location.hash = `#/${r}` }, route)
     await page.waitForSelector(selector)
     await page.waitForTimeout(250)
+    await hydrateRoute(route)
     const target = path.join(outDir, file)
     await page.screenshot({ path: target, fullPage: true })
     manifest.push({ route, file, url: page.url(), health: healthText })
