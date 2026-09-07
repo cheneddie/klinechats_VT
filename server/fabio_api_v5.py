@@ -10,6 +10,7 @@ from .v5.compare_api import install_compare_api
 from .v5.jobs_api import install_jobs_api
 from .v5.monitor_api import install_monitor_api
 from .v5.parity import install_parity
+from .v5.production_deployment_api import install_production_deployment_api
 from .v5.production_evidence_api import install_production_evidence_api
 from .v5.replay_api import install_replay
 from .v5.strategy_api import install_strategy_api
@@ -22,6 +23,7 @@ app = install_compare_api(app, event_db=EVENT_DB)
 app = install_monitor_api(app, event_db=EVENT_DB)
 app = install_candidate_api(app, event_db=EVENT_DB, data_root=v4.base.ROOT)
 app = install_production_evidence_api(app, event_db=EVENT_DB)
+app = install_production_deployment_api(app, event_db=EVENT_DB)
 app = install_jobs_api(app, event_db=EVENT_DB, data_root=v4.base.ROOT)
 
 
