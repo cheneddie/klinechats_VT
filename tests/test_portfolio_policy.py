@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from server.v5.execution import simulate_physical_trade
+from server.v5.execution import ExecutionModel, simulate_physical_trade
 from server.v5.portfolio import PortfolioPolicy, arbitrate_trades
 from server.v5.strategy_registry import content_hash
 
@@ -179,3 +179,56 @@ def test_numeric_strings_canonicalize_before_policy_hashing():
     }).to_dict()
     assert from_json_form == typed
     assert content_hash(from_json_form) == content_hash(typed)
+
+
+def test_execution_model_js_numbers_match_python_default_identity():
+    python_default = ExecutionModel().to_dict()
+    js_round_trip = ExecutionModel.from_dict({
+        "execution_model_id": "PHYSICAL_MARKET",
+        "version": "V1",
+        "fill_timing": "signal",
+        "entry_slippage_points": 0,
+        "exit_slippage_points": 0,
+        "commission_points_per_side": 0,
+        "latency_ms": 0,
+        "price_column": "price",
+        "seq_column": "_seq",
+        "time_column": "dt",
+    }).to_dict()
+    assert js_round_trip == python_default
+    assert isinstance(js_round_trip["entry_slippage_points"], float)
+    assert isinstance(js_round_trip["exit_slippage_points"], float)
+    assert isinstance(js_round_trip["commission_points_per_side"], float)
+    assert isinstance(js_round_trip["latency_ms"], int)
+    assert content_hash(js_round_trip) == content_hash(python_default)
+
+
+def test_execution_model_form_strings_and_direct_integers_hash_canonically():
+    typed = ExecutionModel(
+        execution_model_id="CUSTOM",
+        version="V2",
+        fill_timing="NEXT_TICK",
+        entry_slippage_points=0.25,
+        exit_slippage_points=0.50,
+        commission_points_per_side=0.10,
+        latency_ms=250,
+    ).to_dict()
+    from_form = ExecutionModel.from_dict({
+        "execution_model_id": "CUSTOM",
+        "version": "V2",
+        "fill_timing": "next_tick",
+        "entry_slippage_points": "0.25",
+        "exit_slippage_points": "0.50",
+        "commission_points_per_side": "0.10",
+        "latency_ms": "250",
+    }).to_dict()
+    direct_zero = ExecutionModel(
+        entry_slippage_points=0,
+        exit_slippage_points=0,
+        commission_points_per_side=0,
+        latency_ms=0,
+    ).to_dict()
+    assert from_form == typed
+    assert content_hash(from_form) == content_hash(typed)
+    assert direct_zero == ExecutionModel().to_dict()
+    assert content_hash(direct_zero) == content_hash(ExecutionModel().to_dict())
