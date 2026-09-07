@@ -15,22 +15,26 @@ function metaTime(c,nodeId){
 }
 async function fetchWindow(c,{nodeId=null,timeframe='1m',before=1,after=1,session='full',hideFuture=false}={}){
   const q=new URLSearchParams({timeframe,days_before:String(before),session});
+  const researchRunId=c?.research_run_id||c?.researchRunId||null;
+  if(researchRunId)q.set('research_run_id',String(researchRunId));
   if(hideFuture){
     if(!nodeId)throw new Error('Hide Future requires nodeId');
     q.set('node_id',nodeId);
-    return api('/v4/training-replay/'+encodeURIComponent(c.id)+'?'+q.toString());
+    const prefix=researchRunId?'/v5/training/replay/':'/v4/training-replay/';
+    return api(prefix+encodeURIComponent(c.id)+'?'+q.toString());
   }
   q.set('days_after',String(after));
   if(nodeId)q.set('node_id',nodeId);
-  return api('/v4/replay/'+encodeURIComponent(c.id)+'?'+q.toString());
+  const prefix=researchRunId?'/v5/replay/':'/v4/replay/';
+  return api(prefix+encodeURIComponent(c.id)+'?'+q.toString());
 }
 async function render(host,c,opts={}){
   if(!host||!c)return null;
   dispose();
-  host.innerHTML='<div class="empty-chart">V4 Replay：載入交易日資料…</div>';
+  host.innerHTML='<div class="empty-chart">Replay：載入交易日資料…</div>';
   let payload;
   try{payload=await fetchWindow(c,opts)}catch(e){
-    host.innerHTML='<div class="empty-chart">V4 Replay 載入失敗：'+String(e.message||e)+'</div>';
+    host.innerHTML='<div class="empty-chart">Replay 載入失敗：'+String(e.message||e)+'</div>';
     return null;
   }
   if(payload?.case)Object.assign(c,payload.case);
