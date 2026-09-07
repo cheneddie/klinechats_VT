@@ -5,6 +5,7 @@ import os
 # Importing V4 installs the validated V4 causal/replay/research routes first.
 from . import fabio_api_v4 as v4
 from .v5.api import EVENT_DB, install
+from .v5.candidate_api import install_candidate_api
 from .v5.parity import install_parity
 from .v5.replay_api import install_replay
 from .v5.strategy_api import install_strategy_api
@@ -13,6 +14,7 @@ app = install(v4.base)
 app = install_replay(app, event_db=EVENT_DB, data_root=v4.base.ROOT)
 app = install_parity(app)
 app = install_strategy_api(app, event_db=EVENT_DB, data_root=v4.base.ROOT)
+app = install_candidate_api(app, event_db=EVENT_DB, data_root=v4.base.ROOT)
 
 
 def main():
