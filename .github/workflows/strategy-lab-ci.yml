@@ -33,6 +33,7 @@ jobs:
             server/v5/strategy_storage.py \
             server/v5/execution.py \
             server/v5/portfolio.py \
+            server/v5/compare_api.py \
             server/v5/diagnostics.py \
             server/v5/reporting.py \
             server/v5/backtest.py \
@@ -53,6 +54,7 @@ jobs:
           node --check src/v5/strategy-lab.js
           node --check src/v5/strategy-lab-evidence.js
           node --check src/v5/portfolio-controls.js
+          node --check src/v5/compare-guard.js
           node --check src/v5/trade-review-overlay.js
           node --check scripts/capture-strategy-lab-runtime.mjs
           node --check scripts/qa-strategy-lab-contract.mjs
@@ -63,6 +65,7 @@ jobs:
             tests/test_strategy_lab.py \
             tests/test_portfolio_policy.py \
             tests/test_strategy_api_portfolio.py \
+            tests/test_compare_guard.py \
             tests/test_candidate_gate.py \
             tests/test_production_provenance.py \
             tests/test_strategy_jobs.py 2>&1 | tee strategy-lab-pytest.log
@@ -75,6 +78,7 @@ jobs:
           test -s dist/src/v5/strategy-lab.js
           test -s dist/src/v5/strategy-lab-evidence.js
           test -s dist/src/v5/portfolio-controls.js
+          test -s dist/src/v5/compare-guard.js
           test -s dist/src/v5/trade-review-overlay.js
           test ! -e dist/reports
           test ! -e dist/docs
@@ -119,6 +123,31 @@ jobs:
           print('SYNTHETIC_PORTFOLIO_OVERLAP PASS', x['independent']['trades'], x['single_position']['trades'])
           PY
 
+          # Same frozen research run + same execution assumptions, but a different
+          # target parameter: this is the positive comparability proof.
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from server.v5.backtest import run_backtest
+          from server.v5.execution import ExecutionModel
+          from server.v5.strategy_registry import load_strategy
+          from tools.synthetic_mtx_demo import RUN_ID
+          strategy=load_strategy(Path('config/strategies/MR_BROAD_V3.json'))
+          execution=ExecutionModel(
+              execution_model_id='SYNTHETIC_PHYSICAL', version='V1', fill_timing='SIGNAL',
+              entry_slippage_points=0.25, exit_slippage_points=0.25,
+              commission_points_per_side=0.10, latency_ms=0,
+          )
+          out=run_backtest(
+              Path(os.environ['FABIO_V5_EVENT_DB']), Path(os.environ['FABIO_DATA_ROOT']),
+              RUN_ID, strategy, overrides={'target.r':0.5}, execution_model=execution,
+              bootstrap_reps=300, backtest_run_id='bt-synthetic-mtx-mr-compare-v1',
+              code_commit=os.environ.get('GITHUB_SHA'), notes='SYNTHETIC COMPARE POSITIVE CONTROL',
+          )
+          assert out['trades'] == 4, out
+          print('SYNTHETIC_COMPARABLE_CONTROL', out['backtest_run_id'])
+          PY
+
           python -m server.fabio_api_v5 > artifacts/strategy-lab-runtime/api.log 2>&1 &
           API_PID=$!
           python -m http.server 4173 --bind 127.0.0.1 > artifacts/strategy-lab-runtime/static.log 2>&1 &
@@ -133,10 +162,23 @@ jobs:
           import json
           from pathlib import Path
           h = json.loads(Path('artifacts/strategy-lab-runtime/health.json').read_text())
-          assert h['counts']['backtests'] >= 3, h
+          assert h['counts']['backtests'] >= 4, h
           assert h['counts']['optimizations'] >= 1, h
           assert h.get('portfolio_execution_policy') == 'SUPPORTED_AND_HASHED', h
           print('SYNTHETIC_RUNTIME_COUNTS', h['counts'])
+          PY
+          curl -sf 'http://127.0.0.1:8765/api/v5/strategy-lab/compare-governed?backtest_run_ids=bt-synthetic-mtx-mr-v1,bt-synthetic-mtx-mr-compare-v1' > artifacts/strategy-lab-runtime/compare-comparable.json
+          curl -sf 'http://127.0.0.1:8765/api/v5/strategy-lab/compare-governed?backtest_run_ids=bt-synthetic-mtx-overlap-independent-v1,bt-synthetic-mtx-overlap-single-v1' > artifacts/strategy-lab-runtime/compare-blocked.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          ok=json.loads(Path('artifacts/strategy-lab-runtime/compare-comparable.json').read_text())
+          bad=json.loads(Path('artifacts/strategy-lab-runtime/compare-blocked.json').read_text())
+          assert ok['comparability']['status'] == 'COMPARABLE', ok
+          assert bad['comparability']['status'] == 'BLOCKED', bad
+          failed=set(bad['comparability']['failed'])
+          assert {'EXECUTION_HASH','PORTFOLIO_POLICY_HASH'} <= failed, bad
+          print('SYNTHETIC_COMPARE_GATE PASS', ok['comparability']['status'], bad['comparability']['status'])
           PY
           curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/backtests > artifacts/strategy-lab-runtime/backtests-api.json
           curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/optimizations > artifacts/strategy-lab-runtime/optimizations-api.json
@@ -146,6 +188,7 @@ jobs:
           test -s artifacts/strategy-lab-runtime/01-strategy-library.png
           test -s artifacts/strategy-lab-runtime/03-trade-review.png
           test -s artifacts/strategy-lab-runtime/05-optimization-lab.png
+          test -s artifacts/strategy-lab-runtime/06-compare-lab.png
           test -s artifacts/strategy-lab-runtime/08-jobs-heartbeat.png
       - name: Reproducibility manifest
         run: python tools/repro_manifest.py
