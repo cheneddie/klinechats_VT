@@ -1,7 +1,7 @@
 window.StrategyLab=window.StrategyLab||{};
 (()=>{
 const root=document.getElementById('strategy-lab-root');
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>n==null||Number.isNaN(Number(n))?'—':Number(n).toFixed(3);
 const state={apiBase:localStorage.getItem('strategyLabApi')||'http://127.0.0.1:8765/api',strategies:[],backtests:[],optimizations:[],candidates:[],jobs:[],selectedTrade:null};
 const nav=[['library','Strategy Library'],['backtest','Backtest Studio'],['review','Trade Review'],['reports','Report Center'],['optimize','Optimization Lab'],['compare','Compare Lab'],['candidates','Candidate / Gate'],['jobs','Jobs / Heartbeat']];
