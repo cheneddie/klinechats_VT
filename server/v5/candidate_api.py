@@ -25,8 +25,8 @@ class CandidateEvaluationRequest(BaseModel):
 
 class ProductionGateRequest(BaseModel):
     policy: dict[str, Any] = Field(default_factory=dict)
-    live_parity_pass: bool = False
-    paper_trading_pass: bool = False
+    parity_evidence_id: str | None = None
+    paper_evidence_id: str | None = None
     notes: str | None = None
 
 
@@ -103,8 +103,8 @@ def install_candidate_api(
             candidate_id,
             strategy,
             policy=req.policy,
-            live_parity_pass=req.live_parity_pass,
-            paper_trading_pass=req.paper_trading_pass,
+            parity_evidence_id=req.parity_evidence_id,
+            paper_evidence_id=req.paper_evidence_id,
             notes=req.notes,
         )
 
