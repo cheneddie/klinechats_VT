@@ -80,6 +80,26 @@ def _directional_points(direction: str, entry: float, exit_price: float) -> floa
     return float(exit_price - entry) if direction == "long" else float(entry - exit_price)
 
 
+def _forced_flat_deadline(entry_time: Any, force_flat_time: str | None) -> pd.Timestamp | None:
+    if entry_time is None or not force_flat_time:
+        return None
+    parts = str(force_flat_time).split(":")
+    if len(parts) not in {2, 3}:
+        raise ValueError("force_flat_time must be HH:MM or HH:MM:SS")
+    try:
+        hour, minute = int(parts[0]), int(parts[1])
+        second = int(parts[2]) if len(parts) == 3 else 0
+    except Exception as exc:
+        raise ValueError("force_flat_time must be HH:MM or HH:MM:SS") from exc
+    if not (0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59):
+        raise ValueError("force_flat_time has invalid clock components")
+    entry = pd.Timestamp(entry_time)
+    deadline = entry.normalize() + pd.Timedelta(hours=hour, minutes=minute, seconds=second)
+    if deadline <= entry:
+        deadline += pd.Timedelta(days=1)
+    return deadline
+
+
 def simulate_physical_trade(
     path: pd.DataFrame,
     *,
@@ -90,12 +110,17 @@ def simulate_physical_trade(
     target_price: float,
     model: ExecutionModel | dict[str, Any] | None = None,
     time_stop_seconds: int | None = None,
+    force_flat_time: str | None = None,
 ) -> dict[str, Any]:
     """Simulate one trade in raw physical order.
 
     The signal row is not future information. First-hit ordering begins strictly after
     the filled entry row. No sorting is performed. Same-second ties resolve by raw
     physical `_seq`, preserving the project's causal truth boundary.
+
+    `force_flat_time` is an explicit recurring local clock boundary. The engine does
+    not infer exchange sessions: the caller must provide the intended clock when a
+    portfolio/session policy requires forced flattening.
     """
     if direction not in {"long", "short"}:
         raise ValueError("direction must be long or short")
@@ -146,6 +171,7 @@ def simulate_physical_trade(
     deadline = None
     if time_stop_seconds is not None and time_stop_seconds > 0 and entry_time is not None:
         deadline = pd.Timestamp(entry_time) + pd.Timedelta(seconds=int(time_stop_seconds))
+    force_deadline = _forced_flat_deadline(entry_time, force_flat_time)
 
     mfe = 0.0
     mae = 0.0
@@ -174,6 +200,10 @@ def simulate_physical_trade(
         if deadline is not None and time_col in frame.columns and pd.Timestamp(row[time_col]) >= deadline:
             exit_row = row
             exit_reason = "TIME"
+            break
+        if force_deadline is not None and time_col in frame.columns and pd.Timestamp(row[time_col]) >= force_deadline:
+            exit_row = row
+            exit_reason = "FORCED_FLAT"
             break
 
     if exit_row is None:
@@ -224,5 +254,6 @@ def simulate_physical_trade(
         "slippage_points": float(model.entry_slippage_points + model.exit_slippage_points),
         "latency_ms": int(model.latency_ms),
         "holding_seconds": holding_seconds,
+        "force_flat_time": force_flat_time,
         "execution_model": model.to_dict(),
     }
