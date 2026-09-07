@@ -42,7 +42,8 @@ jobs:
             server/v5/jobs.py \
             server/v5/jobs_api.py \
             server/v5/strategy_api.py \
-            server/fabio_api_v5.py
+            server/fabio_api_v5.py \
+            tools/repro_manifest.py
           node --check src/v5/strategy-lab.js
       - name: Strategy Lab tests
         run: |
@@ -58,10 +59,14 @@ jobs:
           test ! -e dist/reports
           test ! -e dist/docs
           test ! -e dist/config
+      - name: Reproducibility manifest
+        run: python tools/repro_manifest.py
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: strategy-lab-ci-${{ github.sha }}
-          path: strategy-lab-pytest.log
+          path: |
+            strategy-lab-pytest.log
+            repro-manifest.json
           if-no-files-found: ignore
