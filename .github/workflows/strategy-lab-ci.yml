@@ -52,8 +52,10 @@ jobs:
             tools/synthetic_mtx_demo_run.py
           node --check src/v5/strategy-lab.js
           node --check src/v5/strategy-lab-evidence.js
+          node --check src/v5/portfolio-controls.js
           node --check src/v5/trade-review-overlay.js
           node --check scripts/capture-strategy-lab-runtime.mjs
+          node --check scripts/qa-strategy-lab-contract.mjs
       - name: Strategy Lab tests
         run: |
           set -o pipefail
@@ -71,6 +73,7 @@ jobs:
           test -s dist/strategy-lab.html
           test -s dist/src/v5/strategy-lab.js
           test -s dist/src/v5/strategy-lab-evidence.js
+          test -s dist/src/v5/portfolio-controls.js
           test -s dist/src/v5/trade-review-overlay.js
           test ! -e dist/reports
           test ! -e dist/docs
@@ -103,6 +106,17 @@ jobs:
           cp "$FABIO_DATA_ROOT/MTX_2025_SYNTHETIC.parquet" artifacts/strategy-lab-runtime/
           test -s artifacts/strategy-lab-runtime/MTX_2025_SYNTHETIC.parquet
           test -s artifacts/strategy-lab-runtime/synthetic-demo-summary.json
+          test -s artifacts/strategy-lab-runtime/synthetic-portfolio-overlap.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path('artifacts/strategy-lab-runtime/synthetic-portfolio-overlap.json').read_text())
+          assert x['independent']['trades'] == 2, x
+          assert x['single_position']['trades'] == 1, x
+          skips=x['single_position']['portfolio_skips']
+          assert len(skips) == 1 and skips[0]['reason'] == 'PORTFOLIO_OVERLAP', x
+          print('SYNTHETIC_PORTFOLIO_OVERLAP PASS', x['independent']['trades'], x['single_position']['trades'])
+          PY
 
           python -m server.fabio_api_v5 > artifacts/strategy-lab-runtime/api.log 2>&1 &
           API_PID=$!
@@ -118,7 +132,7 @@ jobs:
           import json
           from pathlib import Path
           h = json.loads(Path('artifacts/strategy-lab-runtime/health.json').read_text())
-          assert h['counts']['backtests'] >= 1, h
+          assert h['counts']['backtests'] >= 3, h
           assert h['counts']['optimizations'] >= 1, h
           assert h.get('portfolio_execution_policy') == 'SUPPORTED_AND_HASHED', h
           print('SYNTHETIC_RUNTIME_COUNTS', h['counts'])
