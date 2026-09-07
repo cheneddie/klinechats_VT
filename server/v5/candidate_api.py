@@ -9,9 +9,9 @@ from .candidate import (
     evaluate_candidate,
     list_candidate_evaluations,
     list_production_gates,
-    production_gate,
 )
 from .execution import ExecutionModel
+from .production_gate import production_gate
 from .strategy_registry import find_strategy, load_strategy_directory
 
 
