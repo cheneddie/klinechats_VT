@@ -71,8 +71,13 @@ jobs:
           test ! -e dist/config
       - name: Real Strategy Lab runtime screenshots
         run: |
-          npm install --no-save playwright@1.57.0
-          mkdir -p "$RUNNER_TEMP/fabio-data" artifacts/strategy-lab-runtime
+          mkdir -p "$RUNNER_TEMP/pw-runner" "$RUNNER_TEMP/fabio-data" artifacts/strategy-lab-runtime
+          cp scripts/capture-strategy-lab-runtime.mjs "$RUNNER_TEMP/pw-runner/capture.mjs"
+          (
+            cd "$RUNNER_TEMP/pw-runner"
+            npm init -y >/dev/null
+            npm install --no-save playwright@1.57.0 >/dev/null
+          )
           export FABIO_DATA_ROOT="$RUNNER_TEMP/fabio-data"
           export FABIO_EVENT_DB="$RUNNER_TEMP/fabio-v4.sqlite3"
           export FABIO_V5_EVENT_DB="$RUNNER_TEMP/fabio-v5.sqlite3"
@@ -89,7 +94,8 @@ jobs:
           done
           test -s artifacts/strategy-lab-runtime/health.json || { cat artifacts/strategy-lab-runtime/api.log; exit 1; }
           for i in {1..20}; do curl -sf http://127.0.0.1:4173/strategy-lab.html >/dev/null && break; sleep 1; done
-          node scripts/capture-strategy-lab-runtime.mjs
+          STRATEGY_LAB_SCREENSHOT_DIR="$GITHUB_WORKSPACE/artifacts/strategy-lab-runtime" \
+            node "$RUNNER_TEMP/pw-runner/capture.mjs"
           test -s artifacts/strategy-lab-runtime/01-strategy-library.png
           test -s artifacts/strategy-lab-runtime/08-jobs-heartbeat.png
       - name: Reproducibility manifest
