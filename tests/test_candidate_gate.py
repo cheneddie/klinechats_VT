@@ -12,8 +12,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from server.v5.candidate import evaluate_candidate, production_gate
-from server.v5.execution import ExecutionModel
 from server.v5.optimizer import freeze_candidate
+from server.v5.production_evidence import record_paper_evidence, record_parity_evidence
 from server.v5.storage import create_research_run, freeze_run, tx
 from server.v5.strategy_registry import normalize_strategy
 
@@ -80,6 +80,18 @@ def path_loader(event, start):
     })
 
 
+def parity_trace():
+    return [{
+        "state": "ENTRY",
+        "node_id": "MR_ENTRY",
+        "answer": True,
+        "decision_seq": 10,
+        "decision_price": 100.0,
+        "entry_seq": 10,
+        "entry_price": 100.0,
+    }]
+
+
 def test_candidate_must_follow_discovery_validation_holdout_and_gate_is_append_only():
     with tempfile.TemporaryDirectory() as td:
         db = Path(td) / "events.sqlite3"
@@ -107,14 +119,58 @@ def test_candidate_must_follow_discovery_validation_holdout_and_gate_is_append_o
         assert h["status"] == "PASS"
         assert set(h["scenarios"]) == {"BASE", "SLIPPAGE", "LATENCY", "COMBINED"}
 
-        blocked = production_gate(db, "cand-1", s, live_parity_pass=False, paper_trading_pass=False)
+        blocked = production_gate(db, "cand-1", s)
         assert blocked["status"] == "BLOCKED_LIVE"
-        passed = production_gate(db, "cand-1", s, live_parity_pass=True, paper_trading_pass=True)
+
+        parity = record_parity_evidence(db, "cand-1", parity_trace(), parity_trace(), parity_evidence_id="parity-1")
+        assert parity["status"] == "PASS"
+        paper = record_paper_evidence(
+            db,
+            "cand-1",
+            source="paper-simulator-export",
+            artifact_sha256="a" * 64,
+            trades=40,
+            expectancy_r=.25,
+            profit_factor=1.4,
+            max_drawdown_r=3.0,
+            paper_evidence_id="paper-1",
+        )
+        assert paper["status"] == "PASS"
+        passed = production_gate(
+            db, "cand-1", s,
+            parity_evidence_id=parity["parity_evidence_id"],
+            paper_evidence_id=paper["paper_evidence_id"],
+        )
         assert passed["status"] == "PASS"
 
         with pytest.raises(sqlite3.IntegrityError, match="append-only"):
             with tx(db) as c:
                 c.execute("UPDATE production_gates SET status='FAIL' WHERE production_gate_id=?", (passed["production_gate_id"],))
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            with tx(db) as c:
+                c.execute("UPDATE parity_evidence SET status='FAIL' WHERE parity_evidence_id='parity-1'")
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            with tx(db) as c:
+                c.execute("DELETE FROM paper_evidence WHERE paper_evidence_id='paper-1'")
+
+
+def test_paper_evidence_cannot_be_naked_pass_and_candidate_mismatch_fails_gate():
+    with tempfile.TemporaryDirectory() as td:
+        db = Path(td) / "events.sqlite3"
+        seed_run(db, "d", "DISCOVERY")
+        s = strategy()
+        freeze_candidate(db, s, {}, discovery_run_id="d", candidate_id="cand-a")
+        freeze_candidate(db, s, {}, discovery_run_id="d", candidate_id="cand-b")
+        with pytest.raises(ValueError, match="artifact_sha256"):
+            record_paper_evidence(
+                db, "cand-a", source="paper", artifact_sha256="not-a-sha", trades=100,
+                expectancy_r=1, profit_factor=2, max_drawdown_r=1,
+            )
+        insufficient = record_paper_evidence(
+            db, "cand-a", source="paper", artifact_sha256="b" * 64, trades=2,
+            expectancy_r=1, profit_factor=2, max_drawdown_r=1,
+        )
+        assert insufficient["status"] == "INSUFFICIENT"
 
 
 def test_candidate_rejects_parameter_digest_or_strategy_mismatch():
