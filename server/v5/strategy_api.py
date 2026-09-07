@@ -33,6 +33,7 @@ class BacktestRequest(BaseModel):
     strategy_key: str
     parameters: dict[str, Any] = Field(default_factory=dict)
     execution_model: dict[str, Any] = Field(default_factory=dict)
+    portfolio_policy: dict[str, Any] | None = None
     backtest_run_id: str | None = None
     code_commit: str | None = None
     notes: str | None = None
@@ -44,6 +45,7 @@ class OptimizationRequest(BaseModel):
     strategy_key: str
     search_space: dict[str, Any]
     execution_model: dict[str, Any] = Field(default_factory=dict)
+    portfolio_policy: dict[str, Any] | None = None
     objective: dict[str, Any] = Field(default_factory=dict)
     max_trials: int = Field(100, ge=1, le=2000)
     seed: int = 23
@@ -59,6 +61,7 @@ class CandidateRequest(BaseModel):
     discovery_run_id: str | None = None
     candidate_id: str | None = None
     evidence: dict[str, Any] = Field(default_factory=dict)
+    portfolio_policy: dict[str, Any] | None = None
 
 
 class MonitorRequest(BaseModel):
@@ -122,7 +125,15 @@ def _load_backtest(event_db: Path, run_id: str, *, trade_limit: int = 5000) -> d
         for x in metrics
         if x["slice_key"] == "ALL" and x["slice_value"] == "ALL"
     }
-    return {"run": out, "summary": summary, "metrics": metrics, "trades": trades}
+    portfolio_audit = next((x for x in metrics if x["metric_key"] == "portfolio_policy_audit"), None)
+    portfolio = _json(portfolio_audit.get("payload_json"), {}) if portfolio_audit else {}
+    return {
+        "run": out,
+        "summary": summary,
+        "metrics": metrics,
+        "trades": trades,
+        "portfolio_audit": portfolio or {},
+    }
 
 
 def install_strategy_api(
@@ -166,6 +177,7 @@ def install_strategy_api(
             "truth_boundary": "V6_EVALUATED_ONLY_PHYSICAL_SEQ",
             "formal_backtest_requires_frozen_research": True,
             "optimizer_holdout_access": "DENIED",
+            "portfolio_execution_policy": "SUPPORTED_AND_HASHED",
         }
 
     @app.get("/api/v5/strategy-lab/strategies")
@@ -201,6 +213,7 @@ def install_strategy_api(
             strategy,
             overrides=req.parameters,
             execution_model=model,
+            portfolio_policy=req.portfolio_policy,
             bootstrap_reps=req.bootstrap_reps,
             backtest_run_id=req.backtest_run_id,
             code_commit=req.code_commit,
@@ -280,6 +293,7 @@ def install_strategy_api(
             strategy,
             req.search_space,
             execution_model=model,
+            portfolio_policy=req.portfolio_policy,
             objective=req.objective,
             max_trials=req.max_trials,
             seed=req.seed,
@@ -319,6 +333,9 @@ def install_strategy_api(
             ).fetchall()]
         finally:
             c.close()
+        run = dict(run)
+        run["search_space"] = _json(run.get("search_space_json"))
+        run["objective"] = _json(run.get("objective_json"))
         for row in trials:
             row["parameters"] = _json(row.get("parameters_json"))
             row["metrics"] = _json(row.get("metrics_json"))
@@ -326,7 +343,7 @@ def install_strategy_api(
             row["center_params"] = _json(row.get("center_params_json"))
             row["range"] = _json(row.get("range_json"))
             row["robustness"] = _json(row.get("robustness_json"))
-        return {"run": dict(run), "trials": trials, "plateaus": plateaus}
+        return {"run": run, "trials": trials, "plateaus": plateaus}
 
     @app.post("/api/v5/strategy-lab/candidates")
     def candidate_freeze(req: CandidateRequest):
@@ -339,6 +356,7 @@ def install_strategy_api(
             discovery_run_id=req.discovery_run_id,
             candidate_id=req.candidate_id,
             evidence=req.evidence,
+            portfolio_policy=req.portfolio_policy,
         )
 
     @app.get("/api/v5/strategy-lab/candidates")
@@ -363,7 +381,7 @@ def install_strategy_api(
         items = []
         for run_id in ids:
             x = _load_backtest(event_db, run_id, trade_limit=0)
-            items.append({"run": x["run"], "summary": x["summary"]})
+            items.append({"run": x["run"], "summary": x["summary"], "portfolio_audit": x.get("portfolio_audit") or {}})
         return {"items": items}
 
     @app.post("/api/v5/strategy-lab/monitor")
