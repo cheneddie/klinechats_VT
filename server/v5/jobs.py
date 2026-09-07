@@ -12,6 +12,7 @@ from .storage import connect, tx, utcnow
 from .strategy_storage import migrate_strategy_db
 
 TERMINAL = {"SUCCEEDED", "FAILED", "TIMED_OUT", "CANCELLED", "ORPHANED"}
+ALLOWED_JOB_TYPES = {"BACKTEST", "OPTIMIZATION", "CANDIDATE_EVALUATION"}
 
 
 def _json(value: Any) -> str:
@@ -20,13 +21,16 @@ def _json(value: Any) -> str:
 
 def create_job(event_db: str | Path, job_type: str, request: dict[str, Any]) -> str:
     migrate_strategy_db(event_db)
+    normalized = str(job_type).upper()
+    if normalized not in ALLOWED_JOB_TYPES:
+        raise ValueError(f"unsupported strategy job type: {normalized}")
     job_id = "job-" + uuid.uuid4().hex[:16]
     with tx(event_db) as c:
         c.execute(
             """INSERT INTO strategy_jobs(
               job_id,job_type,status,progress,created_at,request_json,heartbeat_at
             ) VALUES(?,?, 'QUEUED',0,?,?,?)""",
-            (job_id, str(job_type).upper(), utcnow(), _json(request), utcnow()),
+            (job_id, normalized, utcnow(), _json(request), utcnow()),
         )
     return job_id
 
@@ -139,6 +143,8 @@ def _dispatch_job(
     strategy_root: str,
 ) -> dict[str, Any]:
     job_type = job_type.upper()
+    if job_type not in ALLOWED_JOB_TYPES:
+        raise ValueError(f"unsupported strategy job type: {job_type}")
     if job_type == "BACKTEST":
         from .backtest import run_backtest
         from .execution import ExecutionModel
@@ -150,6 +156,7 @@ def _dispatch_job(
             strategy,
             overrides=payload.get("parameters") or {},
             execution_model=ExecutionModel.from_dict(payload.get("execution_model") or {}),
+            portfolio_policy=payload.get("portfolio_policy"),
             bootstrap_reps=int(payload.get("bootstrap_reps") or 1000),
             backtest_run_id=payload.get("backtest_run_id"),
             code_commit=payload.get("code_commit"),
@@ -160,6 +167,7 @@ def _dispatch_job(
             "frozen": result["frozen"],
             "digest": result["digest"],
             "trades": result["trades"],
+            "portfolio_policy_hash": result.get("portfolio_policy_hash"),
             "summary": result["report"]["summary"],
         }
     if job_type == "OPTIMIZATION":
@@ -173,6 +181,7 @@ def _dispatch_job(
             strategy,
             payload["search_space"],
             execution_model=ExecutionModel.from_dict(payload.get("execution_model") or {}),
+            portfolio_policy=payload.get("portfolio_policy"),
             objective=payload.get("objective") or {},
             max_trials=int(payload.get("max_trials") or 100),
             seed=int(payload.get("seed") or 23),
@@ -184,6 +193,7 @@ def _dispatch_job(
             "optimization_run_id": result["optimization_run_id"],
             "hypotheses_tested": result["hypotheses_tested"],
             "plateau": result.get("plateau"),
+            "portfolio_policy_hash": result.get("portfolio_policy_hash"),
             "frozen_digest": result["frozen_digest"],
             "governance": result["governance"],
         }
@@ -217,29 +227,8 @@ def _dispatch_job(
             "candidate_id": result["candidate_id"],
             "role": result["role"],
             "status": result["status"],
+            "portfolio_policy_hash": result.get("portfolio_policy_hash"),
         }
-    if job_type == "PRODUCTION_GATE":
-        from .candidate import production_gate
-        c = connect(event_db)
-        try:
-            row = c.execute(
-                "SELECT strategy_key FROM strategy_candidates WHERE candidate_id=?",
-                (payload["candidate_id"],),
-            ).fetchone()
-        finally:
-            c.close()
-        if not row:
-            raise KeyError(payload["candidate_id"])
-        strategy = _resolve_strategy(strategy_root, row["strategy_key"])
-        return production_gate(
-            event_db,
-            payload["candidate_id"],
-            strategy,
-            policy=payload.get("policy") or {},
-            parity_evidence_id=payload.get("parity_evidence_id"),
-            paper_evidence_id=payload.get("paper_evidence_id"),
-            notes=payload.get("notes"),
-        )
     raise ValueError(f"unsupported strategy job type: {job_type}")
 
 
@@ -311,15 +300,18 @@ class JobSupervisor:
         recover_orphaned_jobs(self.event_db)
 
     def submit(self, job_type: str, payload: dict[str, Any], *, timeout_seconds: int = 900) -> str:
+        normalized = str(job_type).upper()
+        if normalized not in ALLOWED_JOB_TYPES:
+            raise ValueError(f"unsupported strategy job type: {normalized}")
         with self._lock:
             alive = [p for p in self._processes.values() if p.is_alive()]
             if len(alive) >= self.max_concurrent:
                 raise RuntimeError("strategy job concurrency limit reached")
-            job_id = create_job(self.event_db, job_type, payload)
+            job_id = create_job(self.event_db, normalized, payload)
             ctx = mp.get_context("spawn")
             p = ctx.Process(
                 target=_child_main,
-                args=(self.event_db, self.data_root, self.strategy_root, job_id, job_type, dict(payload)),
+                args=(self.event_db, self.data_root, self.strategy_root, job_id, normalized, dict(payload)),
                 daemon=True,
             )
             p.start()
@@ -392,4 +384,5 @@ __all__ = [
     "get_job",
     "list_jobs",
     "recover_orphaned_jobs",
+    "ALLOWED_JOB_TYPES",
 ]
