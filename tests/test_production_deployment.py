@@ -126,11 +126,12 @@ def evaluate_all(db: Path, td: str, s, *, mismatch_validation=False):
     }
     outputs = {}
     for run_id in ("d", "v", "h"):
+        is_mismatch = mismatch_validation and run_id == "v"
         model = ExecutionModel(
             execution_model_id="DEPLOY_BASE",
-            version="V1",
+            version="V2" if is_mismatch else "V1",
             fill_timing="SIGNAL",
-            entry_slippage_points=0.25 if not (mismatch_validation and run_id == "v") else 0.75,
+            entry_slippage_points=0.75 if is_mismatch else 0.25,
             exit_slippage_points=0.25,
             commission_points_per_side=0.10,
             latency_ms=0,
@@ -193,7 +194,7 @@ def test_production_gate_rejects_dvh_base_execution_identity_mismatch():
         assert "BASE_EXECUTION_HASH_MISMATCH" in gate["execution_identity"]["reasons"]
         ctx = get_production_gate_context(db, gate["production_gate_id"])
         assert ctx["context_hash_valid"] is True
-        with pytest.raises(RuntimeError, match="PASS production gate"):
+        with pytest.raises(RuntimeError, match="execution identity is not deployable"):
             create_deployment_from_gate(db, gate["production_gate_id"])
 
 
