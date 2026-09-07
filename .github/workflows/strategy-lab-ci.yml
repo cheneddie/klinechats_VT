@@ -32,6 +32,7 @@ jobs:
             server/v5/strategy_registry.py \
             server/v5/strategy_storage.py \
             server/v5/execution.py \
+            server/v5/portfolio.py \
             server/v5/diagnostics.py \
             server/v5/reporting.py \
             server/v5/backtest.py \
@@ -51,12 +52,14 @@ jobs:
             tools/synthetic_mtx_demo_run.py
           node --check src/v5/strategy-lab.js
           node --check src/v5/strategy-lab-evidence.js
+          node --check src/v5/trade-review-overlay.js
           node --check scripts/capture-strategy-lab-runtime.mjs
       - name: Strategy Lab tests
         run: |
           set -o pipefail
           python -m pytest -q \
             tests/test_strategy_lab.py \
+            tests/test_portfolio_policy.py \
             tests/test_candidate_gate.py \
             tests/test_production_provenance.py \
             tests/test_strategy_jobs.py 2>&1 | tee strategy-lab-pytest.log
@@ -68,6 +71,7 @@ jobs:
           test -s dist/strategy-lab.html
           test -s dist/src/v5/strategy-lab.js
           test -s dist/src/v5/strategy-lab-evidence.js
+          test -s dist/src/v5/trade-review-overlay.js
           test ! -e dist/reports
           test ! -e dist/docs
           test ! -e dist/config
@@ -116,6 +120,7 @@ jobs:
           h = json.loads(Path('artifacts/strategy-lab-runtime/health.json').read_text())
           assert h['counts']['backtests'] >= 1, h
           assert h['counts']['optimizations'] >= 1, h
+          assert h.get('portfolio_execution_policy') == 'SUPPORTED_AND_HASHED', h
           print('SYNTHETIC_RUNTIME_COUNTS', h['counts'])
           PY
           curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/backtests > artifacts/strategy-lab-runtime/backtests-api.json
