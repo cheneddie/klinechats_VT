@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -17,7 +16,12 @@ from test_production_deployment import evaluate_all, pass_gate, seed_campaign, s
 
 from server.v5.optimizer import freeze_candidate
 from server.v5.production_deployment import create_deployment_from_gate
-from server.v5.production_deployment_api import install_production_deployment_api
+from server.v5.production_deployment_api import (
+    DeploymentMonitorRequest,
+    DeploymentObservationMonitorRequest,
+    ExecutionObservationBatchRequest,
+    install_production_deployment_api,
+)
 from server.v5.production_observations import (
     execution_observation_summary,
     list_execution_observation_batches,
@@ -42,6 +46,13 @@ def _setup(td: str):
         notes="execution observation fixture",
     )
     return db, s, outputs, deployment
+
+
+def _endpoint(app: FastAPI, path: str, method: str):
+    for route in app.routes:
+        if getattr(route, "path", None) == path and method.upper() in (getattr(route, "methods", None) or set()):
+            return route.endpoint
+    raise AssertionError(f"endpoint not installed: {method} {path}")
 
 
 def _observation(i: int, day: str, *, winner: bool = True):
@@ -138,56 +149,71 @@ def test_only_live_observations_persist_authoritative_deployment_health():
         identity_hash = deployment["identity_hash"]
         app = FastAPI()
         install_production_deployment_api(app, event_db=db)
-        client = TestClient(app)
 
-        paper_payload = {
-            "source_type": "PAPER",
-            "producer": "paper-engine-v2",
-            "deployment_identity_hash": identity_hash,
-            "artifact_sha256": "c" * 64,
-            "observations": [_observation(i, f"2026-04-{1 + i // 2:02d}") for i in range(1, 9)],
-        }
-        r = client.post(
-            "/api/v5/strategy-lab/deployments/deploy-observations/execution-observations",
-            json=paper_payload,
+        create_obs = _endpoint(
+            app,
+            "/api/v5/strategy-lab/deployments/{deployment_id}/execution-observations",
+            "POST",
         )
-        assert r.status_code == 200, r.text
-        assert r.json()["summary"]["by_source"]["PAPER"]["observations"] == 8
+        monitor_obs = _endpoint(
+            app,
+            "/api/v5/strategy-lab/deployments/{deployment_id}/monitor-health-observations",
+            "POST",
+        )
+        monitor_backtest = _endpoint(
+            app,
+            "/api/v5/strategy-lab/deployments/{deployment_id}/monitor-health",
+            "POST",
+        )
+        list_monitor = _endpoint(
+            app,
+            "/api/v5/strategy-lab/deployments/{deployment_id}/monitor-health",
+            "GET",
+        )
 
-        r = client.post(
-            "/api/v5/strategy-lab/deployments/deploy-observations/monitor-health-observations",
-            json={"source_type": "PAPER", "as_of_date": "2026-04-10", "window_days": 30, "policy": {"min_trades": 1}},
+        paper_req = ExecutionObservationBatchRequest(
+            source_type="PAPER",
+            producer="paper-engine-v2",
+            deployment_identity_hash=identity_hash,
+            artifact_sha256="c" * 64,
+            observations=[_observation(i, f"2026-04-{1 + i // 2:02d}") for i in range(1, 9)],
         )
-        assert r.status_code == 200, r.text
-        paper_health = r.json()
+        paper_ingest = create_obs("deploy-observations", paper_req)
+        assert paper_ingest["summary"]["by_source"]["PAPER"]["observations"] == 8
+
+        paper_health = monitor_obs(
+            "deploy-observations",
+            DeploymentObservationMonitorRequest(
+                source_type="PAPER",
+                as_of_date="2026-04-10",
+                window_days=30,
+                policy={"min_trades": 1},
+            ),
+        )
         assert paper_health["authoritative"] is False
         assert paper_health["snapshot"]["details"]["evidence_kind"] == "EXECUTION_OBSERVATIONS"
         assert paper_health["snapshot"]["details"]["source_type"] == "PAPER"
         assert paper_health["snapshot"]["details"]["authoritative"] is False
+        assert list_monitor("deploy-observations", 200)["items"] == []
 
-        r = client.get("/api/v5/strategy-lab/deployments/deploy-observations/monitor-health")
-        assert r.status_code == 200
-        assert r.json()["items"] == []
-
-        live_payload = {
-            "source_type": "LIVE",
-            "producer": "broker-adapter-v1",
-            "deployment_identity_hash": identity_hash,
-            "observations": [_observation(100 + i, f"2026-04-{1 + i // 2:02d}") for i in range(1, 9)],
-        }
-        r = client.post(
-            "/api/v5/strategy-lab/deployments/deploy-observations/execution-observations",
-            json=live_payload,
+        live_req = ExecutionObservationBatchRequest(
+            source_type="LIVE",
+            producer="broker-adapter-v1",
+            deployment_identity_hash=identity_hash,
+            observations=[_observation(100 + i, f"2026-04-{1 + i // 2:02d}") for i in range(1, 9)],
         )
-        assert r.status_code == 200, r.text
-        assert r.json()["summary"]["by_source"]["LIVE"]["observations"] == 8
+        live_ingest = create_obs("deploy-observations", live_req)
+        assert live_ingest["summary"]["by_source"]["LIVE"]["observations"] == 8
 
-        r = client.post(
-            "/api/v5/strategy-lab/deployments/deploy-observations/monitor-health-observations",
-            json={"source_type": "LIVE", "as_of_date": "2026-04-10", "window_days": 30, "policy": {"min_trades": 1}},
+        live_health = monitor_obs(
+            "deploy-observations",
+            DeploymentObservationMonitorRequest(
+                source_type="LIVE",
+                as_of_date="2026-04-10",
+                window_days=30,
+                policy={"min_trades": 1},
+            ),
         )
-        assert r.status_code == 200, r.text
-        live_health = r.json()
         assert live_health["authoritative"] is True
         assert live_health["snapshot"]["details"]["evidence_kind"] == "EXECUTION_OBSERVATIONS"
         assert live_health["snapshot"]["details"]["source_type"] == "LIVE"
@@ -197,27 +223,22 @@ def test_only_live_observations_persist_authoritative_deployment_health():
         assert live_health["baseline_backtest_run_id"] == outputs["h"]["scenarios"]["BASE"]["backtest_run_id"]
         assert live_health["baseline_identity_check"]["passed"] is True
 
-        r = client.get("/api/v5/strategy-lab/deployments/deploy-observations/monitor-health")
-        assert r.status_code == 200
-        persisted = r.json()["items"]
+        persisted = list_monitor("deploy-observations", 200)["items"]
         assert len(persisted) == 1
         assert persisted[0]["details"]["source_type"] == "LIVE"
         assert persisted[0]["details"]["authoritative"] is True
 
         baseline_id = outputs["h"]["scenarios"]["BASE"]["backtest_run_id"]
-        r = client.post(
-            "/api/v5/strategy-lab/deployments/deploy-observations/monitor-health",
-            json={
-                "backtest_run_id": baseline_id,
-                "baseline_backtest_run_id": baseline_id,
-                "as_of_date": "2025-01-02",
-                "window_days": 30,
-                "policy": {"min_trades": 1},
-            },
+        preview = monitor_backtest(
+            "deploy-observations",
+            DeploymentMonitorRequest(
+                backtest_run_id=baseline_id,
+                baseline_backtest_run_id=baseline_id,
+                as_of_date="2025-01-02",
+                window_days=30,
+                policy={"min_trades": 1},
+            ),
         )
-        assert r.status_code == 200, r.text
-        assert r.json()["authoritative"] is False
-        assert r.json()["snapshot"]["details"]["evidence_kind"] == "BACKTEST_PREVIEW"
-
-        r = client.get("/api/v5/strategy-lab/deployments/deploy-observations/monitor-health")
-        assert len(r.json()["items"]) == 1
+        assert preview["authoritative"] is False
+        assert preview["snapshot"]["details"]["evidence_kind"] == "BACKTEST_PREVIEW"
+        assert len(list_monitor("deploy-observations", 200)["items"]) == 1
