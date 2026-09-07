@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from server.v5.execution import simulate_physical_trade
 from server.v5.portfolio import PortfolioPolicy, arbitrate_trades
+from server.v5.strategy_registry import content_hash
 
 
 def _trade(
@@ -139,3 +140,42 @@ def test_policy_validation_is_explicit():
         PortfolioPolicy(mode="SINGLE_POSITION").validate()
     with pytest.raises(ValueError, match="force_flat_time"):
         PortfolioPolicy(force_flat_time="25:99").validate()
+
+
+def test_json_numeric_types_canonicalize_to_stable_policy_hash():
+    python_default = PortfolioPolicy().to_dict()
+    js_round_trip = PortfolioPolicy.from_dict({
+        "mode": "independent_event",
+        "overlap_policy": "allow",
+        "max_open_positions": 1,
+        "reentry_cooldown_seconds": 0,
+        "fixed_quantity": 1,
+        "force_flat_time": "",
+    }).to_dict()
+    assert js_round_trip == python_default
+    assert isinstance(js_round_trip["max_open_positions"], int)
+    assert isinstance(js_round_trip["reentry_cooldown_seconds"], int)
+    assert isinstance(js_round_trip["fixed_quantity"], float)
+    assert js_round_trip["force_flat_time"] is None
+    assert content_hash(js_round_trip) == content_hash(python_default)
+
+
+def test_numeric_strings_canonicalize_before_policy_hashing():
+    typed = PortfolioPolicy(
+        mode="SINGLE_POSITION",
+        overlap_policy="SKIP_WHILE_OPEN",
+        max_open_positions=1,
+        reentry_cooldown_seconds=60,
+        fixed_quantity=2.0,
+        force_flat_time="13:40:00",
+    ).to_dict()
+    from_json_form = PortfolioPolicy.from_dict({
+        "mode": "single_position",
+        "overlap_policy": "skip_while_open",
+        "max_open_positions": "1",
+        "reentry_cooldown_seconds": "60",
+        "fixed_quantity": "2",
+        "force_flat_time": "13:40:00",
+    }).to_dict()
+    assert from_json_form == typed
+    assert content_hash(from_json_form) == content_hash(typed)
