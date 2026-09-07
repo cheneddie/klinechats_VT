@@ -12,6 +12,8 @@
 8. Event Store is rebuildable from Parquet. Human training data is stored in a separate non-rebuildable DB.
 9. `research_run_id` result sets are immutable. A config/threshold change requires a new run with git/scanner/strategy/config/schema/outcome/audit/management versions.
 10. The legacy Fabio campaign remains **2025 Discovery → 2024 Validation → 2026 Final Holdout**. New strategies must declare their own Research Campaign and pin dataset SHA-256 identities before use. A Final Holdout is never used for threshold selection.
+11. A detector/structural parameter that changes the causal event universe requires a new scan. It may not be optimized by replaying a stale frozen snapshot.
+12. Production Gate never accepts naked `pass=true` assertions for live parity or paper trading. Production evidence must be persisted, append-only and referenced by evidence ID.
 
 ## P0 Research Integrity V6
 
@@ -58,9 +60,11 @@ Every campaign-backed research run pins the selected dataset rows into `research
 
 The fixed 2025/2024/2026 mapping remains only as backward-compatible Fabio governance when no `campaign_id` is supplied.
 
-## Research gates
+A **Production Gate** is stricter than ordinary diagnostic research. Every Discovery / Validation / Final Holdout evaluation used for production must trace to a frozen campaign, a frozen research run with a valid digest, and an exact matching SHA-256 dataset pin. Legacy runs without that provenance may be reviewed but cannot pass production.
 
-`Raw Integrity → Contract Integrity → Causal Event Truth → Event Sanity → Physical Outcomes → Reverse Audit → Sequential Contribution → Ablation → Evidence Registry → Training Truth → Certification → Production → Live parity`
+## Strategy Lab research gates
+
+`Raw Integrity → Contract Integrity → Causal Event Truth → Event Sanity → Physical Outcomes → Reverse Audit → Sequential Contribution → Ablation → Evidence Registry → Strategy Registry → Execution Engine → Trade Ledger → Full Report → Optimization → Robust Plateau → Candidate Freeze → Discovery → Validation → Final Holdout → Cost/Latency Stress → Campaign Provenance → Historical↔Live Parity Evidence → Paper Evidence → Production Gate → Degradation Monitor`
 
 A later gate is not allowed to make an earlier gate pass retroactively.
 
@@ -80,6 +84,22 @@ With four-state reachability, removing a blocking gate does **not** magically ma
 
 Only `EVALUATED` nodes may enter Training Truth. `NOT_REACHED`, `NOT_APPLICABLE`, and `TERMINAL` are causal lineage states, not negative training examples.
 
+## Strategy optimization boundary
+
+Final Holdout is sealed from parameter optimization. Every optimization run records its declared search space, actual hypotheses tested, each parameter hash, performance metrics, p-value, BH-FDR q-value and rejection reason.
+
+Primary parameter selection is a **robust plateau**, not one isolated best trial. Parameters marked `requires_rescan=true` are hard-blocked from frozen-snapshot optimization and require a new causal scan.
+
+## Production evidence boundary
+
+Historical ↔ Live parity evidence stores immutable trace SHA-256 identities, row counts and field-level differences. PASS requires non-empty identical traces.
+
+Paper evidence stores source identity, artifact SHA-256, sample size, expectancy, profit factor, max drawdown and the policy used to derive PASS/FAIL/INSUFFICIENT. A caller cannot submit a naked PASS boolean.
+
+All production evidence and Production Gate decisions are append-only. Corrections create new evidence/gate records; they do not rewrite history.
+
 ## Production boundary
 
-Production eligibility is evidence, not philosophy. MR should support roughly 1R, BO roughly 2R, with meaningful points, costs/latency robustness, acceptable DD, preserved right tail, and Historical ↔ Live causal parity. The 18-node Concept Tree may legitimately shrink in the Production Tree.
+Production eligibility is evidence, not philosophy. MR should support roughly 1R, BO roughly 2R, with meaningful points, costs/latency robustness, acceptable DD, preserved right tail, frozen campaign/dataset provenance, Historical ↔ Live causal parity and passing paper evidence. The 18-node Concept Tree may legitimately shrink in the Production Tree.
+
+The current MR/BO training baselines may therefore remain production-blocked even when Strategy Lab software is fully implemented. **Software completion is not market-edge validation.**
