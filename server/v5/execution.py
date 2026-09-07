@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
@@ -21,27 +21,70 @@ class ExecutionModel:
 
     @classmethod
     def from_dict(cls, value: dict[str, Any] | None) -> "ExecutionModel":
-        value = dict(value or {})
+        raw = dict(value or {})
         allowed = set(cls.__dataclass_fields__)
-        unknown = sorted(set(value) - allowed)
+        unknown = sorted(set(raw) - allowed)
         if unknown:
             raise ValueError(f"unknown execution model fields: {unknown}")
-        model = cls(**value)
+
+        normalized = dict(raw)
+        for key in (
+            "execution_model_id",
+            "version",
+            "fill_timing",
+            "price_column",
+            "seq_column",
+            "time_column",
+        ):
+            if key in normalized:
+                if normalized[key] is None:
+                    raise ValueError(f"execution model field cannot be null: {key}")
+                normalized[key] = str(normalized[key]).strip()
+        if "fill_timing" in normalized:
+            normalized["fill_timing"] = normalized["fill_timing"].upper()
+        for key in (
+            "entry_slippage_points",
+            "exit_slippage_points",
+            "commission_points_per_side",
+        ):
+            if key in normalized:
+                normalized[key] = float(normalized[key])
+        if "latency_ms" in normalized:
+            normalized["latency_ms"] = int(normalized["latency_ms"])
+
+        model = cls(**normalized)
         model.validate()
         return model
 
     def validate(self) -> None:
-        if self.fill_timing not in {"SIGNAL", "NEXT_TICK"}:
+        if str(self.fill_timing).upper() not in {"SIGNAL", "NEXT_TICK"}:
             raise ValueError("fill_timing must be SIGNAL or NEXT_TICK")
-        if self.entry_slippage_points < 0 or self.exit_slippage_points < 0:
+        if float(self.entry_slippage_points) < 0 or float(self.exit_slippage_points) < 0:
             raise ValueError("slippage cannot be negative")
-        if self.commission_points_per_side < 0:
+        if float(self.commission_points_per_side) < 0:
             raise ValueError("commission cannot be negative")
-        if self.latency_ms < 0:
+        if int(self.latency_ms) < 0:
             raise ValueError("latency cannot be negative")
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        """Return the canonical immutable execution identity representation.
+
+        JSON clients commonly send 0 while Python defaults use 0.0. Those values
+        are semantically identical and must not produce different immutable hashes.
+        Canonicalizing here also protects direct Python construction paths.
+        """
+        return {
+            "execution_model_id": str(self.execution_model_id).strip(),
+            "version": str(self.version).strip(),
+            "fill_timing": str(self.fill_timing).strip().upper(),
+            "entry_slippage_points": float(self.entry_slippage_points),
+            "exit_slippage_points": float(self.exit_slippage_points),
+            "commission_points_per_side": float(self.commission_points_per_side),
+            "latency_ms": int(self.latency_ms),
+            "price_column": str(self.price_column).strip(),
+            "seq_column": str(self.seq_column).strip(),
+            "time_column": str(self.time_column).strip(),
+        }
 
 
 def _iso(value: Any) -> str | None:
