@@ -47,7 +47,8 @@ jobs:
             server/v5/strategy_api.py \
             server/fabio_api_v5.py \
             tools/repro_manifest.py \
-            tools/synthetic_mtx_demo.py
+            tools/synthetic_mtx_demo.py \
+            tools/synthetic_mtx_demo_run.py
           node --check src/v5/strategy-lab.js
           node --check src/v5/strategy-lab-evidence.js
           node --check scripts/capture-strategy-lab-runtime.mjs
@@ -89,7 +90,7 @@ jobs:
           export FABIO_V5_TRAINING_DB="$RUNNER_TEMP/fabio-training.sqlite3"
           export FABIO_API_PORT=8765
 
-          python tools/synthetic_mtx_demo.py \
+          python tools/synthetic_mtx_demo_run.py \
             --data-root "$FABIO_DATA_ROOT" \
             --event-db "$FABIO_V5_EVENT_DB" \
             --out-dir artifacts/strategy-lab-runtime \
