@@ -27,6 +27,7 @@ const routes = [
   ['compare', '06-compare-lab.png', '#cmpRun'],
   ['candidates', '07-candidate-production-gate.png', '#gateRun'],
   ['jobs', '08-jobs-heartbeat.png', '#jobsBody'],
+  ['monitor', '09-strategy-health.png', '[data-strategy-health-page]'],
 ]
 
 async function selectFirstRealOption(selector) {
@@ -112,6 +113,29 @@ async function hydrateRoute(route) {
     console.log('STRATEGY_LAB_COMPARE_GATE BLOCKED', gate?.replace(/\s+/g, ' ').trim())
   }
   if (route === 'candidates') await assertPortfolioCard('candidate')
+  if (route === 'monitor') {
+    await page.waitForSelector('[data-strategy-health-page][data-monitor-state="SUSPEND"][data-monitor-computed="NORMAL"][data-monitor-lifecycle="SUSPENDED"]')
+    const health = await page.locator('[data-strategy-health-page]').evaluate(el => ({
+      effective: el.dataset.monitorState,
+      computed: el.dataset.monitorComputed,
+      lifecycle: el.dataset.monitorLifecycle,
+      text: el.textContent || '',
+      timelineRows: el.querySelectorAll('table tbody tr').length,
+      resumeDisabled: el.querySelector('#healthResume')?.disabled ?? true,
+    }))
+    if (health.timelineRows < 3 || health.resumeDisabled || !/SUSPEND_LATCHED_BY_LIFECYCLE_CONTROL/.test(health.text)) {
+      throw new Error(`Strategy Health sticky suspension proof incomplete: ${JSON.stringify(health)}`)
+    }
+    if (!/Regime mix TVD/.test(health.text) || !/Slippage/.test(health.text) || !/Signals\/day/.test(health.text)) {
+      throw new Error(`Strategy Health drift dimensions missing: ${JSON.stringify(health)}`)
+    }
+    console.log('STRATEGY_LAB_HEALTH_LATCH', JSON.stringify({
+      effective: health.effective,
+      computed: health.computed,
+      lifecycle: health.lifecycle,
+      timelineRows: health.timelineRows,
+    }))
+  }
 }
 
 const manifest = []
