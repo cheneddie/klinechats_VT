@@ -39,12 +39,15 @@ jobs:
             server/v5/monitor.py \
             server/v5/candidate.py \
             server/v5/candidate_api.py \
+            server/v5/production_evidence.py \
+            server/v5/production_evidence_api.py \
             server/v5/jobs.py \
             server/v5/jobs_api.py \
             server/v5/strategy_api.py \
             server/fabio_api_v5.py \
             tools/repro_manifest.py
           node --check src/v5/strategy-lab.js
+          node --check src/v5/strategy-lab-evidence.js
       - name: Strategy Lab tests
         run: |
           set -o pipefail
@@ -56,6 +59,7 @@ jobs:
           pnpm build
           test -s dist/strategy-lab.html
           test -s dist/src/v5/strategy-lab.js
+          test -s dist/src/v5/strategy-lab-evidence.js
           test ! -e dist/reports
           test ! -e dist/docs
           test ! -e dist/config
