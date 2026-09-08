@@ -25,7 +25,8 @@ from server.v5.production_deployment import (
     verify_deployment_identity,
 )
 from server.v5.production_evidence import record_paper_evidence, record_parity_evidence
-from server.v5.production_gate import get_production_gate_context, production_gate
+from server.v5.production_gate import get_production_gate_context
+from server.v5.production_value_gate import production_gate
 from server.v5.storage import create_research_run, freeze_run, tx
 from server.v5.strategy_registry import normalize_strategy
 
@@ -95,7 +96,7 @@ def seed_campaign(db: Path):
                 (
                     run_id, f"{run_id}-E1", f"MTX_{year}.parquet", year, day, "202501", "MR", "long", "ENTRY", 2,
                     1, f"{day}T09:00:00", 10, f"{day}T09:00:10", 100.0, 94.0, 106.0,
-                    "{}", "{}", json.dumps({"lvn": 100.0}),
+                    "{}", "{}", json.dumps({"lvn": 100.0, "atr": 10.0}),
                 ),
             )
             for j, node_id in enumerate(CHAIN):
@@ -156,6 +157,11 @@ def pass_gate(db: Path, s):
     )
     return production_gate(
         db, "cand-deploy", s,
+        policy={
+            "min_avg_net_points_over_atr": 0.10,
+            "max_positive_month_profit_share": 1.0,
+            "max_positive_year_profit_share": 0.50,
+        },
         parity_evidence_id=parity["parity_evidence_id"],
         paper_evidence_id=paper["paper_evidence_id"],
     )
@@ -208,6 +214,8 @@ def test_deployment_pins_exact_identity_and_suspend_blocks_production_until_fres
         gate = pass_gate(db, s)
         assert gate["status"] == "PASS"
         assert gate["execution_identity"]["passed"] is True
+        assert gate["production_value"]["passed"] is True
+        assert gate["production_value"]["hash_valid"] is True
         ctx = get_production_gate_context(db, gate["production_gate_id"])
         assert ctx["context_hash_valid"] is True
 
