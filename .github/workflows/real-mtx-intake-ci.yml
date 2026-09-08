@@ -20,9 +20,15 @@ jobs:
           python -m pip install pytest==9.1.1
       - name: Compile intake gate
         run: |
-          python -m py_compile server/v5/data_intake.py tools/real_mtx_intake.py
-      - name: Real MTX intake regression
-        run: python -m pytest -q tests/test_real_mtx_intake.py
+          python -m py_compile \
+            server/v5/data_intake.py \
+            server/v5/campaigns.py \
+            tools/real_mtx_intake.py
+      - name: Real MTX intake and campaign regression
+        run: |
+          python -m pytest -q \
+            tests/test_real_mtx_intake.py \
+            tests/test_real_mtx_campaign.py
       - name: CLI fail-closed synthetic guard
         run: |
           mkdir -p artifacts/real-mtx-intake
