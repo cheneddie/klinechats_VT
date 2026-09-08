@@ -45,14 +45,18 @@ jobs:
             server/v5/production_evidence.py \
             server/v5/production_evidence_api.py \
             server/v5/production_gate.py \
+            server/v5/production_value.py \
+            server/v5/production_value_gate.py \
             server/v5/production_deployment.py \
             server/v5/production_observations.py \
             server/v5/production_deployment_api.py \
+            server/v5/data_intake.py \
             server/v5/jobs.py \
             server/v5/jobs_api.py \
             server/v5/strategy_api.py \
             server/fabio_api_v5.py \
             tools/repro_manifest.py \
+            tools/real_mtx_intake.py \
             tools/synthetic_mtx_demo.py \
             tools/synthetic_mtx_demo_run.py \
             tools/synthetic_strategy_health.py \
@@ -77,8 +81,10 @@ jobs:
             tests/test_strategy_health.py \
             tests/test_candidate_gate.py \
             tests/test_production_provenance.py \
+            tests/test_production_value.py \
             tests/test_production_deployment.py \
             tests/test_production_observations.py \
+            tests/test_real_mtx_intake.py \
             tests/test_strategy_jobs.py 2>&1 | tee strategy-lab-pytest.log
       - name: P0 regression
         run: python -m pytest -q tests/test_v5_research_integrity.py tests/test_v5_layer.py
