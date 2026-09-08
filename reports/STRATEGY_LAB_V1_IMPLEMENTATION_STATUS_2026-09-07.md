@@ -13,6 +13,7 @@ Integration target: `fabio-decision-gym-v4`
 - SYNTHETIC PHYSICAL PARQUET END-TO-END: **PASS**
 - P0 EXECUTION-TRUTH / FEATURE QA: **PASS**
 - P1 PRODUCTION VALUE GATES: **PASS (IMPLEMENTATION)**
+- P2 REAL MTX INTAKE / CAMPAIGN / PROVENANCE: **PASS (IMPLEMENTATION READINESS)**
 - REAL MTX MARKET EDGE: **NOT PROVEN / BLOCKED PENDING REAL DATA**
 - MAIN BRANCH MERGE: **NOT PERFORMED**
 
@@ -31,6 +32,7 @@ Strategy Lab includes:
 7. **Production Evidence / Gate** — provenance, exact D/V/H identity, MR/BO reward floor, stress, Historical↔Live parity, Paper evidence, Production Value Audit, append-only decisions.
 8. **Jobs / Heartbeat** — process isolation, persisted heartbeat, hard timeout, cancellation, restart orphan handling, strict terminal audit metadata.
 9. **Production Deployment / Monitoring** — immutable deployment identity, execution observations, health snapshots, sticky suspension and explicit resume controls.
+10. **Real MTX Intake / Governance** — streaming Parquet source audit, exact SHA-256, physical timestamp-order validation, Real campaign registration/freeze policy, immutable intake provenance and D/V/H Real-vs-legacy consistency checks.
 
 ## P0 execution-truth closeout
 
@@ -123,6 +125,78 @@ Regression coverage explicitly checks that a direct deployment call missing valu
 
 Synthetic deployment lifecycle QA creates an explicit `SYNTHETIC_UI_FIXTURE_ONLY` audit so the fixture exercises the same core guard instead of bypassing it. That synthetic declaration is strictly UI/lifecycle plumbing and is not market evidence.
 
+## P2 Real MTX Intake / campaign / provenance closeout
+
+P2 now provides a fail-closed source-governance path for real MTX Parquet files before any file can be trusted as Discovery / Validation / Final Holdout evidence.
+
+### Streaming source intake
+
+Implemented in `server/v5/data_intake.py` with CLI wrapper `tools/real_mtx_intake.py`.
+
+The intake scanner:
+
+- opens a physical Parquet file through PyArrow;
+- records exact file SHA-256;
+- records Parquet schema, row count, row-group count and row-group totals;
+- requires `datetime, product, expiry, price, volume, side`;
+- scans in physical source order without sorting;
+- rejects unparseable timestamps;
+- rejects physical timestamp reversals instead of silently sorting them away;
+- requires real MTX outright rows;
+- rejects invalid MTX outright price / volume rows;
+- requires day-session MTX outright presence;
+- reports product / expiry / side distributions;
+- reports timestamp-year distribution and expected-year share;
+- reports same-second physical run density;
+- reports day-session dominant/front contract summaries and roll changes;
+- rejects synthetic-like source filenames by default.
+
+`--allow-synthetic` exists only for explicit QA fixture usage and does not convert synthetic data into market evidence.
+
+### Timestamp-resolution defect found and closed
+
+P2 CI exposed a real Pandas/PyArrow compatibility defect: Parquet `timestamp(ms)`, `timestamp(us)` and `timestamp(ns)` can retain different pandas datetime resolutions, so treating raw `int64` values as nanoseconds can corrupt same-second grouping.
+
+The implementation now normalizes with:
+
+`DatetimeIndex(...).as_unit("ns").asi8`
+
+Regression requires physically equivalent `timestamp(ms)`, `timestamp(us)` and `timestamp(ns)` fixtures to produce identical same-second statistics. This bug was fixed in the core implementation rather than hidden by changing test expectations.
+
+### Real campaign policy
+
+`server/v5/campaigns.py` adds `REAL_MTX_INTAKE_V1` governance.
+
+A campaign created as a Real MTX campaign cannot be frozen unless every registered dataset contains a valid Real MTX intake record with:
+
+- `status=PASS`;
+- no failed intake checks;
+- non-synthetic source identity;
+- matching source file;
+- matching dataset year;
+- matching SHA-256;
+- valid intake report hash;
+- `source_class=REAL_MTX`;
+- `dataset_evidence_policy=REAL_MTX_INTAKE_V1`.
+
+A direct low-level `register_campaign_dataset()` call with a hand-entered SHA cannot bypass this at campaign freeze. Tampered intake JSON or report hash also prevents freeze.
+
+After campaign freeze, existing SQLite triggers prevent INSERT / UPDATE / DELETE of `campaign_datasets`, preserving source evidence immutability even against direct SQL writes.
+
+### Candidate / Gate Real provenance
+
+`server/v5/real_mtx_provenance.py` verifies Candidate D/V/H source provenance.
+
+Rules:
+
+- a fully Real candidate requires Discovery, Validation and Final Holdout all to use `REAL_MTX_INTAKE_V1` campaigns;
+- every role re-verifies dataset source class, intake policy, SHA, file, year and report hash;
+- mixing Real and legacy campaign evidence is a hard provenance failure;
+- purely synthetic/legacy engineering fixtures remain usable for software QA but are explicitly not Real MTX market evidence;
+- Production Value audit carries a `REAL_MTX_INTAKE_PROVENANCE` check so the Real-source decision is frozen with Gate evidence.
+
+This closes the path where a Real campaign might pass intake initially but later reach Gate with mismatched or mixed provenance.
+
 ## Research-integrity hardening retained
 
 - four-state node truth: `EVALUATED`, `NOT_REACHED`, `NOT_APPLICABLE`, `TERMINAL`;
@@ -136,7 +210,8 @@ Synthetic deployment lifecycle QA creates an explicit `SYNTHETIC_UI_FIXTURE_ONLY
 - causal vs ex-post diagnostics separated;
 - Final Holdout tuning denial;
 - portfolio execution policy and overlap arbitration;
-- exact D/V/H BASE execution identity before deployment.
+- exact D/V/H BASE execution identity before deployment;
+- Real MTX intake / campaign / provenance policy before real-data promotion.
 
 Legacy governance mapping is retained only as the intended research plan and must be used only when the exact real files actually exist and pass integrity checks:
 
@@ -185,7 +260,7 @@ The synthetic optimizer continues to exercise three target hypotheses (`0.50R`, 
 
 ## Important integration defects found and fixed through E2E
 
-Synthetic/browser E2E work has exposed real defects that ordinary unit tests did not initially catch, including:
+Synthetic/browser/E2E/Intake work has exposed real defects that ordinary unit tests did not initially catch, including:
 
 - V5 Trade Review chart using hard-coded V4 replay routes;
 - Candidate Freeze selector state race;
@@ -193,36 +268,40 @@ Synthetic/browser E2E work has exposed real defects that ordinary unit tests did
 - numeric execution identity canonicalization mismatch;
 - spawned multiprocessing worker triggering false restart/orphan metadata;
 - stale `error_text` surviving a later `SUCCEEDED` state;
-- deployment path previously lacking the newly introduced Production Value guard at the lower-level function boundary.
+- deployment path previously lacking the newly introduced Production Value guard at the lower-level function boundary;
+- Pandas/PyArrow timestamp-resolution mismatch corrupting same-second source statistics.
 
-These defects are why synthetic E2E is retained as software verification despite having no market-edge value.
+These defects are why synthetic E2E and intake fixtures are retained as software verification despite having no market-edge value.
 
-## Audited P1 code-head verification
+## Audited final P2 code-head verification
 
-Audited code head before documentation-only closeout:
+Audited P2 code head before documentation-only closeout:
 
-`8db68258eaa386f7f832ca02c67b17d79014764a`
+`5a748ae525069e6fc5468ea5ff792c004009b9db`
 
 GitHub Actions at that head:
 
-- V5 Research CI run `34186312737`: **PASS**
-- Browser Release QA run `34186312604`: **PASS**
-- Strategy Lab Feature QA run `34186312628`: **PASS**
-- Strategy Lab CI run `34186312637`: **PASS**
+- V5 Research CI run `34188426699`: **PASS**
+- Browser Release QA run `34188426646`: **PASS**
+- Real MTX Intake CI run `34188426622`: **PASS**
+- Strategy Lab Feature QA run `34188426616`: **PASS**
+- Strategy Lab CI run `34188426649`: **PASS**
 
 The Strategy Lab run also confirms:
 
-- Strategy Lab tests including P1 Production Value and deployment regressions: PASS;
+- Strategy Lab tests with dedicated P1 Production Value + P2 Intake/campaign/provenance regressions: PASS;
 - P0 regression: PASS;
 - public static build: PASS;
 - synthetic MTX physical-Parquet E2E: PASS;
-- synthetic deployment/lifecycle fixture under the core value-audit guard: PASS;
+- strict Chrome feature QA: PASS;
 - reproducibility manifest: PASS;
 - runtime screenshot artifact upload: PASS.
 
+At that code head, the branch was **205 commits ahead / 0 behind** `fabio-decision-gym-v4`, with merge base `5c12e8fe810184220d5bf15f215855f12b6030e8`.
+
 ## Engineering completion is not market-edge proof
 
-This status means the research machine can now enforce the stated software/governance/economic-value rules. It does **not** establish that MR or BO is profitable on real MTX.
+This status means the research machine can now enforce the stated software/governance/economic-value/source-integrity rules. It does **not** establish that MR or BO is profitable on real MTX.
 
 No real source dataset in the active runtime has yet completed the governed D/V/H lifecycle. No real Historical↔Live parity or Paper evidence has been supplied for a candidate. Therefore:
 
@@ -230,24 +309,25 @@ No real source dataset in the active runtime has yet completed the governed D/V/
 - BO real edge: **NOT PROVEN**;
 - production deployment of a real strategy: **NOT AUTHORIZED BY EVIDENCE**.
 
-## Next real-data action — P2
+## Next real-data action
 
 When the actual MTX Parquet files are available:
 
-1. inspect schema, row count, date coverage, contract/expiry coverage and duplicate/impossible timestamps;
-2. compute exact source SHA-256;
-3. verify physical row ordering assumptions;
-4. register and freeze campaign datasets;
-5. run raw/contract/scanner/event-price sanity;
-6. freeze Discovery and run formal backtests;
-7. optimize Discovery only;
-8. freeze candidate and explicit concentration policy;
-9. run Validation with no retuning;
-10. run Final Holdout with no retuning;
-11. apply cost/latency/portfolio stress;
-12. run P1 Production Value Audit (MR/BO reward floor + ATR >=10% + explicit month/year concentration limits);
-13. only passing real evidence proceeds to parity and paper;
-14. only the complete immutable evidence chain can pass Production Gate and create a deployment.
+1. run `tools/real_mtx_intake.py` on each physical source file;
+2. reject any source that fails schema, physical ordering, timestamp, MTX outright, price/volume, session, synthetic-source or expected-year checks;
+3. preserve exact source SHA-256 and intake report hash;
+4. create a `REAL_MTX_INTAKE_V1` research campaign;
+5. register the real source through the governed Real MTX registration path and freeze the campaign;
+6. run raw/contract/scanner/event-price sanity;
+7. freeze Discovery and run formal backtests;
+8. optimize Discovery only;
+9. freeze candidate and explicit concentration policy;
+10. run Validation with no retuning;
+11. run Final Holdout with no retuning;
+12. apply cost/latency/portfolio stress;
+13. run P1 Production Value Audit (MR/BO reward floor + ATR >=10% + explicit month/year concentration limits) with Real MTX provenance attached;
+14. only passing real evidence proceeds to parity and paper;
+15. only the complete immutable evidence chain can pass Production Gate and create a deployment.
 
 Synthetic data must never substitute for a missing real source file.
 
