@@ -18,15 +18,40 @@
     const oldPaper=document.getElementById('gatePaper')?.closest('label');
     if(oldLive)oldLive.outerHTML='<label>Parity evidence ID<input id="gateParityEvidence" placeholder="parity-..."></label>';
     if(oldPaper)oldPaper.outerHTML='<label>Paper evidence ID<input id="gatePaperEvidence" placeholder="paper-..."></label>';
+
+    if(!document.getElementById('gateProductionValuePolicy')){
+      const valuePolicy=document.createElement('div');
+      valuePolicy.id='gateProductionValuePolicy';
+      valuePolicy.innerHTML=`
+        <h3>Production Value Policy</h3>
+        <p class="muted">ATR 交易價值使用 frozen event-time ATR，禁止在 Gate 時重算。NET points / ATR 預設最低 10%。月份與年度集中度必須由研究政策明確填入；留白即 FAIL，不會自動猜門檻。</p>
+        <div class="params">
+          <label>Min avg NET points / ATR<input id="gateMinAtrValue" type="number" step="0.01" min="0" value="0.10"></label>
+          <label>Max positive month profit share<input id="gateMaxMonthShare" type="number" step="0.01" min="0.01" max="1" placeholder="required, 0 < share ≤ 1"></label>
+          <label>Max positive year profit share<input id="gateMaxYearShare" type="number" step="0.01" min="0.01" max="1" placeholder="required, 0 < share ≤ 1"></label>
+        </div>`;
+      gate.parentElement?.insertBefore(valuePolicy,gate);
+    }
+
     gate.onclick=async()=>{
       const id=activeCandidate();
+      const monthRaw=document.getElementById('gateMaxMonthShare')?.value.trim()||'';
+      const yearRaw=document.getElementById('gateMaxYearShare')?.value.trim()||'';
+      const atrRaw=document.getElementById('gateMinAtrValue')?.value.trim()||'0.10';
       const body={
         parity_evidence_id:document.getElementById('gateParityEvidence')?.value.trim()||null,
         paper_evidence_id:document.getElementById('gatePaperEvidence')?.value.trim()||null,
+        policy:{
+          min_avg_net_points_over_atr:Number(atrRaw),
+          max_positive_month_profit_share:monthRaw===''?null:Number(monthRaw),
+          max_positive_year_profit_share:yearRaw===''?null:Number(yearRaw),
+        },
       };
       try{
         const r=await api(`/v5/strategy-lab/candidates/${encodeURIComponent(id)}/production-gates`,body);
-        document.getElementById('gateBody').innerHTML=`<h3><span class="pill ${String(r.status).toLowerCase()}">${esc(r.status)}</span></h3>${(r.checklist||[]).map(x=>`<div class="check"><span>${esc(x.name)}</span><b class="${x.passed?'yes':'no'}">${x.passed?'PASS':'FAIL'}</b></div>`).join('')}`;
+        const valueAudit=r.production_value?.audit||r.production_value?.audit_json||null;
+        const valueHtml=valueAudit?`<h3>Production Value</h3>${(valueAudit.checks||[]).map(x=>`<div class="check"><span>${esc(x.name)}</span><b class="${x.passed?'yes':'no'}">${x.passed?'PASS':'FAIL'}</b></div>`).join('')}`:'';
+        document.getElementById('gateBody').innerHTML=`<h3><span class="pill ${String(r.status).toLowerCase()}">${esc(r.status)}</span></h3>${(r.checklist||[]).map(x=>`<div class="check"><span>${esc(x.name)}</span><b class="${x.passed?'yes':'no'}">${x.passed?'PASS':'FAIL'}</b></div>`).join('')}${valueHtml}`;
       }catch(e){status(document.getElementById('gateBody'),e.message,false)}
     };
 
