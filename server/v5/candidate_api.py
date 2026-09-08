@@ -11,7 +11,7 @@ from .candidate import (
     list_production_gates,
 )
 from .execution import ExecutionModel
-from .production_gate import production_gate
+from .production_value_gate import production_gate
 from .strategy_registry import find_strategy, load_strategy_directory
 
 
