@@ -26,6 +26,7 @@ page.on('console', msg => {
 
 const findings = []
 const jobs = {}
+const terminal = {}
 let frozenCandidate = ''
 const add = (feature, target, status, evidence, gaps = []) => findings.push({ feature, target, status, evidence, gaps })
 const shot = async file => {
@@ -50,6 +51,12 @@ const waitJob = async (jobId, timeoutMs = 180000) => {
     await new Promise(r => setTimeout(r, 750))
   }
   throw new Error(`job did not terminate: ${jobId}`)
+}
+const requireSucceeded = (kind, job) => {
+  if (!job || job.status !== 'SUCCEEDED' || job.error_text) {
+    throw new Error(`${kind} job did not succeed cleanly: ${JSON.stringify(job)}`)
+  }
+  return job
 }
 const parseJob = text => (String(text || '').match(/job-[a-z0-9]+/i) || [])[0] || ''
 const goto = async route => {
@@ -84,6 +91,10 @@ try {
   await page.waitForFunction(() => /job-/.test(document.querySelector('#btResult')?.textContent || ''))
   jobs.backtest = parseJob(await page.locator('#btResult').textContent())
   if (!jobs.backtest) throw new Error('Backtest UI did not return a job id')
+  // Strategy job capacity is intentionally serialized (max_concurrent=1). Prove
+  // the first browser-submitted write-heavy job really finishes before submitting
+  // another one; never depend on runner speed to free capacity by accident.
+  terminal.backtest = requireSucceeded('Backtest', await waitJob(jobs.backtest, 240000))
   add('Backtest Studio', 'Submit governed backtest against a frozen synthetic research run', 'PASS', await shot('02-backtest-submitted.png'), ['Backtest Studio does not show completed run metrics inline; review/report are separate pages.'])
 
   // 3. Trade Review: load immutable trades and require the execution overlay.
@@ -126,6 +137,7 @@ try {
   await page.waitForFunction(() => /job-/.test(document.querySelector('#optResult')?.textContent || ''))
   jobs.optimization = parseJob(await page.locator('#optResult').textContent())
   if (!jobs.optimization) throw new Error('Optimization UI did not return a job id')
+  terminal.optimization = requireSucceeded('Optimization', await waitJob(jobs.optimization, 240000))
   add('Optimization Lab', 'Submit bounded optimization while hard-locking rescan parameters and preserving portfolio assumptions', 'PARTIAL', await shot('05-optimization-submitted.png'), ['Optimization page cannot open an existing optimization run, inspect trial table, or visualize the robust plateau in-place.'])
 
   // 6A. Compare positive branch: comparable contexts must show a table.
@@ -168,18 +180,16 @@ try {
   await page.selectOption('#candEval', frozenCandidate)
   await page.selectOption('#candGate', frozenCandidate)
 
-  // The production API intentionally serializes write-heavy jobs. Wait for the
-  // earlier browser-submitted jobs to finish before starting Candidate Evaluation;
-  // capacity rejection is tested separately as an explicit API contract.
-  if (jobs.backtest) await waitJob(jobs.backtest, 240000)
-  if (jobs.optimization) await waitJob(jobs.optimization, 240000)
-
   // Exercise Candidate Evaluation background job on Discovery. The job itself must terminate;
   // evaluation status may be FAIL because the tiny synthetic N deliberately does not meet production policy.
   await page.fill('#candEvalRun', syntheticRun)
   await page.click('#candEvaluate')
   await page.waitForFunction(() => /job-/.test(document.querySelector('#candEvalResult')?.textContent || ''))
   jobs.candidateEvaluation = parseJob(await page.locator('#candEvalResult').textContent())
+  if (!jobs.candidateEvaluation) throw new Error('Candidate Evaluation UI did not return a job id')
+  // Gate evidence must be evaluated only after the candidate evaluation record is
+  // durably written. This also guarantees the single job-capacity slot is released.
+  terminal.candidateEvaluation = requireSucceeded('Candidate Evaluation', await waitJob(jobs.candidateEvaluation, 300000))
 
   // Exercise append-only parity and paper evidence in the browser.
   const trace = JSON.stringify([{ state: 'ENTRY', node_id: 'MR_ENTRY', answer: true, decision_seq: 10, decision_price: 20000, entry_seq: 10, entry_price: 20000 }])
@@ -207,10 +217,10 @@ try {
   ]
   add('Candidate / Evidence / Gate', 'Freeze robust plateau, evaluate candidate, create append-only evidence and enforce governed Production Gate', gateRejected ? 'PARTIAL' : 'PARTIAL', await shot('07-candidate-evidence-gate.png'), candidateGaps)
 
-  // Wait for the three browser-submitted background jobs and prove Jobs/Heartbeat is populated.
-  const terminal = {}
+  // Prove Jobs/Heartbeat is populated. All write-heavy browser jobs have already
+  // completed sequentially above; keep the fallback only for future additional jobs.
   for (const [kind, id] of Object.entries(jobs)) {
-    if (!id) continue
+    if (!id || terminal[kind]) continue
     terminal[kind] = await waitJob(id, kind === 'candidateEvaluation' ? 300000 : 240000)
   }
   await goto('jobs')
