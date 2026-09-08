@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .production_gate import get_production_gate_context
+from .production_value import require_passing_production_value_audit
 from .storage import connect, tx, utcnow
 from .strategy_registry import content_hash
 from .strategy_storage import migrate_strategy_db
@@ -161,6 +162,10 @@ def create_deployment_from_gate(
     notes: str | None = None,
 ) -> dict[str, Any]:
     _migrate(event_db)
+    # This guard intentionally lives in the deployment core, not only in the API.
+    # Any Python caller, test harness or alternate adapter must therefore prove the
+    # same immutable Production Value Audit before it can create an identity.
+    require_passing_production_value_audit(event_db, production_gate_id)
     context = get_production_gate_context(event_db, production_gate_id)
     if not context.get("context_hash_valid"):
         raise RuntimeError("production gate context hash verification failed")
