@@ -40,6 +40,7 @@
     'Final Holdout':'最終保留集',
     'optimizer access denied':'禁止最佳化器存取',
     'Architecture':'架構',
+    'A strategy is more than a JSON name; each version is fixed by an immutable definition hash. Parameters that change the causal event universe cannot be optimized directly on an existing snapshot.':'策略不是只有 JSON 名稱；每一版以 immutable definition hash 固定。任何會改變 causal event universe 的參數禁止直接在既有 snapshot 上最佳化。',
     'Frozen Research Run':'凍結研究 Run',
     'Bootstrap reps':'Bootstrap 次數',
     'Timeout sec':'逾時（秒）',
@@ -92,7 +93,9 @@
     'Run Gate':'執行閘門',
     'Production Value Policy':'生產價值政策',
     'Production Value':'生產價值',
+    'ATR trading value uses frozen event-time ATR and must never be recomputed at Gate time. NET points / ATR defaults to a 10% minimum. Month/year concentration limits must be explicitly supplied by research policy; blank values FAIL closed and the system never guesses thresholds.':'ATR 交易價值使用 frozen event-time ATR，禁止在 Gate 時重算。NET points / ATR 預設最低 10%。月份與年度集中度必須由研究政策明確填入；留白即 FAIL，不會自動猜門檻。',
     'Production Evidence Registry':'生產證據註冊表',
+    'Production Gate does not accept a manual PASS. Live parity and Paper Trading must first create append-only evidence.':'Production Gate 不接受手動 PASS。Live parity 與 Paper Trading 必須先形成 append-only evidence。',
     'Historical ↔ Live Parity':'歷史 ↔ 即時一致性',
     'Historical trace JSON':'歷史 trace JSON',
     'Live trace JSON':'即時 trace JSON',
@@ -104,6 +107,20 @@
     'Profit Factor':'獲利因子',
     'Max DD R':'最大回撤 R',
     'Validate + Freeze Paper Evidence':'驗證並凍結模擬交易證據',
+    'Portfolio Execution Policy':'投資組合執行政策',
+    'This is an execution-arbitration assumption and does not change the causal event universe. A formal Candidate freezes the policy hash; Discovery / Validation / Final Holdout must use the same policy.':'這是成交仲裁假設，不會改動 causal event universe。正式 Candidate 會凍結 policy hash，Discovery / Validation / Final Holdout 必須一致。',
+    'Position mode':'持倉模式',
+    'INDEPENDENT_EVENT (legacy independent behavior)':'INDEPENDENT_EVENT（保留舊行為）',
+    'SINGLE_POSITION (skip new signals while position is open)':'SINGLE_POSITION（持倉中跳過新訊號）',
+    'Overlap policy':'重疊政策',
+    'Max open positions':'最大同時持倉數',
+    'Re-entry cooldown (sec)':'再次進場冷卻（秒）',
+    'Fixed quantity':'固定數量',
+    'Force flat clock':'強制平倉時間',
+    'Execution-assumption fingerprint':'執行假設指紋',
+    'Production realism':'生產真實度',
+    'The data, execution assumptions, and Portfolio Policy match; only then may performance differences be interpreted.':'資料、執行假設與 Portfolio Policy 一致；績效差異才可進一步解讀。',
+    'Comparison blocked: the values below must not be interpreted as strategy superiority until inconsistent data or execution assumptions are corrected.':'比較被阻擋：以下數值不可直接解讀為策略優劣，先修正不一致的資料或成交假設。',
     'Background Jobs':'背景工作',
     'Refresh':'重新整理',
     'Status':'狀態',
@@ -198,9 +215,11 @@
     'Human review reason is required.':'必須填寫人工審查原因。',
     '— select —':'— 請選擇 —'
   }));
+  const reverseExact=new Map([...exact.entries()].map(([en,zh])=>[zh,en]));
 
   const replacements=[
     [/^(\d+) strategies$/,(_,n)=>`${n} 個策略`],
+    [/^(.+?) · (\d+) strategies$/,(_,prefix,n)=>`${prefix} · ${n} 個策略`],
     [/^Job (job-[A-Za-z0-9_-]+) submitted\. Open Jobs →$/,(_,id)=>`工作 ${id} 已提交。開啟工作列表 →`],
     [/^Job (job-[A-Za-z0-9_-]+) submitted\.$/,(_,id)=>`工作 ${id} 已提交。`],
     [/^computed (.+)$/,(m,x)=>`計算狀態 ${x}`],
@@ -215,13 +234,21 @@
     'paper broker export / simulator':'模擬券商匯出 / 模擬器',
     '64 hex chars':'64 位十六進位字元'
   }));
+  const reversePlaceholders=new Map([...placeholders.entries()].map(([en,zh])=>[zh,en]));
 
-  function zh(source){
+  function split(source){
     const m=String(source).match(/^(\s*)([\s\S]*?)(\s*)$/);
-    const lead=m?.[1]||'',core=m?.[2]||'',trail=m?.[3]||'';
+    return {lead:m?.[1]||'',core:m?.[2]||'',trail:m?.[3]||''};
+  }
+  function toZh(source){
+    const {lead,core,trail}=split(source);
     if(exact.has(core))return lead+exact.get(core)+trail;
     for(const [rx,fn] of replacements){if(rx.test(core)){rx.lastIndex=0;return lead+core.replace(rx,fn)+trail;}}
     return source;
+  }
+  function toEn(source){
+    const {lead,core,trail}=split(source);
+    return reverseExact.has(core)?lead+reverseExact.get(core)+trail:source;
   }
 
   function shouldSkip(node){
@@ -235,7 +262,7 @@
     const last=rendered.get(node);
     if(!originals.has(node)||last!==undefined&&current!==last)originals.set(node,current);
     const source=originals.get(node)||'';
-    const next=language==='zh-TW'?zh(source):source;
+    const next=language==='zh-TW'?toZh(source):toEn(source);
     if(current!==next)node.nodeValue=next;
     rendered.set(node,next);
   }
@@ -250,7 +277,7 @@
       const current=el.getAttribute(attr)||'';
       if(!(attr in store))store[attr]=current;
       const source=store[attr];
-      const next=language==='zh-TW'?(placeholders.get(source)||zh(source)):source;
+      const next=language==='zh-TW'?(placeholders.get(source)||toZh(source)):(reversePlaceholders.get(source)||toEn(source));
       if(current!==next)el.setAttribute(attr,next);
     }
   }
@@ -281,7 +308,7 @@
     const wrap=document.createElement('label');
     wrap.className='sl-lang-control';
     wrap.dataset.i18nSkip='1';
-    wrap.innerHTML='<small>Language</small><select id="slLanguage" aria-label="Language"><option value="zh-TW">中文</option><option value="en">English</option></select>';
+    wrap.innerHTML='<small data-lang-label>語言</small><select id="slLanguage" aria-label="Language"><option value="zh-TW">中文</option><option value="en">English</option></select>';
     const api=document.getElementById('slApi');
     if(api)tools.insertBefore(wrap,api);else tools.prepend(wrap);
     const select=wrap.querySelector('select');
@@ -296,6 +323,8 @@
     document.documentElement.lang=language==='zh-TW'?'zh-Hant':'en';
     const select=document.getElementById('slLanguage');
     if(select&&select.value!==language)select.value=language;
+    const label=document.querySelector('[data-lang-label]');
+    if(label)label.textContent=language==='zh-TW'?'語言':'Language';
     applying=true;
     try{walk(document.documentElement);}finally{applying=false;}
     document.dispatchEvent(new CustomEvent('strategy-lab-language-change',{detail:{language}}));
