@@ -77,6 +77,43 @@ def test_job_state_is_durable_and_restart_marks_unfinished_orphaned():
         assert after["finished_at"]
 
 
+def test_success_terminal_state_clears_stale_error_text():
+    with tempfile.TemporaryDirectory() as td:
+        db = Path(td) / "events.sqlite3"
+        job_id = create_job(db, "BACKTEST", {})
+        update_job(
+            db,
+            job_id,
+            status="RUNNING",
+            progress=.5,
+            error_text="server restarted before job completion",
+            started=True,
+        )
+        update_job(
+            db,
+            job_id,
+            status="SUCCEEDED",
+            progress=1.0,
+            result={"ok": True},
+            finished=True,
+        )
+        row = get_job(db, job_id)
+        assert row["status"] == "SUCCEEDED"
+        assert row["result"] == {"ok": True}
+        assert row["error_text"] is None
+
+
+def test_spawned_worker_supervisor_does_not_run_restart_recovery(monkeypatch):
+    with tempfile.TemporaryDirectory() as td:
+        db = Path(td) / "events.sqlite3"
+        queued = create_job(db, "BACKTEST", {"research_run_id": "r"})
+        monkeypatch.setattr("server.v5.jobs.mp.parent_process", lambda: object())
+        JobSupervisor(db, td, td, max_concurrent=1)
+        row = get_job(db, queued)
+        assert row["status"] == "QUEUED"
+        assert row["error_text"] is None
+
+
 def test_watchdog_hard_timeout_terminates_child_and_persists_terminal_state():
     with tempfile.TemporaryDirectory() as td:
         db = Path(td) / "events.sqlite3"
