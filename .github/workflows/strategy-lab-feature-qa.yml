@@ -23,9 +23,12 @@ jobs:
           corepack enable
           corepack prepare pnpm@10.15.1 --activate
           pnpm install --frozen-lockfile
+          node --check src/v5/strategy-lab-i18n.js
           node --check scripts/capture-strategy-lab-feature-qa.mjs
       - name: Build public Strategy Lab
-        run: pnpm build
+        run: |
+          pnpm build
+          test -s dist/src/v5/strategy-lab-i18n.js
       - name: Seed synthetic MTX and governed runtime fixtures
         run: |
           mkdir -p "$RUNNER_TEMP/fabio-data" artifacts/strategy-lab-feature-qa
@@ -126,10 +129,12 @@ jobs:
           assert p.exists(), 'feature-qa.json missing'
           x=json.loads(p.read_text())
           assert x['ok'] is True, x
+          assert x['language_toggle_verified'] is True, x
+          assert x['ui_language']=='zh-TW', x
           assert x['summary']['fail']==0, x
-          assert x['summary']['pass']>=7, x
+          assert x['summary']['pass']>=8, x
           assert x['summary']['partial']>=1, x
-          assert len(x['findings'])>=11, x
+          assert len(x['findings'])>=12, x
           assert len(x['jobs'])>=3, x
           terminal=x.get('terminal_jobs') or {}
           required=('backtest','optimization','candidateEvaluation')
@@ -142,6 +147,8 @@ jobs:
           assert candidate_result.get('role')=='DISCOVERY', candidate_result
           print('STRATEGY_LAB_FEATURE_ACCEPTANCE', x['summary'], x['jobs'], candidate_result['evaluation_id'])
           PY
+          test -s artifacts/strategy-lab-feature-qa/00a-language-zh-tw.png
+          test -s artifacts/strategy-lab-feature-qa/00b-language-en.png
           test -s artifacts/strategy-lab-feature-qa/01-strategy-library-populated.png
           test -s artifacts/strategy-lab-feature-qa/02-backtest-submitted.png
           test -s artifacts/strategy-lab-feature-qa/03-trade-review-populated.png
