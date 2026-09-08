@@ -1,11 +1,49 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
+from .data_intake import inspect_mtx_parquet
 from .storage import connect, migrate_event_db, tx, utcnow
 
 ALLOWED_ROLES = {"DISCOVERY", "VALIDATION", "FINAL_HOLDOUT"}
+REAL_MTX_INTAKE_POLICY = "REAL_MTX_INTAKE_V1"
+
+
+def _canonical_intake_hash(report):
+    clean = dict(report or {})
+    clean.pop("generated_at", None)
+    clean.pop("report_hash", None)
+    clean.pop("path", None)
+    raw = json.dumps(clean, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _verify_real_mtx_dataset_record(dataset):
+    metadata = dataset.get("metadata") or {}
+    intake = metadata.get("real_mtx_intake") or {}
+    reasons = []
+    if metadata.get("source_class") != "REAL_MTX":
+        reasons.append("SOURCE_CLASS_NOT_REAL_MTX")
+    if metadata.get("dataset_evidence_policy") != REAL_MTX_INTAKE_POLICY:
+        reasons.append("DATASET_EVIDENCE_POLICY_MISMATCH")
+    if intake.get("status") != "PASS":
+        reasons.append("INTAKE_NOT_PASS")
+    if intake.get("synthetic_name") is True:
+        reasons.append("SYNTHETIC_SOURCE_FORBIDDEN")
+    if intake.get("failed_checks"):
+        reasons.append("INTAKE_HAS_FAILED_CHECKS")
+    if str(intake.get("sha256") or "").lower() != str(dataset.get("sha256") or "").lower():
+        reasons.append("INTAKE_SHA256_MISMATCH")
+    if intake.get("file") != dataset.get("source_file"):
+        reasons.append("INTAKE_SOURCE_FILE_MISMATCH")
+    if intake.get("expected_year") is not None and int(intake.get("expected_year")) != int(dataset.get("year")):
+        reasons.append("INTAKE_YEAR_MISMATCH")
+    expected_hash = _canonical_intake_hash(intake) if intake else ""
+    if not intake.get("report_hash") or intake.get("report_hash") != expected_hash:
+        reasons.append("INTAKE_REPORT_HASH_INVALID")
+    return reasons
 
 
 def create_campaign(path, campaign_id, name, *, description="", governance=None, notes=""):
@@ -22,6 +60,16 @@ def create_campaign(path, campaign_id, name, *, description="", governance=None,
              json.dumps(governance, ensure_ascii=False, sort_keys=True), notes),
         )
     return get_campaign(path, campaign_id)
+
+
+def create_real_mtx_campaign(path, campaign_id, name, *, description="", governance=None, notes=""):
+    governed = dict(governance or {})
+    governed.setdefault("roles", sorted(ALLOWED_ROLES))
+    governed["dataset_evidence_policy"] = REAL_MTX_INTAKE_POLICY
+    governed["source_class"] = "REAL_MTX"
+    return create_campaign(
+        path, campaign_id, name, description=description, governance=governed, notes=notes
+    )
 
 
 def register_campaign_dataset(
@@ -62,8 +110,65 @@ def register_campaign_dataset(
     return get_campaign(path, campaign_id)
 
 
+def register_real_mtx_dataset(
+    event_db,
+    data_root,
+    campaign_id,
+    dataset_id,
+    role,
+    year,
+    source_file,
+    *,
+    metadata=None,
+):
+    campaign = get_campaign(event_db, campaign_id)
+    if (campaign.get("governance") or {}).get("dataset_evidence_policy") != REAL_MTX_INTAKE_POLICY:
+        raise RuntimeError(
+            f"campaign {campaign_id} is not governed by {REAL_MTX_INTAKE_POLICY}"
+        )
+    source_path = Path(data_root) / str(source_file)
+    report = inspect_mtx_parquet(source_path, expected_year=int(year))
+    if report.get("status") != "PASS":
+        failed = ",".join(report.get("failed_checks") or [])
+        raise RuntimeError(f"real MTX intake failed for {source_file}: {failed}")
+    payload = dict(metadata or {})
+    payload.update({
+        "source_class": "REAL_MTX",
+        "dataset_evidence_policy": REAL_MTX_INTAKE_POLICY,
+        "real_mtx_intake": report,
+    })
+    return register_campaign_dataset(
+        event_db,
+        campaign_id,
+        dataset_id,
+        role,
+        int(year),
+        str(source_file),
+        report["sha256"],
+        start_time=(report.get("scan") or {}).get("start"),
+        end_time=(report.get("scan") or {}).get("end"),
+        metadata=payload,
+    )
+
+
 def freeze_campaign(path, campaign_id):
     migrate_event_db(path)
+    campaign = get_campaign(path, campaign_id)
+    governance = campaign.get("governance") or {}
+    if governance.get("dataset_evidence_policy") == REAL_MTX_INTAKE_POLICY:
+        evidence_failures = []
+        for dataset in campaign.get("datasets") or []:
+            reasons = _verify_real_mtx_dataset_record(dataset)
+            if reasons:
+                evidence_failures.append(f"{dataset.get('dataset_id')}:{','.join(reasons)}")
+        if not campaign.get("datasets"):
+            evidence_failures.append("NO_DATASETS")
+        if evidence_failures:
+            raise RuntimeError(
+                "real MTX campaign cannot freeze without valid intake evidence: "
+                + "; ".join(evidence_failures)
+            )
+
     with tx(path) as c:
         row = c.execute(
             "SELECT frozen FROM research_campaigns WHERE campaign_id=?", (campaign_id,)
@@ -158,3 +263,18 @@ def pin_run_datasets(path, research_run_id, campaign_id, role, years):
                 ),
             )
     return chosen
+
+
+__all__ = [
+    "ALLOWED_ROLES",
+    "REAL_MTX_INTAKE_POLICY",
+    "create_campaign",
+    "create_real_mtx_campaign",
+    "register_campaign_dataset",
+    "register_real_mtx_dataset",
+    "freeze_campaign",
+    "get_campaign",
+    "list_campaigns",
+    "validate_campaign_governance",
+    "pin_run_datasets",
+]
