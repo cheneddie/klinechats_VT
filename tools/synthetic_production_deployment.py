@@ -22,6 +22,7 @@ from server.v5.production_observations import (
     list_execution_observations,
     record_execution_observation_batch,
 )
+from server.v5.production_value import record_production_value_audit
 from server.v5.storage import connect, tx, utcnow
 from server.v5.strategy_api import _load_backtest
 from server.v5.strategy_registry import content_hash
@@ -139,6 +140,53 @@ def _seed_pass_gate_context(event_db: Path, execution_identity: dict) -> None:
                 json.dumps(execution_identity, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
             ),
         )
+
+
+def _seed_synthetic_value_audit(event_db: Path) -> None:
+    # This is deliberately NOT computed from synthetic market performance. The
+    # deployment fixture exists only to exercise UI/lifecycle plumbing, so it must
+    # explicitly carry a synthetic-only audit rather than bypass the same core
+    # deployment guard used by real production candidates.
+    c = connect(event_db)
+    try:
+        exists = c.execute(
+            "SELECT 1 FROM production_value_audits WHERE production_gate_id=?",
+            (GATE_ID,),
+        ).fetchone()
+    except Exception:
+        exists = None
+    finally:
+        c.close()
+    if exists:
+        return
+    policy = {
+        "synthetic_fixture_only": True,
+        "warning": WARNING,
+    }
+    audit = {
+        "candidate_id": CANDIDATE_ID,
+        "passed": True,
+        "policy": policy,
+        "policy_hash": content_hash(policy),
+        "roles": {},
+        "month_concentration": {},
+        "year_concentration": {},
+        "checks": [{
+            "name": "SYNTHETIC_UI_FIXTURE_ONLY",
+            "passed": True,
+            "actual": "fixture declaration",
+            "threshold": None,
+            "details": WARNING,
+        }],
+        "failed_checks": [],
+        "methodology": {
+            "synthetic": True,
+            "warning": WARNING,
+            "purpose": "deployment UI/lifecycle plumbing only; never market-edge evidence",
+        },
+    }
+    audit["audit_hash"] = content_hash(audit)
+    record_production_value_audit(event_db, GATE_ID, CANDIDATE_ID, audit)
 
 
 def _observation(i: int, day: str, net_r: float, *, source: str) -> dict:
@@ -259,6 +307,7 @@ def main() -> None:
 
     identity = _source_identity(event_db)
     _seed_pass_gate_context(event_db, identity)
+    _seed_synthetic_value_audit(event_db)
     try:
         deployment = create_deployment_from_gate(
             event_db,
