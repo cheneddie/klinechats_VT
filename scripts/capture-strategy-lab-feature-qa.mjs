@@ -75,6 +75,28 @@ try {
   const health = (await page.locator('#slHealth').textContent())?.trim() || ''
   if (!health.includes('STRATEGY_LAB_V1')) throw new Error(`Strategy Lab API offline: ${health}`)
 
+  // 0. Language switch: default Traditional Chinese, English toggle, persistence, then return to Chinese.
+  await page.waitForSelector('#slLanguage')
+  if (await page.locator('#slLanguage').inputValue() !== 'zh-TW') throw new Error('Strategy Lab default language must be zh-TW')
+  await page.waitForFunction(() => document.querySelector('[data-page="library"]')?.textContent?.includes('策略庫'))
+  if (await page.locator('html').getAttribute('lang') !== 'zh-Hant') throw new Error('zh-TW mode must set html lang=zh-Hant')
+  await shot('00a-language-zh-tw.png')
+
+  await page.selectOption('#slLanguage', 'en')
+  await page.waitForFunction(() => document.querySelector('[data-page="library"]')?.textContent?.includes('Strategy Library'))
+  if (await page.locator('html').getAttribute('lang') !== 'en') throw new Error('English mode must set html lang=en')
+  await shot('00b-language-en.png')
+
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForSelector('#slHealth.status.ok')
+  await page.waitForSelector('#slLanguage')
+  if (await page.locator('#slLanguage').inputValue() !== 'en') throw new Error('English language preference did not persist after reload')
+  await page.waitForFunction(() => document.querySelector('[data-page="library"]')?.textContent?.includes('Strategy Library'))
+  await page.selectOption('#slLanguage', 'zh-TW')
+  await page.waitForFunction(() => document.querySelector('[data-page="library"]')?.textContent?.includes('策略庫'))
+  if (await page.locator('html').getAttribute('lang') !== 'zh-Hant') throw new Error('Language did not return to zh-TW')
+  add('Language / 語言', 'Switch Traditional Chinese ↔ English without changing strategy/data identity and persist the choice across reloads', 'PASS', '00a-language-zh-tw.png')
+
   // 1. Strategy Library
   await page.waitForSelector('#slMain table tbody tr')
   const strategyRows = await page.locator('#slMain table tbody tr').count()
@@ -91,9 +113,6 @@ try {
   await page.waitForFunction(() => /job-/.test(document.querySelector('#btResult')?.textContent || ''))
   jobs.backtest = parseJob(await page.locator('#btResult').textContent())
   if (!jobs.backtest) throw new Error('Backtest UI did not return a job id')
-  // Strategy job capacity is intentionally serialized (max_concurrent=1). Prove
-  // the first browser-submitted write-heavy job really finishes before submitting
-  // another one; never depend on runner speed to free capacity by accident.
   terminal.backtest = requireSucceeded('Backtest', await waitJob(jobs.backtest, 240000))
   add('Backtest Studio', 'Submit governed backtest against a frozen synthetic research run', 'PASS', await shot('02-backtest-submitted.png'), ['Backtest Studio does not show completed run metrics inline; review/report are separate pages.'])
 
@@ -120,7 +139,7 @@ try {
   await page.click('#reportLoad')
   await page.waitForSelector('#reportBody .metric-grid')
   const reportText = await page.locator('#reportBody').textContent()
-  if (!/Net EV/.test(reportText || '') || !/Integrity/.test(reportText || '') || !/Breakdowns/.test(reportText || '')) throw new Error('report center missing metrics/integrity/breakdowns')
+  if (!/Net EV/.test(reportText || '') || !/(Integrity|完整性)/.test(reportText || '') || !/(Breakdowns|分解統計)/.test(reportText || '')) throw new Error('report center missing metrics/integrity/breakdowns')
   add('Report Center', 'Show full backtest metrics, integrity verification and performance breakdowns', 'PASS', await shot('04-report-center-populated.png'))
 
   // 5. Optimization Lab: submit a real bounded optimization job using synthetic Discovery.
@@ -173,25 +192,19 @@ try {
   const immediateCandidateOptions = await page.locator('#candEval option').evaluateAll(opts => opts.map(o => o.value))
   const staleAfterFreeze = !immediateCandidateOptions.includes(frozenCandidate)
 
-  // Re-enter the route so selectors reload from fresh state.
   await goto('library')
   await goto('candidates')
   await page.waitForSelector('#candEval')
   await page.selectOption('#candEval', frozenCandidate)
   await page.selectOption('#candGate', frozenCandidate)
 
-  // Exercise Candidate Evaluation background job on Discovery. The job itself must terminate;
-  // evaluation status may be FAIL because the tiny synthetic N deliberately does not meet production policy.
   await page.fill('#candEvalRun', syntheticRun)
   await page.click('#candEvaluate')
   await page.waitForFunction(() => /job-/.test(document.querySelector('#candEvalResult')?.textContent || ''))
   jobs.candidateEvaluation = parseJob(await page.locator('#candEvalResult').textContent())
   if (!jobs.candidateEvaluation) throw new Error('Candidate Evaluation UI did not return a job id')
-  // Gate evidence must be evaluated only after the candidate evaluation record is
-  // durably written. This also guarantees the single job-capacity slot is released.
   terminal.candidateEvaluation = requireSucceeded('Candidate Evaluation', await waitJob(jobs.candidateEvaluation, 300000))
 
-  // Exercise append-only parity and paper evidence in the browser.
   const trace = JSON.stringify([{ state: 'ENTRY', node_id: 'MR_ENTRY', answer: true, decision_seq: 10, decision_price: 20000, entry_seq: 10, entry_price: 20000 }])
   await page.fill('#evHistorical', trace)
   await page.fill('#evLive', trace)
@@ -206,7 +219,6 @@ try {
   await page.click('#evPaperSave')
   await page.waitForFunction(() => /paper-/.test(document.querySelector('#evPaperOut')?.textContent || ''))
 
-  // Gate is expected to reject this tiny candidate because it lacks a complete D/V/H chain.
   await page.click('#gateRun')
   await page.waitForFunction(() => /FAIL|PASS/.test(document.querySelector('#gateBody')?.textContent || ''))
   const gateText = await page.locator('#gateBody').textContent()
@@ -217,8 +229,6 @@ try {
   ]
   add('Candidate / Evidence / Gate', 'Freeze robust plateau, evaluate candidate, create append-only evidence and enforce governed Production Gate', gateRejected ? 'PARTIAL' : 'PARTIAL', await shot('07-candidate-evidence-gate.png'), candidateGaps)
 
-  // Prove Jobs/Heartbeat is populated. All write-heavy browser jobs have already
-  // completed sequentially above; keep the fallback only for future additional jobs.
   for (const [kind, id] of Object.entries(jobs)) {
     if (!id || terminal[kind]) continue
     terminal[kind] = await waitJob(id, kind === 'candidateEvaluation' ? 300000 : 240000)
@@ -246,9 +256,13 @@ try {
     paper: Number(el.dataset.paperObservations || 0),
     authoritative: el.dataset.healthAuthoritative,
   }))
-  for (const token of ['EXECUTION_OBSERVATIONS', 'LIVE', 'Observation digest', 'Deployment identity hash']) {
-    if (!deployment.text.includes(token)) throw new Error(`Deployment QA missing ${token}`)
-  }
+  const deploymentChecks = [
+    ['EXECUTION_OBSERVATIONS', /EXECUTION_OBSERVATIONS/],
+    ['LIVE', /LIVE/],
+    ['Observation digest', /(Observation digest|觀測摘要雜湊)/],
+    ['Deployment identity hash', /(Deployment identity hash|部署身份雜湊)/],
+  ]
+  for (const [label, pattern] of deploymentChecks) if (!pattern.test(deployment.text)) throw new Error(`Deployment QA missing ${label}`)
   if (deployment.live < 1 || deployment.paper < 1 || deployment.authoritative !== 'YES') throw new Error(`Deployment observation evidence incomplete: ${JSON.stringify(deployment)}`)
   add('Production Deployment', 'Bind exact deployed identity to append-only PAPER/LIVE execution observations; only LIVE may drive authoritative production health', 'PASS', await shot('10-production-deployment-live-observations.png'))
 
@@ -257,6 +271,8 @@ try {
   const result = {
     ok: true,
     synthetic: true,
+    ui_language: 'zh-TW',
+    language_toggle_verified: true,
     warning: 'SYNTHETIC FEATURE QA ONLY - NOT MARKET EDGE OR PRODUCTION EVIDENCE',
     synthetic_fixture: {
       file: 'MTX_2025_SYNTHETIC.parquet',
