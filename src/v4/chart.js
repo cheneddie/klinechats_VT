@@ -13,6 +13,7 @@ function metaTime(c,nodeId){
   const m=c?.nodeMeta?.[nodeId];
   return m?.decision_time||m?.anchor_time||c?.entryTime||c?.entry_time||c?.attemptStartTime||c?.attempt_start_time;
 }
+function chartLocale(){return localStorage.getItem('strategyLabLanguage')==='en'?'en-US':'zh-TW'}
 async function fetchWindow(c,{nodeId=null,timeframe='1m',before=1,after=1,session='full',hideFuture=false}={}){
   const q=new URLSearchParams({timeframe,days_before:String(before),session});
   const researchRunId=c?.research_run_id||c?.researchRunId||null;
@@ -31,10 +32,11 @@ async function fetchWindow(c,{nodeId=null,timeframe='1m',before=1,after=1,sessio
 async function render(host,c,opts={}){
   if(!host||!c)return null;
   dispose();
-  host.innerHTML='<div class="empty-chart">Replay：載入交易日資料…</div>';
+  const locale=chartLocale();
+  host.innerHTML=`<div class="empty-chart">${locale==='en-US'?'Replay: loading trading-day data…':'Replay：載入交易日資料…'}</div>`;
   let payload;
   try{payload=await fetchWindow(c,opts)}catch(e){
-    host.innerHTML='<div class="empty-chart">Replay 載入失敗：'+String(e.message||e)+'</div>';
+    host.innerHTML=`<div class="empty-chart">${locale==='en-US'?'Replay load failed: ':'Replay 載入失敗：'}${String(e.message||e)}</div>`;
     return null;
   }
   if(payload?.case)Object.assign(c,payload.case);
@@ -45,9 +47,9 @@ async function render(host,c,opts={}){
     const cut=Date.parse(payload.cutoff_time);
     if(Number.isFinite(cut))bars=bars.filter(b=>Number(b.timestamp)<=cut);
   }
-  if(!bars.length){host.innerHTML='<div class="empty-chart">此範圍沒有 Replay bars。</div>';return null}
+  if(!bars.length){host.innerHTML=`<div class="empty-chart">${locale==='en-US'?'No Replay bars in this range.':'此範圍沒有 Replay bars。'}</div>`;return null}
   host.innerHTML='';
-  const chart=klinecharts.init(host,{locale:'zh-TW',timezone:'Asia/Taipei',styles:{
+  const chart=klinecharts.init(host,{locale,timezone:'Asia/Taipei',styles:{
     grid:{horizontal:{color:'#1e2a3b'},vertical:{color:'#172333'}},
     candle:{bar:{upColor:'#27d3a2',downColor:'#ff6378',upBorderColor:'#27d3a2',downBorderColor:'#ff6378',upWickColor:'#27d3a2',downWickColor:'#ff6378'}}
   }});
