@@ -9,6 +9,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from server.v5.production_deployment import create_deployment_from_gate
 from server.v5.production_value import (
     audit_candidate_production_value,
     get_production_value_audit,
@@ -128,3 +129,10 @@ def test_production_value_audit_is_append_only_hash_verified_and_required_for_de
                 )
         with pytest.raises(KeyError, match="production value audit not found"):
             get_production_value_audit(db, "legacy-gate-without-value-audit")
+
+
+def test_deployment_core_fails_before_gate_context_when_value_audit_is_missing():
+    with tempfile.TemporaryDirectory() as td:
+        db = Path(td) / "events.sqlite3"
+        with pytest.raises(KeyError, match="production value audit not found"):
+            create_deployment_from_gate(db, "legacy-pass-gate-without-value-audit")
