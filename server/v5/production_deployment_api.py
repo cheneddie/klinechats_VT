@@ -18,6 +18,7 @@ from .production_deployment import (
     verify_backtest_matches_deployment,
 )
 from .production_gate import get_production_gate_context
+from .production_value import require_passing_production_value_audit
 from .production_observations import (
     execution_observation_digest,
     execution_observation_summary,
@@ -121,6 +122,10 @@ def install_production_deployment_api(app, *, event_db: str | Path):
 
     @app.post("/api/v5/strategy-lab/production-gates/{production_gate_id}/deployments")
     def deployment_create(production_gate_id: str, req: DeploymentCreateRequest):
+        # Fail closed for legacy or bypass-created PASS gates. A deployable gate must
+        # carry an immutable, hash-verified Production Value Audit proving event-time
+        # ATR value and explicit month/year concentration policy.
+        require_passing_production_value_audit(event_db, production_gate_id)
         return create_deployment_from_gate(
             event_db,
             production_gate_id,
