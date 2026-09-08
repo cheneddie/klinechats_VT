@@ -131,7 +131,15 @@ jobs:
           assert x['summary']['partial']>=1, x
           assert len(x['findings'])>=11, x
           assert len(x['jobs'])>=3, x
-          print('STRATEGY_LAB_FEATURE_ACCEPTANCE', x['summary'], x['jobs'])
+          terminal=x.get('terminal_jobs') or {}
+          required=('backtest','optimization','candidateEvaluation')
+          for kind in required:
+              assert kind in terminal, (kind, terminal)
+              assert terminal[kind].get('status')=='SUCCEEDED', (kind, terminal[kind])
+          candidate_result=terminal['candidateEvaluation'].get('result') or {}
+          assert candidate_result.get('evaluation_id'), terminal['candidateEvaluation']
+          assert candidate_result.get('role')=='DISCOVERY', candidate_result
+          print('STRATEGY_LAB_FEATURE_ACCEPTANCE', x['summary'], x['jobs'], candidate_result['evaluation_id'])
           PY
           test -s artifacts/strategy-lab-feature-qa/01-strategy-library-populated.png
           test -s artifacts/strategy-lab-feature-qa/02-backtest-submitted.png
