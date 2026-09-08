@@ -8,180 +8,176 @@ Integration base: `fabio-decision-gym-v4`
 
 ## Final goal
 
-The final goal is **not** a feature-rich Strategy Lab UI and is **not** green synthetic CI by itself. The goal is a research system that can determine, using real MTX data and immutable causal evidence, whether Fabio-style Mean Reversion (MR) and Breakout Retest (BO) strategies have enough durable, executable edge to justify production promotion.
+The final goal is not UI completion, synthetic profitability or a green engineering demo. The goal is to determine, from **real MTX data and immutable causal evidence**, whether Fabio-style Mean Reversion (MR) and Breakout Retest (BO) strategies have enough durable, executable edge to move toward production.
 
-The governed path remains:
+Governed sequence:
 
-`Raw / Contract Integrity → Frozen Discovery → Event Sanity → Optimization / Robust Plateau → Candidate Freeze → Validation → Final Holdout → Cost / Latency / Portfolio Stress → Historical↔Live Causal Parity → Paper Trading → Production Gate → Production Deployment → Live Deployment Health`
+`Raw / Contract Integrity → Real MTX Intake → Frozen Discovery → Event Sanity → Optimization / Robust Plateau → Candidate Freeze → Validation → Final Holdout → Cost / Latency / Portfolio Stress → Production Value Audit → Historical↔Live Causal Parity → Paper Trading → Production Gate → Production Deployment → Live Health`
 
 Final Holdout must never be used for tuning.
 
-## User trading-value acceptance criteria
+## Acceptance criteria
 
-Production research must enforce more than `PF > 1`.
-
-At minimum:
+The research decision requires more than `PF > 1`:
 
 - OOS expectancy remains positive after costs.
 - Profit Factor remains acceptable.
 - Drawdown remains acceptable.
-- Cost, latency and portfolio stress remain acceptable.
-- MR reward structure can support approximately **1R**.
-- BO reward structure can support approximately **2R**.
-- Average realized trade value must be economically meaningful relative to contemporaneous volatility: **average realized NET points / frozen event-time ATR >= 10%**.
-- Results must not be concentrated in one small month cluster.
-- Results must not depend on one year carrying nearly all positive profitability.
+- Cost / latency / portfolio stress remains viable.
+- MR can support approximately **1R** production reward structure.
+- BO can support approximately **2R** production reward structure.
+- Average realized NET trade points should be at least **10% of contemporaneous event-time ATR**.
+- ATR must come from the frozen causal event, not be recomputed at the Gate.
+- Profit must not be excessively concentrated in one small month cluster.
+- Profit must not depend on one year carrying nearly all positive contribution.
 - Historical and live causal state transitions / decision sequence / entry must agree before promotion.
-- Paper/live evidence must be tied to the exact immutable deployment identity.
+- Paper/live execution evidence must tie to the exact immutable deployment identity.
+- A real campaign must prove its source files through `REAL_MTX_INTAKE_V1` before it can freeze.
 
-The ATR 10% floor is an explicit user requirement and is therefore a default Production Value threshold. Maximum acceptable month/year positive-profit concentration has **not** been specified; the system intentionally provides no invented default. Those two concentration limits must be explicitly frozen in Production Gate policy. Blank / missing concentration policy fails closed.
+Month/year concentration limits remain intentionally unset until explicitly frozen by research policy; they are not silently invented by software.
 
 ## Current alignment matrix
 
-| Layer | Current status | Alignment with final goal |
+| Layer | Current status | Alignment |
 |---|---|---|
-| Raw physical `_seq` / causal truth | Implemented and regression-tested | **Aligned** |
+| Raw physical `_seq` / causal truth | Implemented + regression-tested | **Aligned** |
 | Four-state node truth / immutable research runs | Implemented | **Aligned** |
 | Campaign dataset SHA-256 provenance | Implemented | **Aligned** |
-| Formal Backtest / immutable Trade Ledger / digest | Implemented | **Aligned** |
+| Real MTX Intake V1 | Implemented + dedicated CI | **Aligned** |
+| Synthetic source rejection from Real campaign | Implemented / fail-closed | **Aligned** |
+| Real campaign freeze requires intake evidence | Implemented | **Aligned** |
+| Frozen campaign dataset DB immutability | Implemented | **Aligned** |
+| Real D/V/H provenance / mixed legacy rejection | Implemented | **Aligned** |
+| Formal Backtest / Trade Ledger / digest | Implemented | **Aligned** |
 | Execution cost / slippage / latency | Implemented | **Aligned** |
-| Portfolio execution policy / overlap arbitration | Implemented | **Aligned** |
-| Report EV / PF / DD / MFE / MAE / right-tail | Implemented | **Aligned** |
-| Robust plateau optimizer / FDR / Final Holdout tuning denial | Implemented | **Aligned** |
+| Portfolio overlap arbitration | Implemented | **Aligned** |
+| EV / PF / DD / MFE / MAE / right-tail report | Implemented | **Aligned** |
+| Robust plateau / FDR / Final Holdout tuning denial | Implemented | **Aligned** |
 | Discovery → Validation → Final Holdout order | Implemented | **Aligned** |
 | BASE / SLIPPAGE / LATENCY / COMBINED stress | Implemented | **Aligned** |
-| Candidate Evaluation background execution | Strict E2E requires terminal `SUCCEEDED`, real `evaluation_id`, clean audit metadata | **Aligned** |
-| Historical↔Live parity evidence | Governed append-only evidence path | **Aligned, real evidence not yet supplied** |
-| Paper evidence | Governed append-only evidence path | **Aligned, real evidence not yet supplied** |
-| MR >= ~1R Production reward floor | Implemented | **Aligned** |
-| BO >= ~2R Production reward floor | Implemented | **Aligned** |
-| Average realized NET points / event-time ATR >= 10% | Implemented as Production Value hard gate | **Aligned** |
-| Event-time ATR coverage | 100% required for D/V/H BASE ledgers; no gate-time recomputation/fallback | **Aligned** |
-| Cross-month profit concentration | Implemented over pooled D/V/H BASE immutable ledgers; explicit policy required | **Aligned** |
-| Single-year positive-profit dependency | Implemented over pooled D/V/H BASE immutable ledgers; explicit policy required | **Aligned** |
-| Production Value Audit | Append-only + content-hash verified + keyed to Production Gate | **Aligned** |
-| Production Deployment value guard | Enforced in API **and** `create_deployment_from_gate()` core | **Aligned** |
-| Production Deployment identity / sticky health suspension | Implemented | **Aligned** |
-| Real MTX Discovery / Validation / Holdout evidence | Not present in active runtime; current E2E evidence is synthetic | **Major remaining goal** |
+| MR ≈1R / BO ≈2R production reward floor | Implemented | **Aligned** |
+| Average NET points / event-time ATR ≥10% | Implemented | **Aligned** |
+| Month concentration gate | Implemented; threshold explicit | **Aligned** |
+| Year profit-dependency gate | Implemented; threshold explicit | **Aligned** |
+| Historical↔Live parity evidence | Implemented | **Aligned; real evidence absent** |
+| Paper evidence / Production Gate | Implemented | **Aligned; real evidence absent** |
+| Production Deployment identity / sticky health | Implemented | **Aligned** |
+| Real MTX Discovery / Validation / Holdout evidence | Raw files unavailable in current runtime | **Major remaining objective** |
 | MR/BO production edge claim | Not proven | **Correctly blocked** |
 
-## P0 course correction completed
+## P0 status — CLOSED
 
-The target review identified that UI / synthetic QA was becoming too prominent relative to the real objective. P0 was therefore limited to execution-truth blockers rather than further general UI polish.
+Execution truth blockers have been closed. Browser Feature QA requires terminal `SUCCEEDED` jobs and real result identities rather than accepting a queued click as success. Candidate Evaluation, job lifecycle, worker orphan handling and browser acceptance remain regression-tested.
 
-P0 is now closed:
+## P1 status — CLOSED
 
-- Candidate Freeze refreshes backend state before exposing success and synchronizes Evaluation / Gate selectors.
-- Feature QA no longer treats queue submission as success.
-- Backtest, Optimization and Candidate Evaluation jobs must all finish `SUCCEEDED`.
-- Candidate Evaluation must produce an `evaluation_id` with the expected role.
-- A `SUCCEEDED` job carrying stale `error_text` is rejected by QA.
-- Multiprocessing spawned workers cannot incorrectly run API restart orphan recovery.
-- Only the main API process marks unfinished jobs `ORPHANED` after a true restart.
+Production Value Gates are formalized:
 
-Synthetic Candidate Evaluation remaining `INSUFFICIENT` is expected and correct; small synthetic sample size must never be promoted to a PASS edge claim.
+- event-time ATR only from frozen event snapshot;
+- 100% ATR coverage per D/V/H role;
+- default `avg NET points / ATR >= 0.10`;
+- D/V/H BASE ledgers pooled for month/year concentration;
+- month/year limits must be explicitly frozen;
+- append-only hash-verified Production Value Audit;
+- direct deployment cannot bypass the audit.
 
-## P1 Production Value Gates completed
+## P2 source-intake status — READY
 
-P1 implements the three trading-value gaps identified during the target review.
+P2 source-intake/governance plumbing is now implemented.
 
-### 1. ATR-relative realized trade value
+### Streaming physical-source audit
 
-Production Value Audit reconstructs value evidence from immutable stores:
+`server/v5/data_intake.py` + `tools/real_mtx_intake.py` verify:
 
-`candidate_evaluations → BASE backtest_trades → frozen research events`
+- physical SHA-256;
+- Parquet readability, row count, row groups and schema;
+- required production columns;
+- complete datetime parsing;
+- physical timestamp ordering without sorting;
+- MTX outright presence;
+- finite positive price / nonnegative volume;
+- day-session outright presence;
+- expected-year presence;
+- product / expiry / side distributions;
+- same-second physical density;
+- day-session dominant/front contract table and roll diagnostics.
 
-ATR is read only from the frozen event snapshot. Supported provenance locations are event payload / event feature fields already present at event time. The Gate does **not** rebuild ATR from later prices and does not substitute stop distance, MFE or any other proxy when ATR is absent.
+Synthetic-like filenames are rejected by default. `--allow-synthetic` exists only for QA.
 
-For every role (`DISCOVERY`, `VALIDATION`, `FINAL_HOLDOUT`):
+### Timestamp resolution bug closed
 
-- ATR coverage must be 100% for BASE trades.
-- `avg_net_points_over_atr = mean(realized NET points / event-time ATR)`.
-- default floor = **0.10**.
-- winner-only ATR ratio is retained as diagnostic context but is not the Production pass criterion.
+CI exposed that Pandas/PyArrow may preserve Parquet timestamp resolution (`ms`, `us`, `ns`) in integer datetime access. The final implementation normalizes with:
 
-Because `net_points` already includes configured execution costs, the value gate is based on realized **NET** economics rather than gross favorable movement.
+`DatetimeIndex(...).as_unit("ns").asi8`
 
-### 2. Month concentration
+Regression writes equivalent `timestamp(ms)`, `timestamp(us)` and `timestamp(ns)` fixtures and requires identical source-order statistics.
 
-Month concentration is not evaluated independently inside each role. The Gate pools immutable D/V/H BASE trade ledgers, groups by actual trade month, and calculates:
+### Real campaign governance
 
-`largest positive month net-R / total positive month net-R`
+A Real campaign declares:
 
-The maximum acceptable share has no guessed default. A valid explicit `0 < share <= 1` Production policy is mandatory.
+- `source_class = REAL_MTX`
+- `dataset_evidence_policy = REAL_MTX_INTAKE_V1`
 
-### 3. Year dependency
+It cannot freeze unless every dataset retains a valid passing intake report whose SHA/file/year/report-hash matches the campaign record.
 
-Year dependency is also calculated only after pooling D/V/H BASE ledgers. The actual trade `year` is used; research role is never treated as a surrogate year.
+A manually inserted SHA-only dataset therefore cannot masquerade as Real MTX evidence.
 
-Metric:
+For Candidate provenance, if any D/V/H role declares Real MTX, all roles must be Real MTX governed. Real/legacy mixing fails with `MIXED_REAL_AND_LEGACY_CAMPAIGN`.
 
-`largest positive year net-R / total positive year net-R`
+The public Production Gate freezes this as `REAL_MTX_INTAKE_PROVENANCE` inside the append-only Production Value Audit.
 
-Again, the maximum acceptable share must be explicitly frozen in policy. This avoids the invalid result where a one-year Discovery or Holdout run would be labeled “100% year-concentrated” simply because its role contains one year by design.
+## Current blocker is data, not architecture
 
-## Production Value Audit integrity
+There is no real `MTX_2024.parquet`, `MTX_2025.parquet` or `MTX_2026.parquet` in the active runtime of this conversation. Only synthetic Parquet fixtures are currently available.
 
-Each Production Gate receives an append-only companion `production_value_audits` record containing:
+Old textual records of previous real-data runs are not substitutes for the physical source files. They cannot establish a new SHA-256, schema, row ordering or immutable campaign in this runtime.
 
-- candidate ID;
-- policy and policy hash;
-- D/V/H role ATR/value summaries;
-- month concentration detail;
-- year concentration detail;
-- check list and failures;
-- methodology;
-- content hash.
+Therefore no new real-market result is claimed.
 
-Update/delete is blocked by database triggers. Deployment verifies that this record exists, is hash-valid and is passing.
+## Next real-data execution
 
-A legacy or bypass-created Gate with `status='PASS'` but no passing Production Value Audit cannot create a deployment. This restriction is enforced both in the public deployment API and the lower-level `create_deployment_from_gate()` function, so a Python direct call cannot bypass it.
+When the exact physical files become available:
 
-Synthetic deployment QA is still allowed only by creating an explicitly labeled `SYNTHETIC_UI_FIXTURE_ONLY` value-audit record. It remains non-market evidence.
+1. run Real MTX Intake on each source;
+2. inspect SHA/schema/coverage/contracts/physical ordering;
+3. create/freeze a `REAL_MTX_INTAKE_V1` campaign;
+4. run causal scanner and Event Sanity;
+5. freeze Discovery;
+6. run formal MR/BO Discovery backtests;
+7. optimize Discovery only;
+8. freeze Candidate and concentration limits;
+9. run Validation without retuning;
+10. run Final Holdout without retuning;
+11. apply cost / latency / portfolio stress;
+12. evaluate MR/BO reward, ATR 10% and month/year concentration;
+13. run real parity and paper evidence;
+14. only then Production Gate / Deployment.
 
-## Code-head verification before documentation closeout
+Intended legacy Fabio role mapping remains:
 
-Audited P1 code head:
+`2025 Discovery → 2024 Validation → 2026 Final Holdout`
 
-`8db68258eaa386f7f832ca02c67b17d79014764a`
+but it will be used only when those exact physical source files are actually present and pass intake.
 
-GitHub Actions at that code head:
+## Verified code head before this documentation update
 
-- V5 Research CI run `34186312737`: **PASS**
-- Browser Release QA run `34186312604`: **PASS**
-- Strategy Lab Feature QA run `34186312628`: **PASS**
-- Strategy Lab CI run `34186312637`: **PASS**
-- Strategy Lab tests, including Production Value / deployment regressions: **PASS**
-- P0 regression: **PASS**
-- Synthetic MTX Parquet E2E + runtime screenshots: **PASS**
-- Reproducibility manifest: **PASS**
+`5a748ae525069e6fc5468ea5ff792c004009b9db`
 
-## Remaining decisive work: P2 real MTX evidence
+At that code head:
 
-The software path is now aligned with the stated production-value criteria, but the market question is still unanswered.
+- **205 commits ahead** of `fabio-decision-gym-v4`
+- **0 commits behind**
+- V5 Research CI `34188426699`: PASS
+- Browser Release QA `34188426646`: PASS
+- Real MTX Intake CI `34188426622`: PASS
+- Strategy Lab Feature QA `34188426616`: PASS
+- Strategy Lab CI `34188426649`: PASS
 
-When real source files are available, the next phase is:
+## Verdict
 
-1. verify Parquet schema, source coverage, contract/expiry coverage, physical row order and exact SHA-256;
-2. register/freeze campaign datasets;
-3. freeze real Discovery (target governance mapping: 2025 only if the exact 2025 file is actually available and valid);
-4. run scanner / event / entry-price sanity before trusting performance statistics;
-5. optimize permitted parameters on Discovery only;
-6. freeze candidate and policy;
-7. run Validation (target mapping: 2024 only if valid file exists), with no retuning;
-8. run Final Holdout (target mapping: 2026 only if valid file exists), with no retuning;
-9. apply execution, cost, latency and portfolio stress;
-10. evaluate MR ~1R / BO ~2R, ATR >=10%, and the explicitly frozen month/year concentration policy;
-11. only then proceed to historical↔live parity and paper evidence;
-12. only a fully passing immutable evidence chain may create a Production Gate / deployment.
+**The research/governance machine is now ready to accept real MTX source files without weakening causal or production-value controls.**
 
-No real Parquet file currently available in the active runtime may be silently replaced with synthetic data.
+What remains is the decisive part: run the complete lifecycle on real physical MTX datasets and accept the possibility that MR, BO, both, or neither will satisfy the production criteria.
 
-## Current verdict
-
-**Architecture / research-governance alignment: PASS.**  
-**P0 execution-truth blockers: CLOSED.**  
-**P1 Production Value acceptance layer: IMPLEMENTED AND CODE-HEAD CI GREEN.**  
-**Real MTX edge: NOT PROVEN.**
-
-The next meaningful progress is real-data P2, not additional general UI expansion. Synthetic PASS remains software evidence only and must never become a market-edge claim.
+Synthetic PASS remains engineering evidence only and must never be promoted into a market-edge claim.
