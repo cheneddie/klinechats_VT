@@ -60,6 +60,11 @@ def update_job(
     if error_text is not None:
         fields.append("error_text=?")
         values.append(str(error_text)[-20000:])
+    elif status == "SUCCEEDED":
+        # A successful terminal row must not retain a stale recovery/failure message.
+        # This is especially important with multiprocessing spawn: terminal audit
+        # metadata must describe one coherent outcome.
+        fields.append("error_text=NULL")
     if started:
         fields.append("started_at=COALESCE(started_at,?)")
         values.append(utcnow())
@@ -280,7 +285,8 @@ class JobSupervisor:
     Each job runs in its own child process. Timeout therefore has real enforcement:
     the process is terminated, not merely marked stale. Heartbeats are written from
     the child every five seconds. DB state survives API restarts; unfinished jobs are
-    explicitly marked ORPHANED on supervisor construction.
+    explicitly marked ORPHANED when the actual API main process constructs the supervisor.
+    Spawned worker processes must never run restart recovery against their parent's live jobs.
     """
 
     def __init__(
@@ -297,7 +303,8 @@ class JobSupervisor:
         self.max_concurrent = max(1, int(max_concurrent))
         self._lock = threading.RLock()
         self._processes: dict[str, mp.Process] = {}
-        recover_orphaned_jobs(self.event_db)
+        if mp.parent_process() is None:
+            recover_orphaned_jobs(self.event_db)
 
     def submit(self, job_type: str, payload: dict[str, Any], *, timeout_seconds: int = 900) -> str:
         normalized = str(job_type).upper()
