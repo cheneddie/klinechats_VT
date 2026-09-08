@@ -23,14 +23,17 @@ jobs:
           python -m py_compile \
             server/v5/data_intake.py \
             server/v5/campaigns.py \
+            server/v5/real_mtx_bootstrap.py \
             server/v5/real_mtx_provenance.py \
             server/v5/production_value_gate.py \
-            tools/real_mtx_intake.py
-      - name: Real MTX intake, campaign and provenance regression
+            tools/real_mtx_intake.py \
+            tools/bootstrap_real_mtx_campaign.py
+      - name: Real MTX intake, campaign, atomic bootstrap and provenance regression
         run: |
           python -m pytest -q \
             tests/test_real_mtx_intake.py \
             tests/test_real_mtx_campaign.py \
+            tests/test_real_mtx_bootstrap.py \
             tests/test_real_mtx_provenance.py
       - name: CLI fail-closed synthetic guard
         run: |
