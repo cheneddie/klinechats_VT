@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import re
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
@@ -29,8 +28,11 @@ class IntakePolicy:
 
 
 def _txt(value: Any) -> str:
-    if value is None or (isinstance(value, float) and math.isnan(value)):
-        return ""
+    try:
+        if value is None or bool(pd.isna(value)):
+            return ""
+    except (TypeError, ValueError):
+        pass
     if isinstance(value, (bytes, bytearray)):
         return value.decode("utf-8", "replace")
     return str(value).strip()
@@ -63,10 +65,7 @@ def _session_seconds(text: str) -> int:
 def sha256_file(path: str | Path, chunk_size: int = 8 * 1024 * 1024) -> str:
     h = hashlib.sha256()
     with Path(path).open("rb") as fh:
-        while True:
-            chunk = fh.read(chunk_size)
-            if not chunk:
-                break
+        while chunk := fh.read(chunk_size):
             h.update(chunk)
     return h.hexdigest()
 
@@ -75,6 +74,7 @@ def _canonical_hash(payload: dict[str, Any]) -> str:
     clean = dict(payload)
     clean.pop("generated_at", None)
     clean.pop("report_hash", None)
+    clean.pop("path", None)
     raw = json.dumps(clean, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
@@ -84,48 +84,42 @@ def _check(checks: list[dict[str, Any]], code: str, passed: bool, details: Any) 
 
 
 def _schema_payload(pf: pq.ParquetFile) -> list[dict[str, str]]:
-    schema = pf.schema_arrow
-    return [{"name": field.name, "type": str(field.type)} for field in schema]
+    return [{"name": field.name, "type": str(field.type)} for field in pf.schema_arrow]
 
 
-def _finalize_second_groups(state: dict[str, Any], seconds: np.ndarray) -> None:
-    if not len(seconds):
-        return
-    changes = np.flatnonzero(np.diff(seconds) != 0) + 1
-    starts = np.concatenate(([0], changes))
-    ends = np.concatenate((changes, [len(seconds)]))
-    values = seconds[starts]
-    lengths = (ends - starts).astype(np.int64)
-
-    carry_second = state.get("carry_second")
-    carry_size = int(state.get("carry_size") or 0)
-    if carry_second is not None:
-        if int(values[0]) == int(carry_second):
-            lengths[0] += carry_size
-        else:
-            _accumulate_group_lengths(state, np.array([carry_size], dtype=np.int64))
-
-    if len(lengths) > 1:
-        _accumulate_group_lengths(state, lengths[:-1])
-    state["carry_second"] = int(values[-1])
-    state["carry_size"] = int(lengths[-1])
-
-
-def _accumulate_group_lengths(state: dict[str, Any], lengths: np.ndarray) -> None:
+def _accumulate_groups(state: dict[str, Any], lengths: np.ndarray) -> None:
     if not len(lengths):
         return
     repeated = lengths[lengths > 1]
     state["same_second_groups"] += int(len(repeated))
     state["same_second_rows"] += int(repeated.sum()) if len(repeated) else 0
     state["same_second_adjacent_pairs"] += int((repeated - 1).sum()) if len(repeated) else 0
-    state["max_same_second_group"] = max(
-        int(state["max_same_second_group"]), int(lengths.max())
-    )
+    state["max_same_second_group"] = max(int(state["max_same_second_group"]), int(lengths.max()))
 
 
-def _finish_second_groups(state: dict[str, Any]) -> None:
-    if state.get("carry_second") is not None:
-        _accumulate_group_lengths(state, np.array([int(state.get("carry_size") or 0)], dtype=np.int64))
+def _consume_seconds(state: dict[str, Any], seconds: np.ndarray) -> None:
+    if not len(seconds):
+        return
+    cuts = np.flatnonzero(np.diff(seconds) != 0) + 1
+    starts = np.concatenate(([0], cuts))
+    ends = np.concatenate((cuts, [len(seconds)]))
+    values = seconds[starts]
+    lengths = (ends - starts).astype(np.int64)
+
+    if state["carry_second"] is not None:
+        if int(values[0]) == int(state["carry_second"]):
+            lengths[0] += int(state["carry_size"])
+        else:
+            _accumulate_groups(state, np.array([int(state["carry_size"])], dtype=np.int64))
+    if len(lengths) > 1:
+        _accumulate_groups(state, lengths[:-1])
+    state["carry_second"] = int(values[-1])
+    state["carry_size"] = int(lengths[-1])
+
+
+def _finish_seconds(state: dict[str, Any]) -> None:
+    if state["carry_second"] is not None:
+        _accumulate_groups(state, np.array([int(state["carry_size"])], dtype=np.int64))
         state["carry_second"] = None
         state["carry_size"] = 0
 
@@ -145,10 +139,9 @@ def _contract_day_table(day_volume: dict[str, dict[str, float]]) -> dict[str, An
         second_volume = float(ranked[1][1]) if len(ranked) > 1 else 0.0
         ambiguous = bool(len(ranked) > 1 and dominant_volume < second_volume * 1.10)
         ambiguous_days += int(ambiguous)
-
         ym = day[:7].replace("-", "")
-        front_candidates = sorted(expiry for expiry in vols if OUTRIGHT_RE.fullmatch(expiry) and expiry >= ym)
-        front = front_candidates[0] if front_candidates else dominant
+        fronts = sorted(x for x in vols if OUTRIGHT_RE.fullmatch(x) and x >= ym)
+        front = fronts[0] if fronts else dominant
         dominant_changed = previous_dominant is not None and dominant != previous_dominant
         front_changed = previous_front is not None and front != previous_front
         dominant_rolls += int(dominant_changed)
@@ -175,18 +168,21 @@ def _contract_day_table(day_volume: dict[str, dict[str, float]]) -> dict[str, An
     }
 
 
+def _early_fail(base: dict[str, Any]) -> dict[str, Any]:
+    failed = [x["code"] for x in base["checks"] if not x["passed"]]
+    base["failed_checks"] = failed
+    base["status"] = "FAIL"
+    base["report_hash"] = _canonical_hash(base)
+    return base
+
+
 def inspect_mtx_parquet(
     path: str | Path,
     *,
     expected_year: int | None = None,
     policy: IntakePolicy | None = None,
 ) -> dict[str, Any]:
-    """Stream an MTX Parquet file and return a deterministic intake decision.
-
-    The gate intentionally validates source identity and replayability only. It does
-    not invent research-performance thresholds. Physical source order is never
-    sorted or rewritten during inspection.
-    """
+    """Stream-audit MTX Parquet without sorting or rewriting physical source rows."""
     policy = policy or IntakePolicy()
     path = Path(path)
     if not path.exists():
@@ -198,85 +194,74 @@ def inspect_mtx_parquet(
         match = re.search(r"(?:^|_)(20\d{2})(?:_|\.|$)", path.name)
         expected_year = int(match.group(1)) if match else None
 
-    generated_at = datetime.now(timezone.utc).isoformat()
+    synthetic_name = bool(SYNTHETIC_RE.search(path.name))
     base: dict[str, Any] = {
         "version": "REAL_MTX_INTAKE_V1",
-        "generated_at": generated_at,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "file": path.name,
         "path": str(path.resolve()),
         "file_size_bytes": int(path.stat().st_size),
         "sha256": sha256_file(path),
         "expected_year": expected_year,
         "policy": asdict(policy),
-        "synthetic_name": bool(SYNTHETIC_RE.search(path.name)),
+        "synthetic_name": synthetic_name,
         "checks": [],
         "warnings": [],
     }
     checks = base["checks"]
-    _check(
-        checks,
-        "NOT_SYNTHETIC_SOURCE",
-        not (policy.reject_synthetic and base["synthetic_name"]),
-        "synthetic-like filename rejected from Real MTX intake" if base["synthetic_name"] else "source name is not synthetic",
+    synthetic_ok = not (synthetic_name and policy.reject_synthetic)
+    synthetic_detail = (
+        "synthetic-like filename rejected from Real MTX intake"
+        if not synthetic_ok
+        else "synthetic source accepted only because QA override is enabled"
+        if synthetic_name
+        else "source name is not synthetic"
     )
+    _check(checks, "NOT_SYNTHETIC_SOURCE", synthetic_ok, synthetic_detail)
 
     try:
         pf = pq.ParquetFile(path)
     except Exception as exc:
         _check(checks, "PARQUET_READABLE", False, f"{type(exc).__name__}: {exc}")
-        base.update({"status": "FAIL", "failed_checks": [x["code"] for x in checks if not x["passed"]]})
-        base["report_hash"] = _canonical_hash(base)
-        return base
-
+        return _early_fail(base)
     _check(checks, "PARQUET_READABLE", True, "pyarrow ParquetFile opened successfully")
+
     schema = _schema_payload(pf)
     schema_names = [x["name"] for x in schema]
-    missing = [name for name in REQUIRED_COLUMNS if name not in schema_names]
+    missing = [x for x in REQUIRED_COLUMNS if x not in schema_names]
     metadata_rows = int(pf.metadata.num_rows)
     row_group_rows = [int(pf.metadata.row_group(i).num_rows) for i in range(pf.num_row_groups)]
-    base.update({
-        "parquet": {
-            "rows": metadata_rows,
-            "row_groups": int(pf.num_row_groups),
-            "row_group_rows": row_group_rows,
-            "row_group_rows_total": int(sum(row_group_rows)),
-            "schema": schema,
-            "created_by": str(pf.metadata.created_by or ""),
-            "format_version": str(pf.metadata.format_version),
-        }
-    })
+    base["parquet"] = {
+        "rows": metadata_rows,
+        "row_groups": int(pf.num_row_groups),
+        "row_group_rows": row_group_rows,
+        "row_group_rows_total": int(sum(row_group_rows)),
+        "schema": schema,
+        "created_by": str(pf.metadata.created_by or ""),
+        "format_version": str(getattr(pf.metadata, "format_version", "")),
+    }
     _check(checks, "NONEMPTY_PARQUET", metadata_rows > 0, {"rows": metadata_rows})
     _check(checks, "REQUIRED_COLUMNS", not missing, {"required": list(REQUIRED_COLUMNS), "missing": missing})
     _check(
         checks,
         "ROW_GROUP_ROW_COUNT",
-        int(sum(row_group_rows)) == metadata_rows,
+        sum(row_group_rows) == metadata_rows,
         {"metadata_rows": metadata_rows, "row_group_rows_total": int(sum(row_group_rows))},
     )
-
     if missing or metadata_rows <= 0:
-        base.update({"status": "FAIL", "failed_checks": [x["code"] for x in checks if not x["passed"]]})
-        base["report_hash"] = _canonical_hash(base)
-        return base
+        return _early_fail(base)
 
     product_counts: Counter[str] = Counter()
     expiry_counts: Counter[str] = Counter()
     side_counts: Counter[str] = Counter()
     year_counts: Counter[int] = Counter()
     day_volume: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
-
-    scanned_rows = 0
-    datetime_nulls = 0
-    physical_reversals = 0
+    scanned_rows = datetime_nulls = physical_reversals = 0
     previous_valid_ns: int | None = None
     min_dt: pd.Timestamp | None = None
     max_dt: pd.Timestamp | None = None
-    mtx_rows = 0
-    mtx_outright_rows = 0
-    mtx_other_expiry_rows = 0
-    invalid_price_rows = 0
-    invalid_volume_rows = 0
-    day_session_outright_rows = 0
+    mtx_rows = mtx_outright_rows = mtx_other_expiry_rows = 0
+    invalid_price_rows = invalid_volume_rows = day_session_outright_rows = 0
     second_state = {
         "carry_second": None,
         "carry_size": 0,
@@ -300,14 +285,15 @@ def inspect_mtx_parquet(
             local_max = pd.Timestamp(vd.max())
             min_dt = local_min if min_dt is None else min(min_dt, local_min)
             max_dt = local_max if max_dt is None else max(max_dt, local_max)
-            ns = vd.astype("int64").to_numpy(dtype=np.int64, copy=False)
+            # DatetimeIndex.asi8 is always nanoseconds, regardless of Parquet ms/us/ns storage unit.
+            ns = pd.DatetimeIndex(vd).asi8
             if previous_valid_ns is not None and len(ns) and int(ns[0]) < previous_valid_ns:
                 physical_reversals += 1
             if len(ns) > 1:
                 physical_reversals += int(np.count_nonzero(np.diff(ns) < 0))
             if len(ns):
                 previous_valid_ns = int(ns[-1])
-                _finalize_second_groups(second_state, ns // 1_000_000_000)
+                _consume_seconds(second_state, ns // 1_000_000_000)
 
         product = d["product"].map(_txt)
         expiry = d["expiry"].map(_txt)
@@ -320,40 +306,38 @@ def inspect_mtx_parquet(
         mtx_outright_rows += int(outright_mask.sum())
         mtx_other_expiry_rows += int((mtx_mask & ~expiry.str.fullmatch(OUTRIGHT_RE.pattern, na=False)).sum())
 
-        if outright_mask.any():
-            price = pd.to_numeric(d.loc[outright_mask, "price"], errors="coerce").to_numpy(dtype=float)
-            volume = pd.to_numeric(d.loc[outright_mask, "volume"], errors="coerce").to_numpy(dtype=float)
-            invalid_price_rows += int(np.count_nonzero(~np.isfinite(price) | (price <= 0)))
-            invalid_volume_rows += int(np.count_nonzero(~np.isfinite(volume) | (volume < 0)))
-            side_counts.update(d.loc[outright_mask, "side"].map(_txt).value_counts(dropna=False).to_dict())
+        if not outright_mask.any():
+            continue
+        price = pd.to_numeric(d.loc[outright_mask, "price"], errors="coerce").to_numpy(dtype=float)
+        volume = pd.to_numeric(d.loc[outright_mask, "volume"], errors="coerce").to_numpy(dtype=float)
+        invalid_price_rows += int(np.count_nonzero(~np.isfinite(price) | (price <= 0)))
+        invalid_volume_rows += int(np.count_nonzero(~np.isfinite(volume) | (volume < 0)))
+        side_counts.update(d.loc[outright_mask, "side"].map(_txt).value_counts(dropna=False).to_dict())
 
-            idx = d.index[outright_mask]
-            odt = dt.loc[idx]
-            valid_odt = odt.notna()
-            if valid_odt.any():
-                ov = pd.DataFrame({
-                    "dt": odt.loc[valid_odt],
-                    "expiry": expiry.loc[idx].loc[valid_odt],
-                    "volume": pd.to_numeric(d.loc[idx, "volume"], errors="coerce").loc[valid_odt],
-                })
-                years = ov["dt"].dt.year.value_counts().to_dict()
-                year_counts.update({int(k): int(v) for k, v in years.items()})
-                sec = ov["dt"].dt.hour * 3600 + ov["dt"].dt.minute * 60 + ov["dt"].dt.second
-                day_mask = (sec >= start_sec) & (sec <= end_sec)
-                day = ov.loc[day_mask].copy()
-                day_session_outright_rows += int(len(day))
-                if len(day):
-                    day["date"] = day["dt"].dt.strftime("%Y-%m-%d")
-                    day["volume"] = pd.to_numeric(day["volume"], errors="coerce").fillna(0.0)
-                    grouped = day.groupby(["date", "expiry"], sort=False)["volume"].sum()
-                    for (date_text, contract), vol in grouped.items():
-                        day_volume[str(date_text)][str(contract)] += float(vol)
+        idx = d.index[outright_mask]
+        odt = dt.loc[idx]
+        valid_odt = odt.notna()
+        if not valid_odt.any():
+            continue
+        ov = pd.DataFrame({
+            "dt": odt.loc[valid_odt],
+            "expiry": expiry.loc[idx].loc[valid_odt],
+            "volume": pd.to_numeric(d.loc[idx, "volume"], errors="coerce").loc[valid_odt],
+        })
+        year_counts.update({int(k): int(v) for k, v in ov["dt"].dt.year.value_counts().to_dict().items()})
+        sec = ov["dt"].dt.hour * 3600 + ov["dt"].dt.minute * 60 + ov["dt"].dt.second
+        day = ov.loc[(sec >= start_sec) & (sec <= end_sec)].copy()
+        day_session_outright_rows += int(len(day))
+        if len(day):
+            day["date"] = day["dt"].dt.strftime("%Y-%m-%d")
+            day["volume"] = pd.to_numeric(day["volume"], errors="coerce").fillna(0.0)
+            for (date_text, contract), vol in day.groupby(["date", "expiry"], sort=False)["volume"].sum().items():
+                day_volume[str(date_text)][str(contract)] += float(vol)
 
-    _finish_second_groups(second_state)
+    _finish_seconds(second_state)
     contract_days = _contract_day_table(day_volume)
     expected_year_rows = int(year_counts.get(int(expected_year), 0)) if expected_year is not None else None
     total_year_rows = int(sum(year_counts.values()))
-
     base.update({
         "scan": {
             "rows_scanned": int(scanned_rows),
@@ -407,18 +391,19 @@ def inspect_mtx_parquet(
             {"expected_year": int(expected_year), "rows": int(expected_year_rows or 0), "share": base["mtx"]["expected_year_share"]},
         )
     else:
-        base["warnings"].append("filename did not provide an expected year; timestamp year distribution is reported but not identity-checked")
-
+        base["warnings"].append(
+            "filename did not provide an expected year; timestamp year distribution is reported but not identity-checked"
+        )
     if mtx_other_expiry_rows:
         base["warnings"].append(
-            f"MTX contains {mtx_other_expiry_rows} non-outright expiry rows; they are reported and excluded from outright contract/day analysis"
+            f"MTX contains {mtx_other_expiry_rows} non-outright expiry rows; they are excluded from outright contract/day analysis"
         )
     if contract_days["ambiguous_days"]:
         base["warnings"].append(
             f"{contract_days['ambiguous_days']} day-session dates have dominant volume within 10% of the second-ranked contract"
         )
 
-    failed = [item["code"] for item in checks if not item["passed"]]
+    failed = [x["code"] for x in checks if not x["passed"]]
     base["failed_checks"] = failed
     base["status"] = "PASS" if not failed else "FAIL"
     base["report_hash"] = _canonical_hash(base)
