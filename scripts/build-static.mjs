@@ -30,6 +30,7 @@ const required=[
   'dist/src/v5/v5.css',
   'dist/src/v5/strategy-lab.js',
   'dist/src/v5/strategy-lab-i18n.js',
+  'dist/src/v5/strategy-lab-i18n-extra.js',
   'dist/src/v5/strategy-lab-evidence.js',
   'dist/src/v5/portfolio-controls.js',
   'dist/src/v5/trade-review-overlay.js',
