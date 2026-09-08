@@ -136,6 +136,7 @@ jobs:
           for kind in required:
               assert kind in terminal, (kind, terminal)
               assert terminal[kind].get('status')=='SUCCEEDED', (kind, terminal[kind])
+              assert not terminal[kind].get('error_text'), (kind, terminal[kind])
           candidate_result=terminal['candidateEvaluation'].get('result') or {}
           assert candidate_result.get('evaluation_id'), terminal['candidateEvaluation']
           assert candidate_result.get('role')=='DISCOVERY', candidate_result
