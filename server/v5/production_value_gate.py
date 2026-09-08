@@ -14,7 +14,29 @@ from .production_value import (
     audit_candidate_production_value,
     record_production_value_audit,
 )
-from .strategy_registry import StrategyDefinition
+from .real_mtx_provenance import verify_candidate_real_mtx_provenance
+from .strategy_registry import StrategyDefinition, content_hash
+
+
+def _attach_real_mtx_provenance(value_audit: dict[str, Any], provenance: dict[str, Any]) -> dict[str, Any]:
+    audit = dict(value_audit)
+    audit["real_mtx_provenance"] = provenance
+    checks = list(audit.get("checks") or [])
+    check = {
+        "name": "REAL_MTX_INTAKE_PROVENANCE",
+        "passed": bool(provenance.get("passed")),
+        "actual": provenance.get("policy") if provenance.get("applicable") else "NOT_APPLICABLE",
+        "threshold": "PASS when any Real MTX campaign is declared",
+        "details": provenance,
+    }
+    checks.append(check)
+    audit["checks"] = checks
+    if provenance.get("applicable") and not provenance.get("passed"):
+        audit["passed"] = False
+    audit["failed_checks"] = [x["name"] for x in checks if not x.get("passed")]
+    audit.pop("audit_hash", None)
+    audit["audit_hash"] = content_hash(audit)
+    return audit
 
 
 def production_gate(
@@ -27,26 +49,20 @@ def production_gate(
     paper_evidence_id: str | None = None,
     notes: str | None = None,
 ) -> dict[str, Any]:
-    """Public Production Gate with immutable trading-value evidence.
+    """Public Production Gate with immutable trading-value and Real-MTX source evidence.
 
-    The existing strict gate owns provenance, exact D/V/H execution identity,
-    parity/paper evidence and append-only gate persistence. This wrapper adds the
-    missing economic-value layer before a candidate may receive a production PASS:
-
-    * every D/V/H BASE ledger must have 100% frozen event-time ATR coverage;
-    * average realized NET points / event-time ATR must be >= the frozen floor
-      (default 10%);
-    * D/V/H BASE ledgers are pooled for month/year profit concentration;
-    * month/year concentration limits must be explicitly supplied in gate policy.
-
-    A failed value audit creates an append-only FAIL gate. A passing value audit is
-    persisted as an append-only companion record keyed to the strict gate decision.
+    The strict gate owns frozen campaign/run provenance, exact D/V/H execution identity,
+    parity/paper evidence and append-only gate persistence. This wrapper additionally
+    freezes the economic-value layer and, when a candidate declares a Real MTX
+    campaign, the REAL_MTX_INTAKE_V1 source-evidence chain.
     """
     value_audit = audit_candidate_production_value(
         event_db,
         candidate_id,
         policy=policy,
     )
+    real_mtx_provenance = verify_candidate_real_mtx_provenance(event_db, candidate_id)
+    value_audit = _attach_real_mtx_provenance(value_audit, real_mtx_provenance)
 
     if not value_audit["passed"]:
         provenance = verify_candidate_provenance(event_db, candidate_id)
@@ -83,6 +99,7 @@ def production_gate(
             details={
                 "research_pass": False,
                 "production_value": value_audit,
+                "real_mtx_provenance": real_mtx_provenance,
                 "provenance": provenance,
                 "execution_identity": execution_identity,
                 "policy": dict(policy or {}),
@@ -113,6 +130,7 @@ def production_gate(
         value_audit,
     )
     result["production_value"] = frozen_audit
+    result["real_mtx_provenance"] = real_mtx_provenance
     return result
 
 
