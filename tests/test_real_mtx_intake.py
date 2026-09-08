@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+from datetime import datetime
 from pathlib import Path
 
 import pyarrow as pa
@@ -11,14 +12,14 @@ from server.v5.data_intake import IntakePolicy, inspect_mtx_parquet
 
 def _write_fixture(path: Path, *, reversed_time: bool = False, invalid_tick: bool = False) -> None:
     times = [
-        "2025-01-02T08:45:00.100",
-        "2025-01-02T08:45:00.200",
-        "2025-01-02T08:45:01.000",
-        "2025-01-02T08:45:02.000",
-        "2025-01-03T08:45:00.000",
-        "2025-01-03T08:45:01.000",
-        "2025-01-03T08:45:02.000",
-        "2025-01-03T08:45:03.000",
+        datetime.fromisoformat("2025-01-02T08:45:00.100"),
+        datetime.fromisoformat("2025-01-02T08:45:00.200"),
+        datetime.fromisoformat("2025-01-02T08:45:01.000"),
+        datetime.fromisoformat("2025-01-02T08:45:02.000"),
+        datetime.fromisoformat("2025-01-03T08:45:00.000"),
+        datetime.fromisoformat("2025-01-03T08:45:01.000"),
+        datetime.fromisoformat("2025-01-03T08:45:02.000"),
+        datetime.fromisoformat("2025-01-03T08:45:03.000"),
     ]
     if reversed_time:
         times[5], times[6] = times[6], times[5]
