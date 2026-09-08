@@ -285,8 +285,8 @@ def inspect_mtx_parquet(
             local_max = pd.Timestamp(vd.max())
             min_dt = local_min if min_dt is None else min(min_dt, local_min)
             max_dt = local_max if max_dt is None else max(max_dt, local_max)
-            # DatetimeIndex.asi8 is always nanoseconds, regardless of Parquet ms/us/ns storage unit.
-            ns = pd.DatetimeIndex(vd).asi8
+            # Pandas preserves Parquet timestamp resolution in asi8; normalize first.
+            ns = pd.DatetimeIndex(vd).as_unit("ns").asi8
             if previous_valid_ns is not None and len(ns) and int(ns[0]) < previous_valid_ns:
                 physical_reversals += 1
             if len(ns) > 1:
