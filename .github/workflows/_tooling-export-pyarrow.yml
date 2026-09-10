@@ -1,0 +1,24 @@
+name: Tooling Export PyArrow
+on:
+  push:
+    branches: [research-integrity-p0]
+
+jobs:
+  export-wheel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Download pinned PyArrow wheel
+        run: |
+          mkdir -p artifacts/pyarrow-wheel
+          python -m pip download --only-binary=:all: --no-deps pyarrow==24.0.0 -d artifacts/pyarrow-wheel
+          ls -lh artifacts/pyarrow-wheel
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyarrow-24-cp313-linux
+          path: artifacts/pyarrow-wheel/*.whl
+          if-no-files-found: error
