@@ -122,12 +122,16 @@ async function hydrateRoute(route) {
       lifecycle: el.dataset.monitorLifecycle,
       text: el.textContent || '',
       timelineRows: el.querySelectorAll('table tbody tr').length,
+      driftRows: el.querySelectorAll('[data-monitor-drift] .check').length,
       resumeDisabled: el.querySelector('#healthResume')?.disabled ?? true,
     }))
     if (health.timelineRows < 3 || health.resumeDisabled || !/SUSPEND_LATCHED_BY_LIFECYCLE_CONTROL/.test(health.text)) {
       throw new Error(`Strategy Health sticky suspension proof incomplete: ${JSON.stringify(health)}`)
     }
-    if (!/Regime mix TVD/.test(health.text) || !/Slippage/.test(health.text) || !/Signals\/day/.test(health.text)) {
+    // Machine acceptance must not depend on whether the visible UI is zh-TW or English.
+    // The drift panel has exactly seven governed dimensions (EV, PF, DD, signal
+    // frequency, slippage multiple/delta and regime mix TVD).
+    if (health.driftRows < 7) {
       throw new Error(`Strategy Health drift dimensions missing: ${JSON.stringify(health)}`)
     }
     console.log('STRATEGY_LAB_HEALTH_LATCH', JSON.stringify({
@@ -135,28 +139,34 @@ async function hydrateRoute(route) {
       computed: health.computed,
       lifecycle: health.lifecycle,
       timelineRows: health.timelineRows,
+      driftRows: health.driftRows,
     }))
   }
   if (route === 'deployments') {
     await page.waitForSelector('[data-production-deployments-page][data-deployment-id="deploy-synthetic-ui-v1"][data-production-eligible="NO"][data-deployment-lifecycle="SUSPENDED"][data-deployment-computed="NORMAL"][data-deployment-effective="SUSPEND"][data-health-evidence-kind="EXECUTION_OBSERVATIONS"][data-health-source-type="LIVE"][data-health-authoritative="YES"]')
-    const deployment = await page.locator('[data-production-deployments-page]').evaluate(el => ({
-      deploymentId: el.dataset.deploymentId,
-      eligible: el.dataset.productionEligible,
-      lifecycle: el.dataset.deploymentLifecycle,
-      computed: el.dataset.deploymentComputed,
-      effective: el.dataset.deploymentEffective,
-      liveObservations: Number(el.dataset.liveObservations || 0),
-      paperObservations: Number(el.dataset.paperObservations || 0),
-      evidenceKind: el.dataset.healthEvidenceKind,
-      healthSource: el.dataset.healthSourceType,
-      authoritative: el.dataset.healthAuthoritative,
-      observationDigest: el.dataset.healthObservationDigest,
-      text: el.textContent || '',
-      identityRows: el.querySelectorAll('[data-deployment-identity] .check').length,
-      observationRows: el.querySelectorAll('[data-execution-observation-evidence] .metric').length,
-      resumeDisabled: el.querySelector('#deployResume')?.disabled ?? true,
-    }))
-    if (deployment.identityRows < 10 || deployment.resumeDisabled) {
+    const deployment = await page.locator('[data-production-deployments-page]').evaluate(el => {
+      const identityHashTitles = [...el.querySelectorAll('[data-deployment-identity] b[title]')]
+        .map(x => x.getAttribute('title') || '')
+        .filter(x => /^[0-9a-f]{64}$/i.test(x))
+      return {
+        deploymentId: el.dataset.deploymentId,
+        eligible: el.dataset.productionEligible,
+        lifecycle: el.dataset.deploymentLifecycle,
+        computed: el.dataset.deploymentComputed,
+        effective: el.dataset.deploymentEffective,
+        liveObservations: Number(el.dataset.liveObservations || 0),
+        paperObservations: Number(el.dataset.paperObservations || 0),
+        evidenceKind: el.dataset.healthEvidenceKind,
+        healthSource: el.dataset.healthSourceType,
+        authoritative: el.dataset.healthAuthoritative,
+        observationDigest: el.dataset.healthObservationDigest,
+        identityRows: el.querySelectorAll('[data-deployment-identity] .check').length,
+        identityHashTitles,
+        observationRows: el.querySelectorAll('[data-execution-observation-evidence] .metric').length,
+        resumeDisabled: el.querySelector('#deployResume')?.disabled ?? true,
+      }
+    })
+    if (deployment.identityRows < 10 || deployment.identityHashTitles.length < 5 || deployment.resumeDisabled) {
       throw new Error(`Production deployment exact identity UI incomplete: ${JSON.stringify(deployment)}`)
     }
     if (deployment.liveObservations < 1 || deployment.paperObservations < 1 || deployment.observationRows < 6) {
@@ -164,9 +174,6 @@ async function hydrateRoute(route) {
     }
     if (deployment.evidenceKind !== 'EXECUTION_OBSERVATIONS' || deployment.healthSource !== 'LIVE' || deployment.authoritative !== 'YES' || !/^[0-9a-f]{64}$/.test(deployment.observationDigest || '')) {
       throw new Error(`Production health is not backed by authoritative LIVE observation evidence: ${JSON.stringify(deployment)}`)
-    }
-    for (const token of ['Strategy hash','Parameters hash','Execution hash','Portfolio policy hash','Deployment identity hash','Production Eligible','LIVE observations','PAPER observations','Observation digest']) {
-      if (!deployment.text.includes(token)) throw new Error(`Production deployment evidence field missing: ${token}`)
     }
     console.log('STRATEGY_LAB_DEPLOYMENT_LIVE_EVIDENCE', JSON.stringify({
       deploymentId: deployment.deploymentId,
@@ -179,6 +186,7 @@ async function hydrateRoute(route) {
       evidenceKind: deployment.evidenceKind,
       healthSource: deployment.healthSource,
       observationDigest: deployment.observationDigest,
+      identityHashCount: deployment.identityHashTitles.length,
     }))
   }
 }
