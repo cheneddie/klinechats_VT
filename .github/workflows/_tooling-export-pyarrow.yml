@@ -2,6 +2,8 @@ name: Tooling Export PyArrow
 on:
   push:
     branches: [research-integrity-p0]
+  pull_request:
+    branches: [fabio-decision-gym-v4]
 
 jobs:
   export-runtime:
