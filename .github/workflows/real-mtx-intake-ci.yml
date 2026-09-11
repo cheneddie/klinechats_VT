@@ -1,0 +1,96 @@
+name: Real MTX Intake CI
+on:
+  push:
+    branches: [research-integrity-p0]
+  pull_request:
+    branches: [fabio-decision-gym-v4]
+
+jobs:
+  real-mtx-intake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned runtime
+        run: |
+          python -m pip install -r requirements-server.txt
+          python -m pip install pytest==9.1.1
+      - name: Compile intake gate
+        run: |
+          python -m py_compile \
+            server/v5/data_intake.py \
+            server/v5/campaigns.py \
+            server/v5/real_mtx_bootstrap.py \
+            server/v5/real_mtx_provenance.py \
+            server/v5/production_value_gate.py \
+            tools/real_mtx_intake.py \
+            tools/bootstrap_real_mtx_campaign.py
+      - name: Real MTX intake, campaign, atomic bootstrap and provenance regression
+        run: |
+          python -m pytest -q \
+            tests/test_real_mtx_intake.py \
+            tests/test_real_mtx_campaign.py \
+            tests/test_real_mtx_bootstrap.py \
+            tests/test_real_mtx_provenance.py
+      - name: CLI fail-closed synthetic guard
+        run: |
+          mkdir -p artifacts/real-mtx-intake
+          python - <<'PY'
+          from datetime import datetime
+          from pathlib import Path
+          import pyarrow as pa
+          import pyarrow.parquet as pq
+
+          out = Path('artifacts/real-mtx-intake/MTX_2025_SYNTHETIC.parquet')
+          table = pa.table({
+              'datetime': pa.array([
+                  datetime.fromisoformat('2025-01-02T08:45:00.100'),
+                  datetime.fromisoformat('2025-01-02T08:45:00.200'),
+                  datetime.fromisoformat('2025-01-02T08:45:01.000'),
+                  datetime.fromisoformat('2025-01-03T08:45:00.000'),
+              ], type=pa.timestamp('ms')),
+              'product': ['MTX'] * 4,
+              'expiry': ['202501'] * 4,
+              'price': [20000.0, 20001.0, 20002.0, 20010.0],
+              'volume': [2.0, 3.0, 4.0, 5.0],
+              'side': ['B', 'S', 'B', 'S'],
+          })
+          pq.write_table(table, out, row_group_size=2)
+          print(out)
+          PY
+
+          set +e
+          python tools/real_mtx_intake.py \
+            artifacts/real-mtx-intake/MTX_2025_SYNTHETIC.parquet \
+            --out artifacts/real-mtx-intake/rejected-synthetic.json
+          rc=$?
+          set -e
+          test "$rc" -eq 2
+
+          python tools/real_mtx_intake.py \
+            artifacts/real-mtx-intake/MTX_2025_SYNTHETIC.parquet \
+            --allow-synthetic \
+            --out artifacts/real-mtx-intake/qa-allowed-synthetic.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          rejected = json.loads(Path('artifacts/real-mtx-intake/rejected-synthetic.json').read_text())
+          allowed = json.loads(Path('artifacts/real-mtx-intake/qa-allowed-synthetic.json').read_text())
+          assert rejected['status'] == 'FAIL', rejected
+          assert 'NOT_SYNTHETIC_SOURCE' in rejected['failed_checks'], rejected
+          assert allowed['status'] == 'PASS', allowed
+          assert allowed['synthetic_name'] is True, allowed
+          assert allowed['scan']['physical_timestamp_reversals'] == 0, allowed
+          print('REAL_MTX_INTAKE_CLI PASS synthetic-reject + qa-allow')
+          PY
+      - name: Upload intake evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-mtx-intake-${{ github.sha }}
+          path: artifacts/real-mtx-intake/**
+          if-no-files-found: ignore

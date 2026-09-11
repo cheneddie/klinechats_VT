@@ -21,12 +21,13 @@ def build_training_truth(event_db,run_id,registry:NodeRegistry):
     try:
         if not _sanity_pass(con,run_id):raise RuntimeError('training dataset requires EVENT_SANITY_GATE PASS')
         evidence={r['node_id']:dict(r) for r in con.execute('SELECT * FROM node_evidence_registry WHERE research_run_id=?',(run_id,)).fetchall()}
-        events={r['event_id']:dict(r) for r in con.execute('SELECT * FROM events WHERE research_run_id=?',(run_id,)).fetchall()};nodes=[dict(r) for r in con.execute('SELECT * FROM event_nodes WHERE research_run_id=?',(run_id,)).fetchall()]
+        events={r['event_id']:dict(r) for r in con.execute('SELECT * FROM events WHERE research_run_id=?',(run_id,)).fetchall()};nodes=[dict(r) for r in con.execute("SELECT * FROM event_nodes WHERE research_run_id=? AND evaluation_state='EVALUATED'",(run_id,)).fetchall()]
     finally:con.close()
     rows=[]
     for n in nodes:
         node_id=n['node_id'];definition=registry.nodes.get(node_id);ev=evidence.get(node_id)
         if not definition or not definition.training_eligible or not ev or not bool(ev.get('training_eligible')):continue
+        if n.get('answer') is None:raise RuntimeError(f'EVALUATED training node lacks binary answer: {n["event_id"]} {node_id}')
         event=events[n['event_id']];answer=bool(n['answer']);reason=n.get('reason_code') or ('PASS' if answer else 'FAIL')
         hard=not answer and reason not in {'NO_VALUE_REENTRY','NO_TERMINAL_PULLBACK','NO_RELAXED_TERMINAL_PULLBACK'}
         quality=1.0 if n.get('decision_seq') is not None and n.get('reason_code') else .5
@@ -34,7 +35,7 @@ def build_training_truth(event_db,run_id,registry:NodeRegistry):
         rows.append((run_id,n['event_id'],node_id,int(answer),reason,'MACHINE_VERIFIED','MACHINE_VERIFIED',ev['evidence_level'],quality,int(event.get('difficulty') or 3),split,int(hard),reason if hard else None,json.dumps(_flatten_features(event,n),ensure_ascii=False)))
     with tx(event_db) as c:
         c.execute('DELETE FROM training_cases WHERE research_run_id=?',(run_id,));c.executemany('''INSERT INTO training_cases(research_run_id,event_id,node_id,machine_answer,machine_reason,semantic_status,human_review_status,evidence_level,case_quality,difficulty,training_split,hard_negative,error_subtype,feature_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',rows)
-    return {'research_run_id':run_id,'cases':len(rows),'hard_negatives':sum(r[11] for r in rows),'certification_pool':sum(r[10]=='CERTIFICATION' for r in rows)}
+    return {'research_run_id':run_id,'cases':len(rows),'hard_negatives':sum(r[11] for r in rows),'certification_pool':sum(r[10]=='CERTIFICATION' for r in rows),'evaluation_universe':'EVALUATED_ONLY'}
 
 def mine_matched_pairs(event_db,run_id,node_id,limit=500):
     con=connect(event_db)

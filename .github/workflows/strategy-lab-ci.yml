@@ -1,0 +1,279 @@
+name: Strategy Lab CI
+on:
+  push:
+    branches: [research-integrity-p0]
+  pull_request:
+    branches: [fabio-decision-gym-v4]
+
+jobs:
+  strategy-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pinned Python runtime
+        run: |
+          python -m pip install -r requirements-server.txt
+          python -m pip install pytest==9.1.1
+      - name: Install pinned frontend runtime
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.1 --activate
+          pnpm install --frozen-lockfile
+      - name: Compile Strategy Lab
+        run: |
+          python -m py_compile \
+            server/v5/strategy_registry.py \
+            server/v5/strategy_storage.py \
+            server/v5/execution.py \
+            server/v5/portfolio.py \
+            server/v5/compare_api.py \
+            server/v5/diagnostics.py \
+            server/v5/reporting.py \
+            server/v5/backtest.py \
+            server/v5/optimizer.py \
+            server/v5/monitor.py \
+            server/v5/monitor_api.py \
+            server/v5/campaigns.py \
+            server/v5/candidate.py \
+            server/v5/candidate_api.py \
+            server/v5/production_evidence.py \
+            server/v5/production_evidence_api.py \
+            server/v5/production_gate.py \
+            server/v5/production_value.py \
+            server/v5/production_value_gate.py \
+            server/v5/real_mtx_provenance.py \
+            server/v5/production_deployment.py \
+            server/v5/production_observations.py \
+            server/v5/production_deployment_api.py \
+            server/v5/data_intake.py \
+            server/v5/jobs.py \
+            server/v5/jobs_api.py \
+            server/v5/strategy_api.py \
+            server/fabio_api_v5.py \
+            tools/repro_manifest.py \
+            tools/real_mtx_intake.py \
+            tools/synthetic_mtx_demo.py \
+            tools/synthetic_mtx_demo_run.py \
+            tools/synthetic_strategy_health.py \
+            tools/synthetic_production_deployment.py
+          node --check src/v5/strategy-lab.js
+          node --check src/v5/strategy-lab-evidence.js
+          node --check src/v5/portfolio-controls.js
+          node --check src/v5/compare-guard.js
+          node --check src/v5/trade-review-overlay.js
+          node --check src/v5/strategy-health.js
+          node --check src/v5/production-deployments.js
+          node --check scripts/capture-strategy-lab-runtime.mjs
+          node --check scripts/qa-strategy-lab-contract.mjs
+      - name: Strategy Lab tests
+        run: |
+          set -o pipefail
+          python -m pytest -q \
+            tests/test_strategy_lab.py \
+            tests/test_portfolio_policy.py \
+            tests/test_strategy_api_portfolio.py \
+            tests/test_compare_guard.py \
+            tests/test_strategy_health.py \
+            tests/test_candidate_gate.py \
+            tests/test_production_provenance.py \
+            tests/test_production_value.py \
+            tests/test_production_deployment.py \
+            tests/test_production_observations.py \
+            tests/test_real_mtx_intake.py \
+            tests/test_real_mtx_campaign.py \
+            tests/test_real_mtx_provenance.py \
+            tests/test_strategy_jobs.py 2>&1 | tee strategy-lab-pytest.log
+      - name: P0 regression
+        run: python -m pytest -q tests/test_v5_research_integrity.py tests/test_v5_layer.py
+      - name: Public static build
+        run: |
+          pnpm build
+          test -s dist/strategy-lab.html
+          test -s dist/src/v5/strategy-lab.js
+          test -s dist/src/v5/strategy-lab-evidence.js
+          test -s dist/src/v5/portfolio-controls.js
+          test -s dist/src/v5/compare-guard.js
+          test -s dist/src/v5/trade-review-overlay.js
+          test -s dist/src/v5/strategy-health.js
+          test -s dist/src/v5/production-deployments.js
+          test ! -e dist/reports
+          test ! -e dist/docs
+          test ! -e dist/config
+      - name: Synthetic MTX Parquet end-to-end demo and runtime screenshots
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk >/dev/null
+          fc-cache -f
+          mkdir -p "$RUNNER_TEMP/pw-runner" "$RUNNER_TEMP/fabio-data" artifacts/strategy-lab-runtime
+          cp scripts/capture-strategy-lab-runtime.mjs "$RUNNER_TEMP/pw-runner/capture.mjs"
+          (
+            cd "$RUNNER_TEMP/pw-runner"
+            npm init -y >/dev/null
+            npm install --no-save playwright@1.57.0 >/dev/null
+          )
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+          export FABIO_DATA_ROOT="$RUNNER_TEMP/fabio-data"
+          export FABIO_EVENT_DB="$RUNNER_TEMP/fabio-v4.sqlite3"
+          export FABIO_V5_EVENT_DB="$RUNNER_TEMP/fabio-v5.sqlite3"
+          export FABIO_V5_TRAINING_DB="$RUNNER_TEMP/fabio-training.sqlite3"
+          export FABIO_API_PORT=8765
+
+          python tools/synthetic_mtx_demo_run.py \
+            --data-root "$FABIO_DATA_ROOT" \
+            --event-db "$FABIO_V5_EVENT_DB" \
+            --out-dir artifacts/strategy-lab-runtime \
+            --code-commit "$GITHUB_SHA" \
+            | tee artifacts/strategy-lab-runtime/synthetic-demo.log
+          cp "$FABIO_DATA_ROOT/MTX_2025_SYNTHETIC.parquet" artifacts/strategy-lab-runtime/
+          test -s artifacts/strategy-lab-runtime/MTX_2025_SYNTHETIC.parquet
+          test -s artifacts/strategy-lab-runtime/synthetic-demo-summary.json
+          test -s artifacts/strategy-lab-runtime/synthetic-portfolio-overlap.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path('artifacts/strategy-lab-runtime/synthetic-portfolio-overlap.json').read_text())
+          assert x['independent']['trades'] == 2, x
+          assert x['single_position']['trades'] == 1, x
+          skips=x['single_position']['portfolio_skips']
+          assert len(skips) == 1 and skips[0]['reason'] == 'PORTFOLIO_OVERLAP', x
+          print('SYNTHETIC_PORTFOLIO_OVERLAP PASS', x['independent']['trades'], x['single_position']['trades'])
+          PY
+
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from server.v5.backtest import run_backtest
+          from server.v5.execution import ExecutionModel
+          from server.v5.strategy_registry import load_strategy
+          from tools.synthetic_mtx_demo import RUN_ID
+          strategy=load_strategy(Path('config/strategies/MR_BROAD_V3.json'))
+          execution=ExecutionModel(
+              execution_model_id='SYNTHETIC_PHYSICAL', version='V1', fill_timing='SIGNAL',
+              entry_slippage_points=0.25, exit_slippage_points=0.25,
+              commission_points_per_side=0.10, latency_ms=0,
+          )
+          out=run_backtest(
+              Path(os.environ['FABIO_V5_EVENT_DB']), Path(os.environ['FABIO_DATA_ROOT']),
+              RUN_ID, strategy, overrides={'target.r':0.5}, execution_model=execution,
+              bootstrap_reps=300, backtest_run_id='bt-synthetic-mtx-mr-compare-v1',
+              code_commit=os.environ.get('GITHUB_SHA'), notes='SYNTHETIC COMPARE POSITIVE CONTROL',
+          )
+          assert out['trades'] == 4, out
+          print('SYNTHETIC_COMPARABLE_CONTROL', out['backtest_run_id'])
+          PY
+
+          python tools/synthetic_strategy_health.py \
+            --event-db "$FABIO_V5_EVENT_DB" \
+            --out artifacts/strategy-lab-runtime/synthetic-strategy-health.json \
+            | tee artifacts/strategy-lab-runtime/synthetic-strategy-health.log
+          test -s artifacts/strategy-lab-runtime/synthetic-strategy-health.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path('artifacts/strategy-lab-runtime/synthetic-strategy-health.json').read_text())
+          assert x['degraded']['state'] == 'DEGRADED', x
+          assert x['suspended']['state'] == 'SUSPEND', x
+          assert x['latched_recovery']['details']['computed_state'] == 'NORMAL', x
+          assert x['latched_recovery']['state'] == 'SUSPEND', x
+          assert x['control']['lifecycle_state'] == 'SUSPENDED', x
+          print('SYNTHETIC_STRATEGY_HEALTH PASS DEGRADED SUSPEND NORMAL->SUSPEND_LATCHED')
+          PY
+
+          python tools/synthetic_production_deployment.py \
+            --event-db "$FABIO_V5_EVENT_DB" \
+            --out artifacts/strategy-lab-runtime/synthetic-production-deployment.json \
+            | tee artifacts/strategy-lab-runtime/synthetic-production-deployment.log
+          test -s artifacts/strategy-lab-runtime/synthetic-production-deployment.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path('artifacts/strategy-lab-runtime/synthetic-production-deployment.json').read_text())
+          assert x['synthetic'] is True, x
+          assert x['status']['deployment_id'] == 'deploy-synthetic-ui-v1', x
+          assert x['status']['identity_verification']['valid'] is True, x
+          assert x['status']['control']['lifecycle_state'] == 'SUSPENDED', x
+          assert x['status']['latest_health']['details']['computed_state'] == 'NORMAL', x
+          assert x['status']['latest_health']['state'] == 'SUSPEND', x
+          assert x['status']['production_eligible'] is False, x
+          print('SYNTHETIC_DEPLOYMENT_GOVERNANCE PASS exact_identity NORMAL->SUSPEND_LATCHED eligible=false')
+          PY
+
+          python -m server.fabio_api_v5 > artifacts/strategy-lab-runtime/api.log 2>&1 &
+          API_PID=$!
+          python -m http.server 4173 --bind 127.0.0.1 > artifacts/strategy-lab-runtime/static.log 2>&1 &
+          WEB_PID=$!
+          trap 'kill "$API_PID" "$WEB_PID" 2>/dev/null || true' EXIT
+          for i in {1..40}; do
+            curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/health > artifacts/strategy-lab-runtime/health.json && break
+            sleep 1
+          done
+          test -s artifacts/strategy-lab-runtime/health.json || { cat artifacts/strategy-lab-runtime/api.log; exit 1; }
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          h = json.loads(Path('artifacts/strategy-lab-runtime/health.json').read_text())
+          assert h['counts']['backtests'] >= 4, h
+          assert h['counts']['optimizations'] >= 1, h
+          assert h.get('portfolio_execution_policy') == 'SUPPORTED_AND_HASHED', h
+          print('SYNTHETIC_RUNTIME_COUNTS', h['counts'])
+          PY
+          curl -sf 'http://127.0.0.1:8765/api/v5/strategy-lab/compare-governed?backtest_run_ids=bt-synthetic-mtx-mr-v1,bt-synthetic-mtx-mr-compare-v1' > artifacts/strategy-lab-runtime/compare-comparable.json
+          curl -sf 'http://127.0.0.1:8765/api/v5/strategy-lab/compare-governed?backtest_run_ids=bt-synthetic-mtx-overlap-independent-v1,bt-synthetic-mtx-overlap-single-v1' > artifacts/strategy-lab-runtime/compare-blocked.json
+          curl -sf 'http://127.0.0.1:8765/api/v5/strategy-lab/monitor-health?strategy_key=MR_BROAD%40V3&limit=20' > artifacts/strategy-lab-runtime/monitor-health-api.json
+          curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/deployments > artifacts/strategy-lab-runtime/deployments-api.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          ok=json.loads(Path('artifacts/strategy-lab-runtime/compare-comparable.json').read_text())
+          bad=json.loads(Path('artifacts/strategy-lab-runtime/compare-blocked.json').read_text())
+          mon=json.loads(Path('artifacts/strategy-lab-runtime/monitor-health-api.json').read_text())
+          dep=json.loads(Path('artifacts/strategy-lab-runtime/deployments-api.json').read_text())
+          assert ok['comparability']['status'] == 'COMPARABLE', ok
+          assert bad['comparability']['status'] == 'BLOCKED', bad
+          failed=set(bad['comparability']['failed'])
+          assert {'EXECUTION_HASH','PORTFOLIO_POLICY_HASH'} <= failed, bad
+          assert len(mon['items']) >= 3, mon
+          latest=mon['items'][0]
+          assert latest['state'] == 'SUSPEND', latest
+          assert latest['details']['computed_state'] == 'NORMAL', latest
+          assert mon['controls']['MR_BROAD@V3']['lifecycle_state'] == 'SUSPENDED', mon
+          assert len(dep['items']) >= 1, dep
+          deployment=dep['items'][0]
+          assert deployment['deployment_id'] == 'deploy-synthetic-ui-v1', deployment
+          assert deployment['production_eligible'] is False, deployment
+          assert deployment['identity_verification']['valid'] is True, deployment
+          print('SYNTHETIC_COMPARE_GATE PASS', ok['comparability']['status'], bad['comparability']['status'])
+          print('SYNTHETIC_MONITOR_API PASS', latest['details']['computed_state'], '->', latest['state'])
+          print('SYNTHETIC_DEPLOYMENT_API PASS', deployment['deployment_id'], 'eligible=', deployment['production_eligible'])
+          PY
+          curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/backtests > artifacts/strategy-lab-runtime/backtests-api.json
+          curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/optimizations > artifacts/strategy-lab-runtime/optimizations-api.json
+          for i in {1..20}; do curl -sf http://127.0.0.1:4173/strategy-lab.html >/dev/null && break; sleep 1; done
+          STRATEGY_LAB_SCREENSHOT_DIR="$GITHUB_WORKSPACE/artifacts/strategy-lab-runtime" \
+            node "$RUNNER_TEMP/pw-runner/capture.mjs"
+          test -s artifacts/strategy-lab-runtime/01-strategy-library.png
+          test -s artifacts/strategy-lab-runtime/03-trade-review.png
+          test -s artifacts/strategy-lab-runtime/05-optimization-lab.png
+          test -s artifacts/strategy-lab-runtime/06-compare-lab.png
+          test -s artifacts/strategy-lab-runtime/08-jobs-heartbeat.png
+          test -s artifacts/strategy-lab-runtime/09-strategy-health.png
+          test -s artifacts/strategy-lab-runtime/10-production-deployment-governance.png
+      - name: Reproducibility manifest
+        run: python tools/repro_manifest.py
+      - name: Upload diagnostics and runtime screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strategy-lab-ci-${{ github.sha }}
+          path: |
+            strategy-lab-pytest.log
+            repro-manifest.json
+            artifacts/strategy-lab-runtime/**
+          if-no-files-found: ignore

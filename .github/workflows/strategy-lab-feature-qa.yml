@@ -1,0 +1,169 @@
+name: Strategy Lab Feature QA
+on:
+  push:
+    branches: [research-integrity-p0]
+  pull_request:
+    branches: [fabio-decision-gym-v4]
+
+jobs:
+  feature-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pinned runtime
+        run: |
+          python -m pip install -r requirements-server.txt
+          corepack enable
+          corepack prepare pnpm@10.15.1 --activate
+          pnpm install --frozen-lockfile
+          node --check src/v5/strategy-lab-i18n.js
+          node --check scripts/capture-strategy-lab-feature-qa.mjs
+      - name: Build public Strategy Lab
+        run: |
+          pnpm build
+          test -s dist/src/v5/strategy-lab-i18n.js
+      - name: Seed synthetic MTX and governed runtime fixtures
+        run: |
+          mkdir -p "$RUNNER_TEMP/fabio-data" artifacts/strategy-lab-feature-qa
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+          export FABIO_DATA_ROOT="$RUNNER_TEMP/fabio-data"
+          export FABIO_EVENT_DB="$RUNNER_TEMP/fabio-v4.sqlite3"
+          export FABIO_V5_EVENT_DB="$RUNNER_TEMP/fabio-v5.sqlite3"
+          export FABIO_V5_TRAINING_DB="$RUNNER_TEMP/fabio-training.sqlite3"
+
+          python tools/synthetic_mtx_demo_run.py \
+            --data-root "$FABIO_DATA_ROOT" \
+            --event-db "$FABIO_V5_EVENT_DB" \
+            --out-dir artifacts/strategy-lab-feature-qa \
+            --code-commit "$GITHUB_SHA" \
+            | tee artifacts/strategy-lab-feature-qa/synthetic-demo.log
+          cp "$FABIO_DATA_ROOT/MTX_2025_SYNTHETIC.parquet" artifacts/strategy-lab-feature-qa/
+
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from server.v5.backtest import run_backtest
+          from server.v5.execution import ExecutionModel
+          from server.v5.strategy_registry import load_strategy
+          from tools.synthetic_mtx_demo import RUN_ID
+          strategy=load_strategy(Path('config/strategies/MR_BROAD_V3.json'))
+          execution=ExecutionModel(
+              execution_model_id='SYNTHETIC_PHYSICAL', version='V1', fill_timing='SIGNAL',
+              entry_slippage_points=0.25, exit_slippage_points=0.25,
+              commission_points_per_side=0.10, latency_ms=0,
+          )
+          out=run_backtest(
+              Path(os.environ['FABIO_V5_EVENT_DB']), Path(os.environ['FABIO_DATA_ROOT']),
+              RUN_ID, strategy, overrides={'target.r':0.5}, execution_model=execution,
+              bootstrap_reps=300, backtest_run_id='bt-synthetic-mtx-mr-compare-v1',
+              code_commit=os.environ.get('GITHUB_SHA'), notes='SYNTHETIC FEATURE QA COMPARABLE CONTROL',
+          )
+          assert out['trades'] == 4, out
+          PY
+
+          python tools/synthetic_strategy_health.py \
+            --event-db "$FABIO_V5_EVENT_DB" \
+            --out artifacts/strategy-lab-feature-qa/synthetic-strategy-health.json \
+            > artifacts/strategy-lab-feature-qa/synthetic-strategy-health.log
+
+          python tools/synthetic_production_deployment.py \
+            --event-db "$FABIO_V5_EVENT_DB" \
+            --out artifacts/strategy-lab-feature-qa/synthetic-production-deployment.json \
+            > artifacts/strategy-lab-feature-qa/synthetic-production-deployment.log
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('artifacts/strategy-lab-feature-qa/synthetic-demo-summary.json')
+          x=json.loads(p.read_text())
+          assert x['source_sha256']=='b7467b2e3144aaca0a851b553aad11900b30b76a408840b5943b75dab0a4df80', x
+          assert x['rows']==2101, x
+          assert x['trades']==4, x
+          print('SYNTHETIC_FEATURE_FIXTURE PASS', x['rows'], x['source_sha256'])
+          PY
+      - name: Exercise every Strategy Lab feature in Chrome
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk >/dev/null
+          fc-cache -f
+          mkdir -p "$RUNNER_TEMP/pw-runner"
+          cp scripts/capture-strategy-lab-feature-qa.mjs "$RUNNER_TEMP/pw-runner/feature-qa.mjs"
+          (
+            cd "$RUNNER_TEMP/pw-runner"
+            npm init -y >/dev/null
+            npm install --no-save playwright@1.57.0 >/dev/null
+          )
+          export PYTHONPATH="$GITHUB_WORKSPACE"
+          export FABIO_DATA_ROOT="$RUNNER_TEMP/fabio-data"
+          export FABIO_EVENT_DB="$RUNNER_TEMP/fabio-v4.sqlite3"
+          export FABIO_V5_EVENT_DB="$RUNNER_TEMP/fabio-v5.sqlite3"
+          export FABIO_V5_TRAINING_DB="$RUNNER_TEMP/fabio-training.sqlite3"
+          export FABIO_API_PORT=8765
+
+          python -m server.fabio_api_v5 > artifacts/strategy-lab-feature-qa/api.log 2>&1 &
+          API_PID=$!
+          python -m http.server 4173 --bind 127.0.0.1 > artifacts/strategy-lab-feature-qa/static.log 2>&1 &
+          WEB_PID=$!
+          trap 'kill "$API_PID" "$WEB_PID" 2>/dev/null || true' EXIT
+          for i in {1..40}; do
+            curl -sf http://127.0.0.1:8765/api/v5/strategy-lab/health > artifacts/strategy-lab-feature-qa/health.json && break
+            sleep 1
+          done
+          test -s artifacts/strategy-lab-feature-qa/health.json || { cat artifacts/strategy-lab-feature-qa/api.log; exit 1; }
+          for i in {1..20}; do curl -sf http://127.0.0.1:4173/strategy-lab.html >/dev/null && break; sleep 1; done
+
+          STRATEGY_LAB_FEATURE_QA_DIR="$GITHUB_WORKSPACE/artifacts/strategy-lab-feature-qa" \
+            node "$RUNNER_TEMP/pw-runner/feature-qa.mjs"
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('artifacts/strategy-lab-feature-qa/feature-qa.json')
+          assert p.exists(), 'feature-qa.json missing'
+          x=json.loads(p.read_text())
+          assert x['ok'] is True, x
+          assert x['language_toggle_verified'] is True, x
+          assert x['ui_language']=='zh-TW', x
+          assert x['summary']['fail']==0, x
+          assert x['summary']['pass']>=8, x
+          assert x['summary']['partial']>=1, x
+          assert len(x['findings'])>=12, x
+          assert len(x['jobs'])>=3, x
+          terminal=x.get('terminal_jobs') or {}
+          required=('backtest','optimization','candidateEvaluation')
+          for kind in required:
+              assert kind in terminal, (kind, terminal)
+              assert terminal[kind].get('status')=='SUCCEEDED', (kind, terminal[kind])
+              assert not terminal[kind].get('error_text'), (kind, terminal[kind])
+          candidate_result=terminal['candidateEvaluation'].get('result') or {}
+          assert candidate_result.get('evaluation_id'), terminal['candidateEvaluation']
+          assert candidate_result.get('role')=='DISCOVERY', candidate_result
+          print('STRATEGY_LAB_FEATURE_ACCEPTANCE', x['summary'], x['jobs'], candidate_result['evaluation_id'])
+          PY
+          test -s artifacts/strategy-lab-feature-qa/00a-language-zh-tw.png
+          test -s artifacts/strategy-lab-feature-qa/00b-language-en.png
+          test -s artifacts/strategy-lab-feature-qa/01-strategy-library-populated.png
+          test -s artifacts/strategy-lab-feature-qa/02-backtest-submitted.png
+          test -s artifacts/strategy-lab-feature-qa/03-trade-review-populated.png
+          test -s artifacts/strategy-lab-feature-qa/04-report-center-populated.png
+          test -s artifacts/strategy-lab-feature-qa/05-optimization-submitted.png
+          test -s artifacts/strategy-lab-feature-qa/06a-compare-comparable.png
+          test -s artifacts/strategy-lab-feature-qa/06b-compare-blocked.png
+          test -s artifacts/strategy-lab-feature-qa/07-candidate-evidence-gate.png
+          test -s artifacts/strategy-lab-feature-qa/08-jobs-populated.png
+          test -s artifacts/strategy-lab-feature-qa/09-strategy-health-populated.png
+          test -s artifacts/strategy-lab-feature-qa/10-production-deployment-live-observations.png
+      - name: Upload feature acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strategy-lab-feature-qa-${{ github.sha }}
+          path: artifacts/strategy-lab-feature-qa/**
+          if-no-files-found: error

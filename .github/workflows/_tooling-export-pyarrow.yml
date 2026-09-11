@@ -1,0 +1,40 @@
+name: Tooling Export PyArrow
+on:
+  push:
+    branches: [research-integrity-p0]
+  pull_request:
+    branches: [fabio-decision-gym-v4]
+
+jobs:
+  export-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Download pinned PyArrow wheel
+        run: |
+          mkdir -p artifacts/pyarrow-wheel
+          python -m pip download --only-binary=:all: --no-deps pyarrow==24.0.0 -d artifacts/pyarrow-wheel
+          ls -lh artifacts/pyarrow-wheel
+      - name: Build exact source bundle
+        run: |
+          mkdir -p artifacts/source
+          tar --exclude=.git --exclude=node_modules --exclude=dist --exclude=artifacts \
+            -czf artifacts/source/klinechats_VT-${GITHUB_SHA}.tar.gz \
+            server tools config requirements-server.txt package.json pnpm-lock.yaml
+          sha256sum artifacts/source/*.tar.gz | tee artifacts/source/SHA256SUMS.txt
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: pyarrow-24-cp313-linux
+          path: artifacts/pyarrow-wheel/*.whl
+          if-no-files-found: error
+      - name: Upload exact source bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-mtx-runtime-source-${{ github.sha }}
+          path: artifacts/source/**
+          if-no-files-found: error
